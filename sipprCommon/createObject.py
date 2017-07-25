@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from sipprcommon.accessoryfunctions.accessoryFunctions import *
+from accessoryFunctions.accessoryFunctions import *
 
 __author__ = 'adamkoziol'
 
