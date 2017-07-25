@@ -3,8 +3,8 @@ from glob import glob
 from subprocess import call
 from threading import Thread
 from Bio.Sequencing.Applications import *
-from accessoryfunctions.accessoryFunctions import *
-from accessoryfunctions.metadataprinter import *
+from accessoryFunctions.accessoryFunctions import *
+from accessoryFunctions.metadataprinter import *
 from .bowtie import *
 from io import StringIO
 __author__ = 'adamkoziol'
