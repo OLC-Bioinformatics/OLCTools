@@ -39,6 +39,6 @@ def editheaders():
     except:
         pass
 
-
-# Run the script
-editheaders()
+if __name__ == '__main__':
+    # Run the script
+    editheaders()

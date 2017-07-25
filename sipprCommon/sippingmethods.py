@@ -177,19 +177,21 @@ class Sippr(object):
                 samsort = SamtoolsSortCommandline(input=sample[self.analysistype].sortedbam,
                                                   o=True,
                                                   out_prefix="-")
+                # Determine the location of the SAM header editing script
+                import sipprCommon.editsamheaders
+                scriptlocation = sipprCommon.editsamheaders.__file__
                 samtools = [
                     # When bowtie2 maps reads to all possible locations rather than choosing a 'best' placement, the
                     # SAM header for that read is set to 'secondary alignment', or 256. Please see:
                     # http://davetang.org/muse/2014/03/06/understanding-bam-flags/ The script below reads in the stdin
                     # and subtracts 256 from headers which include 256
-                    'python {}/sipprcommon/editsamheaders.py'.format(self.homepath),
+                    'python3 {}'.format(scriptlocation),
                     # Use samtools wrapper to set up the samtools view
                     SamtoolsViewCommandline(b=True,
                                             S=True,
                                             h=True,
                                             input_file="-"),
                     samsort]
-                # print([samtools])
                 # Add custom parameters to a dictionary to be used in the bowtie2 alignment wrapper
                 indict = {'--very-sensitive-local': True,
                           # For short targets, the match bonus can be increased
