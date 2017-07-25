@@ -1,0 +1,4 @@
+SPAdesPipeline
+accessoryFunctions
+coregenome
+metagenomeFilter
