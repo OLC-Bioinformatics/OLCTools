@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 from glob import glob
-import sipprcommon.runMetadata as runMetadata
-from sipprcommon.offhours import Offhours
+import sipprCommon.runMetadata as runMetadata
+from sipprCommon.offhours import Offhours
 from accessoryFunctions.accessoryFunctions import *
 # Import ElementTree - try first to import the faster C version, if that doesn't
 # work, try to import the regular version
