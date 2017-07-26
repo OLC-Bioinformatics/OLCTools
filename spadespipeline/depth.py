@@ -6,7 +6,7 @@ from threading import Lock
 from Bio.Sequencing.Applications import SamtoolsViewCommandline, SamtoolsSortCommandline
 
 from accessoryFunctions.accessoryFunctions import *
-from SPAdesPipeline.bowtie import *
+from bowtie import *
 
 #try:
 from io import StringIO  # This shouldn't give an import error any more.

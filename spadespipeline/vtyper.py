@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 from threading import Thread
 from accessoryFunctions.accessoryFunctions import *
-from SPAdesPipeline import metadataprinter
+from spadespipeline import metadataprinter
 
 __author__ = 'adamkoziol'
 

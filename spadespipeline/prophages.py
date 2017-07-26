@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from SPAdesPipeline.GeneSeekr import *
+from spadespipeline.GeneSeekr import *
 
 __author__ = 'adamkoziol'
 

@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 from glob import glob
-from SPAdesPipeline import runMetadata
+import runMetadata
 from accessoryFunctions.accessoryFunctions import *
-from SPAdesPipeline.offhours import Offhours
+from offhours import Offhours
 
 __author__ = 'adamkoziol'
 

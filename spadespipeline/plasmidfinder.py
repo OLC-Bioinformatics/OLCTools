@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from SPAdesPipeline.prophages import *
+from spadespipeline.prophages import *
 __author__ = 'adamkoziol'
 
 

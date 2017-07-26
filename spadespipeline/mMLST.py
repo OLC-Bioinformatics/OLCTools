@@ -15,7 +15,7 @@ from threading import Thread
 from Bio import SeqIO
 from Bio.Blast.Applications import NcbiblastnCommandline
 
-from SPAdesPipeline import getmlst
+from spadespipeline import getmlst
 from accessoryFunctions.accessoryFunctions import *
 
 __author__ = 'akoziol, mikeknowles'

@@ -4,7 +4,7 @@ import sys
 import Bio
 
 from accessoryFunctions.accessoryFunctions import *
-from SPAdesPipeline.bowtie import *
+from spadespipeline.bowtie import *
 
 __author__ = 'adamkoziol'
 

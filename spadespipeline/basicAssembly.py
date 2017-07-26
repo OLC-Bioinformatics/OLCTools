@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import subprocess
 
-from SPAdesPipeline import metadataReader
+import metadataReader
 from accessoryFunctions.accessoryFunctions import *
 
 __author__ = 'adamkoziol'
