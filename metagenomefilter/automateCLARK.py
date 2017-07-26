@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 from accessoryFunctions.accessoryFunctions import *
-import SPAdesPipeline.metadataprinter as metadataprinter
+import accessoryFunctions.metadataprinter as metadataprinter
 from threading import Thread
 import subprocess
 import time
@@ -11,8 +11,8 @@ class CLARK(object):
 
     def objectprep(self):
         """Create objects to store data and metadata for each sample. Also, perform necessary file manipulations"""
-        from SPAdesPipeline import createobject
-        from SPAdesPipeline import fileprep
+        from spadespipeline import createobject
+        from spadespipeline import fileprep
         # Move the files to subfolders and create objects
         self.runmetadata = createobject.ObjectCreation(self)
         if self.runmetadata.extension == '.fastq':

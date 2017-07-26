@@ -3,14 +3,14 @@ import subprocess
 from threading import Thread
 from csv import DictReader
 from accessoryFunctions.accessoryFunctions import *
-import SPAdesPipeline.metadataprinter as metadataprinter
+import accessoryFunctions.metadataprinter as metadataprinter
 __author__ = 'adamkoziol'
 
 
 class FilterGenome(object):
 
     def objectprep(self):
-        from SPAdesPipeline import createobject
+        from spadespipeline import createobject
         # Only find the data files if a datapath is provided
         if self.datapath:
             self.runmetadata = createobject.ObjectCreation(self)
