@@ -78,7 +78,7 @@ class CoreTyper(object):
                     try:
                         profiledata[sequenceprofile][row['ST']][gene] = row[gene]
                     except KeyError:
-                        raise
+                        pass
             # Add the gene list to a dictionary
             genedict[sequenceprofile] = sorted(genelist)
             # Add the profile data, and gene list to each sample

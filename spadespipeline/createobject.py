@@ -52,7 +52,7 @@ class ObjectCreation(object):
                                            if 'trimmed' not in fastq]
             # Add the output directory to the metadata
             metadata.general.outputdirectory = outputdir
-
+            metadata.general.bestassemblyfile = metadata.general.fastqfiles[0]
             # Find the data files corresponding to the sample
             datafiles = glob('{}{}*.csv'.format(self.datapath, metadata.name))
             # Assign attributes to the files depending on whether they are abundance files or not
