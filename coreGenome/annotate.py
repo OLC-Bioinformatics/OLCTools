@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 from accessoryFunctions.accessoryFunctions import *
-import SPAdesPipeline.metadataprinter as metadataprinter
+import spadespipeline.metadataprinter as metadataprinter
 from Bio.SeqRecord import SeqRecord
 from Bio.Seq import Seq
 from Bio import SeqIO
@@ -16,7 +16,7 @@ class Annotate(object):
         """
         Perform multi-threaded prokka annotations of each strain
         """
-        import SPAdesPipeline.createobject as createobject
+        import spadespipeline.createobject as createobject
         # Move the files to subfolders and create objects
         self.runmetadata = createobject.ObjectCreation(self)
         # Fix headers

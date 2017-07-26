@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # from spadespipeline.OLCspades.accessoryFunctions import *
-import SPAdesPipeline.metadataprinter as metadataprinter
-from SPAdesPipeline.mMLST import *
+import accessoryFunctions.metadataprinter as metadataprinter
+from spadespipeline.mMLST import *
 from accessoryFunctions.accessoryFunctions import *
 from glob import glob
 __author__ = 'adamkoziol'
@@ -31,7 +31,7 @@ class CoreTyper(object):
         self.reporter()
 
     def populate(self):
-        from SPAdesPipeline import createobject
+        from spadespipeline import createobject
         # Move the files to subfolders and create objects
         if not self.pipeline:
             self.metadata = createobject.ObjectCreation(self)
@@ -78,7 +78,7 @@ class CoreTyper(object):
                     try:
                         profiledata[sequenceprofile][row['ST']][gene] = row[gene]
                     except KeyError:
-                        raise
+                        pass
             # Add the gene list to a dictionary
             genedict[sequenceprofile] = sorted(genelist)
             # Add the profile data, and gene list to each sample
@@ -95,7 +95,7 @@ class CoreTyper(object):
         """
         Use prokka to annotate each strain
         """
-        from SPAdesPipeline import createobject
+        from spadespipeline import createobject
         # Move the files to subfolders and create objects
         self.runmetadata = createobject.ObjectCreation(self)
         # Fix headers
