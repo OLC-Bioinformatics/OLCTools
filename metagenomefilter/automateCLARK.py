@@ -323,7 +323,7 @@ class CLARK(object):
             self.objectprep()
         # Optionally filter the .fastq reads based on taxonomic assignment
         if args.filter:
-            import filtermetagenome
+            from metagenomefilter import filtermetagenome
             filtermetagenome.PipelineInit(self)
         # Print the metadata to file
         metadataprinter.MetadataPrinter(self)

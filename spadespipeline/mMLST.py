@@ -969,8 +969,16 @@ class MLST(object):
                 # Get the best number of matches
                 # From: https://stackoverflow.com/questions/613183/sort-a-python-dictionary-by-value
                 try:
-                    sortedmatches = sorted(referencehits[sample.name].items(),
-                                           key=operator.itemgetter(1), reverse=True)[0]
+                    matches = sorted(referencehits[sample.name].items(),
+                                     key=operator.itemgetter(1), reverse=True)
+                    most_matches = matches[0][1]
+                    i = 0
+                    match_list = list()
+                    while matches[i][1] == most_matches:
+                        match_list.append(matches[i])
+                        i += 1
+                    sorted_list = sorted(match_list)
+                    sortedmatches = sorted_list[0]
                 except IndexError:
                     sortedmatches = (0, 0)
                 # If there are fewer matches than the total number of genes in the typing scheme
