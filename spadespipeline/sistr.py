@@ -52,7 +52,7 @@ class Sistr(object):
             if not os.path.isfile(sample[self.analysistype].jsonoutput):
                 call(sample.commands.sistr, shell=True, stdout=self.devnull, stderr=self.devnull)
             # Read in the output .json file into the metadata
-            sample[self.analysistype].jsondata = json.load(open(sample[self.analysistype].jsonoutput, 'rb'))
+            sample[self.analysistype].jsondata = json.load(open(sample[self.analysistype].jsonoutput, 'r'))
             self.queue.task_done()
 
     def report(self):
