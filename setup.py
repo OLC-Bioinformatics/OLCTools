@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="OLCTools",
-    version="0.1.12",
+    version="0.1.13",
     #packages=find_packages,
     packages=find_packages(),
     author="Andrew Low",
