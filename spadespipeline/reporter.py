@@ -25,7 +25,7 @@ class Reporter(object):
                     ('rMLSTsequenceType', sample.rmlst.sequencetype),
                     ('MLSTsequencetype', sample.mlst.sequencetype),
                     ('MLSTmatches', str(sample.mlst.matchestosequencetype)),
-                    ('coreGenome', '{}/{}'.format(sample.coreGenome.targetspresent, sample.coreGenome.totaltargets)),
+                    ('coreGenome', '{}/{}'.format(sample.coregenome.targetspresent, sample.coregenome.totaltargets)),
                     ('Serotype', sample.serotype.serotype),
                     ('geneSeekrProfile', ';'.join(result for result in sample.geneseekr.blastresults)
                         if sample.geneseekr.blastresults != 'NA' else 'NA'),

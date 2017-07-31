@@ -13,9 +13,9 @@ class CoreGenome(GeneSeekr):
         blastdict = DictReader(open(report), fieldnames=self.fieldnames, dialect='excel-tab')
         resultdict = {}
         # Create a list of all the names of the database files - glob, replace - with _, remove path and extension
-        coregenomes = map(lambda x: os.path.basename(x).split('.')[0].replace('-', '_'),
+        coregenomes = list(map(lambda x: os.path.basename(x).split('.')[0].replace('-', '_'),
                           glob('{}/*.fas'.format(os.path.join(self.referencefilepath,
-                                                              self.analysistype, sample.general.referencegenus))))
+                                                              self.analysistype, sample.general.referencegenus)))))
         # Initialise resultdict with an integer for every database file
         for genome in coregenomes:
             resultdict[genome] = int()
@@ -62,9 +62,9 @@ class CoreGenome(GeneSeekr):
             try:
                 if sample[self.analysistype].blastresults != 'NA':
                     # Write the sample name, closest ref genome, and the number of genes found / total number of genes
-                    closestref = sample[self.analysistype].blastresults.items()[0][0]
-                    coregenes = sample[self.analysistype].blastresults.items()[0][1][0]
-                    totalcore = sample[self.analysistype].blastresults.items()[0][1][1]
+                    closestref = list(sample[self.analysistype].blastresults.items())[0][0]
+                    coregenes = list(sample[self.analysistype].blastresults.items())[0][1][0]
+                    totalcore = list(sample[self.analysistype].blastresults.items())[0][1][1]
                     # Add the data to the object
                     sample[self.analysistype].targetspresent = coregenes
                     sample[self.analysistype].totaltargets = totalcore
