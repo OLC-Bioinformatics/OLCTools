@@ -254,7 +254,7 @@ class GeneSeekr(object):
             # Add the percent identity to the object
             sample[self.analysistype].blastresults = resultdict
         # Populate missing results with 'NA' values
-        if not resultdict:
+        if len(resultdict) == 0:
             sample[self.analysistype].blastresults = 'NA'
 
     def uniqueblastparser(self, report, sample):
@@ -448,7 +448,10 @@ class GeneSeekr(object):
                 worksheet.set_column(col, col, columnwidth[col])
                 col += 1
             # Set the width of the row to be the number of lines (number of newline characters) * 12
-            worksheet.set_row(row, max(totallines) * 12)
+            if len(totallines) != 0:
+                worksheet.set_row(row, max(totallines) * 12)
+            else:
+                worksheet.set_row(row, 1)
             # Increase the row counter for the next strain's data
             row += 1
         # Close the workbook
@@ -1010,6 +1013,7 @@ class PipelineInit(object):
                     sample[self.analysistype].targetpath = 'NA'
                     sample[self.analysistype].targetnames = 'NA'
                     sample[self.analysistype].reportdir = 'NA'
+                    sample[self.analysistype].blastresults = 'NA'
                 # Special typing for Vibrio involves in silico qPCR primer/probe binding
                 if sample.general.referencegenus == 'Vibrio':
                     self.chas.append(sample)
