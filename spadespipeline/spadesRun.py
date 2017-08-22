@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 from accessoryFunctions.accessoryFunctions import *
-
+import threading
 __author__ = 'adamkoziol'
 
 
@@ -87,11 +87,16 @@ class Spades(object):
     def assemble(self):
         """Run the assembly command in a multi-threaded fashion"""
         from subprocess import call
+        threadlock = threading.Lock()
         while True:
             (command, output) = self.assemblequeue.get()
             if command and not os.path.isfile('{}/contigs.fasta'.format(output)):
                 # execute(command)
-                call(command, shell=True, stdout=open(os.devnull, 'wb'), stderr=open(os.devnull, 'wb'))
+                out, err = run_subprocess(command)
+                threadlock.acquire()
+                write_to_logfile(out, err, self.logfile)
+                threadlock.release()
+                # call(command, shell=True, stdout=open(os.devnull, 'wb'), stderr=open(os.devnull, 'wb'))
             dotter()
             # Signal to the queue that the job is done
             self.assemblequeue.task_done()
@@ -154,6 +159,7 @@ class Spades(object):
         self.kmers = inputobject.kmers
         self.threads = inputobject.cpus
         self.path = inputobject.path
+        self.logfile = inputobject.logfile
         self.assemblequeue = Queue(maxsize=self.threads)
         printtime('Assembling sequences', self.start)
         self.spades()

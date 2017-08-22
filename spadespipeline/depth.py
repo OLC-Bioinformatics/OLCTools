@@ -2,7 +2,7 @@
 from glob import glob
 from subprocess import call
 from threading import Lock
-
+import threading
 from Bio.Sequencing.Applications import SamtoolsViewCommandline, SamtoolsSortCommandline
 
 from accessoryFunctions.accessoryFunctions import *
@@ -81,9 +81,13 @@ class QualiMap(object):
                 if not os.path.isfile(sample.mapping.BamFile) and not os.path.isfile(sample.mapping.BamFile + ".bz2"):
                     stdout = StringIO()
                     for func in bowtie2build, bowtie2align:
-                        fnull = open(os.devnull, 'wb')
+                        # fnull = open(os.devnull, 'wb')
                         stdout.close()
-                        call(str(func), shell=True, stdout=fnull, stderr=fnull)
+                        out, err = run_subprocess(str(func))
+                        threadlock.acquire()
+                        write_to_logfile(out, err, self.logfile)
+                        threadlock.release()
+                        # call(str(func), shell=True, stdout=fnull, stderr=fnull)
                         # Use cStringIO streams to handle bowtie output
                         # stdout, stderr = map(StringIO, func(cwd=sample.general.QualimapResults))
                         # stdout, stderr = map(StringIO, func())
@@ -128,7 +132,12 @@ class QualiMap(object):
             qdict = dict()
             # If the report file doesn't exist, run Qualimap, and print logs to the log file
             if not os.path.isfile(reportfile):
-                call(sample.commands.qualimap, shell=True, stdout=self.fnull, stderr=self.fnull)
+                threadlock = threading.Lock()
+                out, err = run_subprocess(sample.commands.qualimap)
+                threadlock.acquire()
+                write_to_logfile(out, err, self.logfile)
+                threadlock.release()
+                # call(sample.commands.qualimap, shell=True, stdout=self.fnull, stderr=self.fnull)
             try:
                 with open(reportfile) as report:
                     # Read the report
@@ -167,8 +176,9 @@ class QualiMap(object):
         self.metadata = inputobject.runmetadata.samples
         self.start = inputobject.starttime
         self.cpus = inputobject.cpus
+        self.logfile = inputobject.logfile
         # Define /dev/null
-        self.fnull = open(os.devnull, 'wb')
+        # self.fnull = open(os.devnull, 'wb')
         self.samversion = get_version(['samtools']).decode('utf-8').split('\n')[2].split()[1]
         # Initialise queues
         self.mapqueue = Queue(maxsize=self.cpus)

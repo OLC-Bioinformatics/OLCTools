@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 from threading import Thread
+import threading
 from accessoryFunctions.accessoryFunctions import *
 __author__ = 'adamkoziol'
 
@@ -84,14 +85,31 @@ class CHAS(object):
             # Initialise a list to store the results
             sample[self.analysistype].epcrresults = list()
             # If the files created by the results do not exist, run the necessary system calls
+            threadlock = threading.Lock()
+            # Get our stdout and stderr strings set up.
+            outstr = ''
+            errstr = ''
+            sample, linkfile = self.epcrqueue.get()
             if not os.path.isfile(sample[self.analysistype].famap):
-                call(sample.commands.famap, shell=True, stdout=open(os.devnull, 'wb'), stderr=open(os.devnull, 'wb'))
-            if not os.path.isfile(sample[self.analysistype].hash):
-                call(sample.commands.fahash, shell=True, stdout=open(os.devnull, 'wb'), stderr=open(os.devnull, 'wb'))
+                # Run the subprocess, then get the stdout in outstr and stderr in errstr
+                out, err = run_subprocess(sample.commands.famap)
+                outstr += out
+                errstr += err
+            if not os.path.isfile(sample[self.analysistype].famap):
+                out, err = run_subprocess(sample.commands.fahash)
+                outstr += out
+                errstr += err
             if not os.path.isfile(sample[self.analysistype].output):
-                call(sample.commands.epcr, shell=True, stdout=open(os.devnull, 'wb'), stderr=open(os.devnull, 'wb'))
+                out, err = run_subprocess(sample.commands.epcr)
+                outstr += out
+                errstr += err
+            # Once processes are finished running, get the threadlock, because now it's output writing time.
+            threadlock.acquire()
+            # Write stuff to the logfile.
+            write_to_logfile(outstr, errstr, self.logfile)
+            threadlock.release()
             # Read the results into a list
-            with open(sample[self.analysistype].output, 'rb') as results:
+            with open(sample[self.analysistype].output, 'r') as results:
                 for line in results:
                     sample[self.analysistype].epcrresults.append(line.strip())
             self.epcrqueue.task_done()
@@ -183,8 +201,14 @@ class CHAS(object):
         nhr = '{}.nhr'.format(db)  # add nhr for searching
         if not os.path.isfile(str(nhr)):  # if check for already existing dbs
             # Create the databases
-            subprocess.call(shlex.split('makeblastdb -in {} -parse_seqids -max_file_sz 2GB -dbtype nucl -out {}'
-                                        .format(fastapath, db)), stdout=self.fnull, stderr=self.fnull)
+            threadlock = threading.Lock()
+            command = 'makeblastdb -in {} -parse_seqids -max_file_sz 2GB -dbtype nucl -out {}'.format(fastapath, db)
+            #subprocess.call(shlex.split('makeblastdb -in {} -parse_seqids -max_file_sz 2GB -dbtype nucl -out {}'
+            #                            .format(fastapath, db)), stdout=self.fnull, stderr=self.fnull)
+            out, err = run_subprocess(command)
+            threadlock.acquire()
+            write_log_file(out, err, self.logfile)
+            threadlock.release()
         dotter()
 
     def report(self):
@@ -235,6 +259,7 @@ class CHAS(object):
         self.analysistype = analysistype
         self.epcrqueue = Queue(maxsize=self.threads)
         self.epcrparsequeue = Queue(maxsize=self.threads)
-        self.fnull = open(os.path.devnull, 'wb')
+        # self.fnull = open(os.path.devnull, 'wb')
+        self.logfile = inputobject.logfile
         # Run the analyses
         self.chas()

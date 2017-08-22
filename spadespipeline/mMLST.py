@@ -11,6 +11,7 @@ from collections import defaultdict
 from csv import DictReader
 from glob import glob
 from threading import Thread
+import threading
 
 from Bio import SeqIO
 from Bio.Blast.Applications import NcbiblastnCommandline
@@ -1043,7 +1044,8 @@ class MLST(object):
         self.start = inputobject.start
         self.analysistype = inputobject.analysistype
         self.allelefolders = set()
-        self.fnull = open(os.devnull, 'w')  # define /dev/null
+        # self.fnull = open(os.devnull, 'w')  # define /dev/null
+        self.logfile = inputobject.logfile
         self.lock = Lock()
         self.updateallele = inputobject.updateallele
         self.updateprofile = inputobject.updateprofile
@@ -1668,6 +1670,7 @@ class PipelineInit(object):
         self.combinedalleles = ''
         self.cutoff = 99
         self.updatedatabases = inputobject.updatedatabases
+        self.logfile = inputobject.logfile
         # self.updateallele = True
         # self.updateprofile = True
         self.updateallele = False

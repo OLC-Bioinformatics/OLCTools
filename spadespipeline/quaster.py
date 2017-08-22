@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 from accessoryFunctions.accessoryFunctions import *
+from threading import Thread
+import threading
 __author__ = 'adamkoziol'
 
 
 class Quast(object):
 
     def quast(self):
-        from threading import Thread
         printtime('Performing Quast analyses', self.start)
         for i in range(len([sample.general for sample in self.metadata if sample.general.bestassemblyfile != 'NA'])):
             # Send the threads to the merge method. :args is empty
@@ -40,10 +41,15 @@ class Quast(object):
         while True:
             sample, quastoutputdirectory = self.quastqueue.get()
             make_path(quastoutputdirectory)
-            fnull = open(os.devnull, 'wb')
+            threadlock = threading.Lock()
+            # fnull = open(os.devnull, 'wb')
             # Don't re-perform the analysis if the report file exists
             if not os.path.isfile('{}/report.tsv'.format(quastoutputdirectory)):
-                call(sample.commands.quast, shell=True, stdout=fnull, stderr=fnull)
+                out, err = run_subprocess(sample.commands.quast)
+                # call(sample.commands.quast, shell=True, stdout=fnull, stderr=fnull)
+                threadlock.acquire()
+                write_to_logfile(out, err, self.logfile)
+                threadlock.release()
             # Following the analysis, parse the report (if it exists) into the metadata object
             if os.path.isfile('{}/report.tsv'.format(quastoutputdirectory)):
                 self.metaparse(sample, quastoutputdirectory)
@@ -77,5 +83,6 @@ class Quast(object):
         self.metadata = inputobject.runmetadata.samples
         self.kmers = inputobject.kmers
         self.start = inputobject.starttime
+        self.logfile = inputobject.logfile
         self.quastqueue = Queue()
         self.quast()

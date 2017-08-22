@@ -1,7 +1,9 @@
 #!/usr/bin/env python
+import threading
 from threading import Thread
 from accessoryFunctions.accessoryFunctions import *
 from spadespipeline import metadataprinter
+import subprocess
 
 __author__ = 'adamkoziol'
 
@@ -53,15 +55,34 @@ class Vtyper(object):
         self.epcrparse()
 
     def epcr(self):
-        from subprocess import call
         while True:
+            # I think this should work for getting output from processes and writing to a logfile - but it's long
+            # and terrible - maybe possible to get it set up in accessoryFunctions so it's a bit less of a pain?
+            # Setup a threadlock for later so multiple processes don't all try to write their output at once.
+            threadlock = threading.Lock()
+            # Get our stdout and stderr strings set up.
+            outstr = ''
+            errstr = ''
             sample, linkfile = self.epcrqueue.get()
             if not os.path.isfile('{}.famap'.format(linkfile)):
-                call(sample.commands.famap, shell=True, stdout=self.devnull, stderr=self.devnull)
+                # Run the subprocess, then get the stdout in outstr and stderr in errstr
+                out, err = run_subprocess(sample.commands.famap)
+                outstr += out
+                errstr += err
             if not os.path.isfile('{}.hash'.format(linkfile)):
-                call(sample.commands.fahash, shell=True, stdout=self.devnull, stderr=self.devnull)
+                out, err = run_subprocess(sample.commands.fahash)
+                outstr += out
+                errstr += err
             if not os.path.isfile('{}.txt'.format(linkfile)):
-                call(sample.commands.epcr, shell=True, stdout=self.devnull, stderr=self.devnull)
+                out, err = run_subprocess(sample.commands.epcr)
+                outstr += out
+                errstr += err
+            # Once processes are finished running, get the threadlock, because now it's output writing time.
+            threadlock.acquire()
+            # Write stuff to the logfile.
+            write_to_logfile(outstr, errstr, self.logfile)
+            threadlock.release()
+            # Release the threadlock so that other processes can get on with it.
             self.epcrqueue.task_done()
 
     def epcrparse(self):
@@ -115,7 +136,7 @@ class Vtyper(object):
             self.primerfile = inputobject.primerfile
         self.cpus = int(multiprocessing.cpu_count())
         self.epcrqueue = Queue(maxsize=self.cpus)
-        self.devnull = open(os.devnull, 'wb')
+        self.logfile = inputobject.logfile
         self.vtyper()
 
 

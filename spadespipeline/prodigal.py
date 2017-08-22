@@ -28,7 +28,7 @@ class Prodigal(object):
         from subprocess import call
         while True:
             sample = self.predictqueue.get()
-            fnull = open(os.devnull, 'w')  # define /dev/null
+            # fnull = open(os.devnull, 'w')  # define /dev/null
             reportdir = '{}/prodigal'.format(sample.general.outputdirectory)
             sample.prodigal.reportdir = '{}/prodigal'.format(sample.general.outputdirectory)
             results = '{}/{}_prodigalresults.sco'.format(reportdir, sample.name)
@@ -41,7 +41,11 @@ class Prodigal(object):
             if os.path.isfile(results):
                 size = os.stat(results).st_size
             if not os.path.isfile(results) or size == 0:
-                call(prodigal, shell=True, stdout=fnull, stderr=fnull)
+                out, err = run_subprocess(prodigal)
+                threadlock.acquire()
+                write_to_logfile(out, err, self.logfile)
+                threadlock.release()
+                # call(prodigal, shell=True, stdout=fnull, stderr=fnull)
             self.predictqueue.task_done()
 
     def prodigalparse(self):
@@ -74,6 +78,7 @@ class Prodigal(object):
         from queue import Queue
         self.metadata = inputobject.runmetadata.samples
         self.start = inputobject.starttime
+        self.logfile = inputobject.logfile
         self.predictqueue = Queue()
         self.parsequeue = Queue()
         self.predictthreads()

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 from subprocess import call
 from threading import Thread
-
+import threading
 from accessoryFunctions.accessoryFunctions import *
 
 __author__ = 'adamkoziol'
@@ -50,7 +50,12 @@ class Mash(object):
         while True:
             sample = self.sketchqueue.get()
             if not os.path.isfile(sample[self.analysistype].sketchfile):
-                call(sample.commands.sketch, shell=True, stdout=self.fnull, stderr=self.fnull)
+                threadlock = threading.Lock()
+                out, err = run_subprocess(sample.commands.sketch)
+                threadlock.acquire()
+                write_to_logfile(out, err, self.logfile)
+                # call(sample.commands.sketch, shell=True, stdout=self.fnull, stderr=self.fnull)
+                threadlock.release()
             self.sketchqueue.task_done()
 
     def mashing(self):
@@ -80,7 +85,12 @@ class Mash(object):
         while True:
             sample = self.mashqueue.get()
             if not os.path.isfile(sample[self.analysistype].mashresults):
-                call(sample.commands.mash, shell=True, stdout=self.fnull, stderr=self.fnull)
+                threadlock = threading.Lock()
+                out, err = run_subprocess(sample.commands.mash)
+                threadlock.acquire()
+                write_to_logfile(out, err, self.logfile)
+                threadlock.release()
+                # call(sample.commands.mash, shell=True, stdout=self.fnull, stderr=self.fnull)
             self.mashqueue.task_done()
 
     def parse(self):
@@ -146,8 +156,9 @@ class Mash(object):
         self.starttime = inputobject.starttime
         self.reportpath = inputobject.reportpath
         self.cpus = inputobject.cpus
+        self.logfile = inputobject.logfile
         self.sketchqueue = Queue()
         self.mashqueue = Queue()
         self.analysistype = analysistype
-        self.fnull = open(os.devnull, 'w')  # define /dev/null
+        # self.fnull = open(os.devnull, 'w')  # define /dev/null
         self.sketching()

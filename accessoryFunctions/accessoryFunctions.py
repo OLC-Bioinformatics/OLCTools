@@ -5,8 +5,28 @@ from subprocess import Popen, PIPE, STDOUT
 
 # noinspection PyProtectedMember
 from Bio.Application import _Option, AbstractCommandline, _Switch
-__author__ = 'adamkoziol'
+__author__ = 'adamkoziol', 'andrewlow'
 
+
+def write_to_logfile(out, err, logfile):
+    """
+    Writes out and err (both should be strings) to logfile.
+    """
+    with open(logfile + '_out.txt', 'a+') as outfile:
+        outfile.write(out)
+    with open(logfile + '_err.txt', 'a+') as outfile:
+        outfile.write(err)
+
+def run_subprocess(command):
+    """
+    command is the command to run, as a string.
+    runs a subprocess, returns stdout and stderr from the subprocess as strings.
+    """
+    x = Popen(command, shell=True, stdout=PIPE, stderr=PIPE)
+    out, err = x.communicate()
+    out = out.decode('utf-8')
+    err = err.decode('utf-8')
+    return out, err
 
 def get_version(exe):
     """

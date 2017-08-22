@@ -3,6 +3,7 @@ from glob import glob
 from spadespipeline import runMetadata
 from accessoryFunctions.accessoryFunctions import *
 from spadespipeline.offhours import Offhours
+import threading
 
 __author__ = 'adamkoziol'
 
@@ -93,13 +94,25 @@ class CreateFastq(object):
             .format(self.miseqfolder, self.fastqdestination, self.fastqdestination, basemask)
         # Define the nohup system call
         nohupcall = "cd {} && {}".format(self.fastqdestination, nohup)
-        fnull = open(os.devnull, 'wb')
+        # fnull = open(os.devnull, 'wb')
         if not os.path.isdir("{}/Project_{}".format(self.fastqdestination, self.projectname)):
             # Call configureBclToFastq.pl
             printtime('Running bcl2fastq', self.start)
             # Run the commands
-            call(bclcall, shell=True, stdout=fnull, stderr=fnull)
-            call(nohupcall, shell=True, stdout=fnull, stderr=fnull)
+            threadlock = threading.Lock()
+            outstr = ''
+            outerr = ''
+            out, err = run_subprocess(bclcall)
+            outstr += out
+            outerr += out
+            out, err = run_subprocess(nohupcall)
+            outstr += out
+            outerr += out
+            # call(bclcall, shell=True, stdout=fnull, stderr=fnull)
+            # call(nohupcall, shell=True, stdout=fnull, stderr=fnull)
+            threadlock.acquire()
+            write_to_logfile(outstr, outerr, self.logfile)
+            threadlock.release()
         # Populate the metadata
         for sample in self.metadata.samples:
             sample.commands = GenObject()
@@ -222,6 +235,7 @@ class CreateFastq(object):
         self.reverselength = inputobject.reverselength if self.numreads > 1 else '0'
         self.readsneeded = 0
         self.commit = inputobject.commit
+        self.logfile = inputobject.logfile
         if inputobject.miseqpath:
             self.miseqpath = os.path.join(inputobject.miseqpath, "")
         else:

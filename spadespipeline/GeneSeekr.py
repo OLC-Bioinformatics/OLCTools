@@ -6,6 +6,7 @@ from collections import defaultdict
 from csv import DictReader
 from glob import glob
 from threading import Thread
+import threading
 from Bio.Blast.Applications import NcbiblastnCommandline
 from Bio import SeqIO
 from Bio.Seq import Seq
@@ -135,12 +136,18 @@ class GeneSeekr(object):
             # remove the path and the file extension for easier future globbing
             db = fastapath.split('.')[0]
             nhr = '{}.nhr'.format(db)  # add nhr for searching
-            fnull = open(os.devnull, 'w')  # define /dev/null
+            # fnull = open(os.devnull, 'w')  # define /dev/null
             if not os.path.isfile(str(nhr)):  # if check for already existing dbs
                 # Create the databases
                 # TODO use MakeBLASTdb class
-                subprocess.call(shlex.split('makeblastdb -in {} -parse_seqids -max_file_sz 2GB -dbtype nucl -out {}'
-                                            .format(fastapath, db)), stdout=fnull, stderr=fnull)
+                threadlock = threading.Lock()
+                command = 'makeblastdb -in {} -parse_seqids -max_file_sz 2GB -dbtype nucl -out {}'.format(fastapath, db)
+                # subprocess.call(shlex.split('makeblastdb -in {} -parse_seqids -max_file_sz 2GB -dbtype nucl -out {}'
+                #                            .format(fastapath, db)), stdout=fnull, stderr=fnull)
+                out, err = run_subprocess(command)
+                threadlock.acquire()
+                write_to_logfile(out, err, self.logfile)
+                threadlock.release()
             self.dqueue.task_done()  # signals to dqueue job is done
 
     def blastnthreads(self):
@@ -802,6 +809,7 @@ class GeneSeekr(object):
         self.referencefilepath = inputobject.referencefilepath
         self.cpus = inputobject.threads
         self.align = inputobject.align
+        self.logfile = inputobject.logfile
         # self.resfinder = inputobject.resfinder
         # self.virulencefinder = inputobject.virulencefinder
         # If CGE-based analyses are specified, set self.unique to True, otherwise, use the arguments
@@ -1026,11 +1034,13 @@ class PipelineInit(object):
         self.threads = inputobject.cpus
         self.reportdir = '{}/'.format(inputobject.reportpath)
         self.cutoff = cutoff
+        self.logfile = inputobject.logfile
         self.pipeline = True
         self.genusspecific = genusspecific
         self.chas = list()
         self.align = False
         self.unique = unique
+
         # self.resfinder = False
         # self.virulencefinder = False
         # Get the alleles and profile into the metadata

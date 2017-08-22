@@ -4,9 +4,10 @@ import time
 from queue import Queue
 from glob import glob
 from subprocess import call
+import threading
 from threading import Thread
 
-from accessoryFunctions.accessoryFunctions import printtime
+from accessoryFunctions.accessoryFunctions import *
 
 __author__ = 'adamkoziol'
 
@@ -79,6 +80,7 @@ class Quality(object):
         from accessoryFunctions.accessoryFunctions import make_path
         import shutil
         while True:  # while daemon
+            threadlock = threading.Lock()
             # Unpack the variables from the queue
             (sample, systemcall, outputdir, fastqcreads) = self.qcqueue.get()
             # Check to see if the output HTML file already exists
@@ -86,8 +88,19 @@ class Quality(object):
                 # Make the output directory
                 make_path(outputdir)
                 # Run the system calls
-                call(systemcall, shell=True, stdout=self.devnull, stderr=self.devnull)
-                call(fastqcreads, shell=True, stdout=self.devnull, stderr=self.devnull)
+                outstr = ''
+                errstr = ''
+                out, err = run_subprocess(systemcall)
+                outstr += out
+                errstr += err
+                out, err = run_subprocess(fastqcreads)
+                outstr += out
+                errstr += err
+                # call(systemcall, shell=True, stdout=self.devnull, stderr=self.devnull)
+                # call(fastqcreads, shell=True, stdout=self.devnull, stderr=self.devnull)
+                threadlock.acquire()
+                write_to_logfile(outstr, errstr, self.logfile)
+                threadlock.release()
                 # Rename the outputs
                 try:
                     shutil.move('{}/stdin_fastqc.html'.format(outputdir),
@@ -174,8 +187,13 @@ class Quality(object):
             (sample, systemcall, reversename) = self.trimqueue.get()
             # Check to see if the forward file already exists
             if systemcall:
+                threadlock = threading.Lock()
                 if not os.path.isfile(reversename) and not os.path.isfile('{}.bz2'.format(reversename)):
-                    call(systemcall, shell=True, stdout=self.devnull, stderr=self.devnull)
+                    # call(systemcall, shell=True, stdout=self.devnull, stderr=self.devnull)
+                    out, err = run_subprocess(systemcall)
+                    threadlock.acquire()
+                    write_to_logfile(out, err, self.logfile)
+                    threadlock.release()
                 # Define the output directory
                 outputdir = sample.general.outputdirectory
                 # Add the trimmed fastq files to a list
@@ -191,7 +209,7 @@ class Quality(object):
         from subprocess import Popen, PIPE
         self.metadata = inputobject.runmetadata.samples
         self.cpus = inputobject.cpus
-        self.devnull = open(os.devnull, 'wb')
+        # self.devnull = open(os.devnull, 'wb')
         self.qcqueue = Queue(maxsize=self.cpus)
         self.trimqueue = Queue(maxsize=self.cpus)
         self.correctqueue = Queue(maxsize=self.cpus)
@@ -199,6 +217,7 @@ class Quality(object):
         self.forwardlength = inputobject.forwardlength
         self.reverselength = inputobject.reverselength
         self.numreads = inputobject.numreads
+        self.logfile = inputobject.logfile
         # Find the location of the bbduk.sh script. This will be used in finding the adapter file
         self.bbduklocation = os.path.split(Popen('which bbduk.sh', shell=True, stdout=PIPE)
                                            .communicate()[0].rstrip())[0]

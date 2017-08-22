@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 from accessoryFunctions.accessoryFunctions import *
+import threading
 # from . import quality # Seems to be unused.
 __author__ = 'adamkoziol'
 
@@ -47,7 +48,12 @@ class Correct(object):
         while True:
             sample = self.correctqueue.get()
             if not os.path.isdir(sample.general.correctedfolder):
-                call(sample.commands.errorcorrection, shell=True, stdout=self.devnull, stderr=self.devnull)
+                threadlock = threading.Lock()
+                out, err = run_subprocess(sample.commands.errorcorrection)
+                threadlock.acquire()
+                write_to_logfile(out, err, self.logfile)
+                threadlock.release()
+                # call(sample.commands.errorcorrection, shell=True, stdout=self.devnull, stderr=self.devnull)
             # Depending on when along pipeline development, analyses were performed, the trimmed, corrected files
             # could be in a different location. Allow for this
             sample.general.correctedfolder = sample.general.correctedfolder \
@@ -64,6 +70,7 @@ class Correct(object):
         self.cpus = inputobject.cpus
         self.start = inputobject.starttime
         self.correctqueue = Queue(maxsize=self.cpus)
-        self.devnull = open(os.devnull, 'wb')
+        # self.devnull = open(os.devnull, 'wb')
+        self.logfile = inputobject.logfile
         printtime('Correcting sequences', self.start)
         self.correct()

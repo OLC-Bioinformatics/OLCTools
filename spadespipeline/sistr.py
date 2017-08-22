@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 from accessoryFunctions.accessoryFunctions import *
+import threading
 __author__ = 'adamkoziol'
-
 
 class Sistr(object):
 
@@ -47,10 +47,15 @@ class Sistr(object):
         import json
         while True:
             # Get the sample object from the queue
+            threadlock = threading.Lock()
             sample = self.queue.get()
             # Only run the analyses if the output json file does not exist
             if not os.path.isfile(sample[self.analysistype].jsonoutput):
-                call(sample.commands.sistr, shell=True, stdout=self.devnull, stderr=self.devnull)
+                out, err = run_subprocess(sample.commands.sistr)
+                # call(sample.commands.sistr, shell=True, stdout=self.devnull, stderr=self.devnull)
+                threadlock.acquire()
+                write_to_logfile(out, err, self.logfile)
+                threadlock.release()
             # Read in the output .json file into the metadata
             sample[self.analysistype].jsondata = json.load(open(sample[self.analysistype].jsonoutput, 'r'))
             self.queue.task_done()
@@ -91,10 +96,11 @@ class Sistr(object):
         self.metadata = inputobject.runmetadata.samples
         self.start = inputobject.starttime
         self.cpus = inputobject.cpus
+        self.logfile = inputobject.logfile
         self.reportdir = '{}/'.format(inputobject.reportpath)
         make_path(self.reportdir)
         self.analysistype = analysistype
-        self.devnull = open(os.devnull, 'wb')
+        # self.devnull = open(os.devnull, 'wb')
         self.queue = Queue()
         self.headers = ['genome', 'cgmlst_distance', 'cgmlst_genome_match', 'cgmlst_matching_alleles', 'h1', 'h2',
                         'serogroup', 'serovar', 'serovar_antigen', 'serovar_cgmlst']
