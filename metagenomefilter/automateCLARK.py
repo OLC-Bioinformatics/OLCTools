@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 from accessoryFunctions.accessoryFunctions import *
 import accessoryFunctions.metadataprinter as metadataprinter
+from spadespipeline import fileprep
 from threading import Thread
 import subprocess
 import time
@@ -12,7 +13,6 @@ class CLARK(object):
     def objectprep(self):
         """Create objects to store data and metadata for each sample. Also, perform necessary file manipulations"""
         from spadespipeline import createobject
-        from spadespipeline import fileprep
         # Move the files to subfolders and create objects
         self.runmetadata = createobject.ObjectCreation(self)
         if self.runmetadata.extension == '.fastq':
@@ -34,6 +34,7 @@ class CLARK(object):
         printtime('Setting up database', self.start)
         self.targetcall = 'cd {} && ./set_targets.sh {} {} --{}'.format(self.clarkpath, self.databasepath,
                                                                         self.database, self.rank)
+        #
         subprocess.call(self.targetcall, shell=True, stdout=self.devnull, stderr=self.devnull)
         # Classify the metagenome(s)
         self.classifymetagenome()
@@ -49,8 +50,8 @@ class CLARK(object):
                     reportlist.write(sample.general.combined.split('.')[0] + '\n')
         # Define the system call
         # Need to add the cwd to self.filelist and self.reportlist.
-        self.filelist = os.getcwd() + "/" + self.filelist
-        self.reportlist = os.getcwd() + "/" + self.reportlist
+        # self.filelist = os.getcwd() + "/" + self.filelist
+        # self.reportlist = os.getcwd() + "/" + self.reportlist
         self.classifycall = 'cd {} && ./classify_metagenome.sh -O {} -R {} -n {}'.format(self.clarkpath,
                                                                                          self.filelist,
                                                                                          self.reportlist,
@@ -66,7 +67,7 @@ class CLARK(object):
         # Run the system call if the samples have not been classified
         if classify:
             # Run the call
-            s = subprocess.call(self.classifycall, shell=True, stdout=self.devnull, stderr=self.devnull)
+            subprocess.call(self.classifycall, shell=True, stdout=self.devnull, stderr=self.devnull)
         # Estimate the abundance
         self.estimateabundance()
 
@@ -110,6 +111,7 @@ class CLARK(object):
 
             # Run the system call (if necessary)
             if not os.path.isfile(sample.general.abundance):
+                #
                 subprocess.call(sample.commands.abundancecall, shell=True, stdout=self.devnull, stderr=self.devnull)
             self.abundancequeue.task_done()
 
@@ -254,8 +256,8 @@ class CLARK(object):
         self.targetcall = ''
         self.classifycall = ''
         self.devnull = open(os.devnull, 'wb')
-        self.filelist = '{}sampleList.txt'.format(self.path)
-        self.reportlist = '{}reportList.txt'.format(self.path)
+        self.filelist = os.path.join(self.path, 'sampleList.txt')
+        self.reportlist = os.path.join(self.path, 'reportList.txt')
         self.abundancequeue = Queue()
         self.datapath = ''
         self.reportpath = os.path.join(self.path, 'reports')
@@ -263,7 +265,6 @@ class CLARK(object):
         # and variables play nice
         try:
             if args.runmetadata:
-                import fileprep
                 from shutil import move
                 self.runmetadata = args.runmetadata
                 self.extension = self.runmetadata.extension
@@ -387,7 +388,7 @@ if __name__ == '__main__':
 
 class PipelineInit(object):
 
-    def __init__(self, inputobject):
+    def __init__(self, inputobject, analysis='pipeline'):
         # Create an object to mimic the command line arguments necessary for the script
         args = MetadataObject()
         args.path = inputobject.path
@@ -400,11 +401,16 @@ class PipelineInit(object):
         args.filter = False
         args.threads = inputobject.cpus
         args.runmetadata = inputobject.runmetadata
-        # Run CLARK on both .fastq and .fasta files
-        for extension in ['.fastq', '.fasta']:
-            args.runmetadata.extension = extension
-            if extension == '.fasta':
-                # Overwrite the .sequencepath attribute to point to the folder storing all the assemblies
-                args.sequencepath = os.path.join(args.path, 'BestAssemblies')
+        if analysis == 'pipeline':
+            # Run CLARK on both .fastq and .fasta files
+            for extension in ['.fastq', '.fasta']:
+                args.runmetadata.extension = extension
+                if extension == '.fasta':
+                    # Overwrite the .sequencepath attribute to point to the folder storing all the assemblies
+                    args.sequencepath = os.path.join(args.path, 'BestAssemblies')
+            # Run CLARK
+            CLARK(args, inputobject.commit, inputobject.starttime, inputobject.homepath)
+        else:
+            args.runmetadata.extension = '.fasta'
             # Run CLARK
             CLARK(args, inputobject.commit, inputobject.starttime, inputobject.homepath)

@@ -34,16 +34,16 @@ class ObjectCreation(object):
             # Make the destination folder
             make_path(outputdir)
             # Get the fastq files specific to the fastqname
-            specific = glob('{}{}*{}*'.format(self.sequencepath, name, self.extension))
+            specific = glob(os.path.join(self.sequencepath, '{}*{}*'.format(name, self.extension)))
             # Link the files to the output folder
-            try:
-                # Link the .gz files to :self.path/:filename
-                map(lambda x: os.symlink(x, '{}/{}'.format(outputdir, os.path.split(x)[1])), specific)
-            # Except os errors
-            except OSError as exception:
-                # If there is an exception other than the file exists, raise it
-                if exception.errno != errno.EEXIST:
-                    raise
+            for fasta in specific:
+                try:
+                    os.symlink(fasta, os.path.join(outputdir, os.path.split(fasta)[1]))
+                # Except os errors
+                except OSError as exception:
+                    # If there is an exception other than the file exists, raise it
+                    if exception.errno != errno.EEXIST:
+                        raise
             # Initialise the general and run categories
             metadata.general = GenObject()
             metadata.commands = GenObject()
