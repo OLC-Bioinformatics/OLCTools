@@ -4,6 +4,7 @@ import accessoryFunctions.metadataprinter as metadataprinter
 from spadespipeline.mMLST import *
 from accessoryFunctions.accessoryFunctions import *
 from glob import glob
+import threading
 __author__ = 'adamkoziol'
 
 
@@ -137,10 +138,16 @@ class CoreTyper(object):
     def annotate(self):
         from subprocess import call
         while True:
+            threadlock = threading.Lock()
             sample = self.queue.get()
             sample.prokka.outputdir = os.path.abspath(sample.prokka.outputdir)
             if not os.path.isfile('{}/{}.gff'.format(sample.prokka.outputdir, sample.name)):
-                call(sample.prokka.command, shell=True, stdout=self.fnull, stderr=self.fnull)
+                # call(sample.prokka.command, shell=True, stdout=self.fnull, stderr=self.fnull)
+                out, err = run_subprocess(sample.prokka.command)
+                threadlock.acquire()
+                write_to_logfile(sample.prokka.command, sample.prokka.command, self.logfile)
+                write_to_logfile(out, err, self.logfile)
+                threadlock.release()
             # List of the file extensions created with a prokka analysis
             files = ['err', 'faa', 'ffn', 'fna', 'fsa', 'gbk', 'gff', 'log', 'sqn', 'tbl', 'txt']
             # List of the files created for the sample by prokka
@@ -429,7 +436,8 @@ class CoreTyper(object):
         self.cdsqueue = Queue()
         self.sequencequeue = Queue()
         self.allelequeue = Queue()
-        self.fnull = open(os.devnull, 'wb')
+        # self.fnull = open(os.devnull, 'wb')
+        self.logfile = inputobject.logfile
         self.resultprofile = defaultdict(make_dict)
         # Perform typing
         self.handler()

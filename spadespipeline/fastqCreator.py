@@ -111,6 +111,8 @@ class CreateFastq(object):
             # call(bclcall, shell=True, stdout=fnull, stderr=fnull)
             # call(nohupcall, shell=True, stdout=fnull, stderr=fnull)
             threadlock.acquire()
+            write_to_logfile(bclcall, bclcall, self.logfile)
+            write_to_logfile(nohupcall, nohupcall, self.logfile)
             write_to_logfile(outstr, outerr, self.logfile)
             threadlock.release()
         # Populate the metadata

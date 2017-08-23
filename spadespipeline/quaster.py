@@ -48,6 +48,7 @@ class Quast(object):
                 out, err = run_subprocess(sample.commands.quast)
                 # call(sample.commands.quast, shell=True, stdout=fnull, stderr=fnull)
                 threadlock.acquire()
+                write_to_logfile(sample.commands.quast, sample.commands.quast, self.logfile)
                 write_to_logfile(out, err, self.logfile)
                 threadlock.release()
             # Following the analysis, parse the report (if it exists) into the metadata object
