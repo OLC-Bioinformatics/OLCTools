@@ -13,9 +13,9 @@ def write_to_logfile(out, err, logfile):
     Writes out and err (both should be strings) to logfile.
     """
     with open(logfile + '_out.txt', 'a+') as outfile:
-        outfile.write(out)
+        outfile.write(out + '\n')
     with open(logfile + '_err.txt', 'a+') as outfile:
-        outfile.write(err)
+        outfile.write(err + '\n')
 
 def run_subprocess(command):
     """

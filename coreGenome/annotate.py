@@ -5,6 +5,7 @@ from Bio.SeqRecord import SeqRecord
 from Bio.Seq import Seq
 from Bio import SeqIO
 from threading import Thread
+import threading
 from subprocess import call
 from glob import glob
 __author__ = 'adamkoziol'
@@ -60,8 +61,14 @@ class Annotate(object):
     def annotate(self):
         while True:
             sample = self.queue.get()
+            threadlock = threading.Lock()
             if not os.path.isfile('{}/{}.gff'.format(sample.prokka.outputdir, sample.name)):
-                call(sample.prokka.command, shell=True, stdout=self.devnull, stderr=self.devnull)
+                # call(sample.prokka.command, shell=True, stdout=self.devnull, stderr=self.devnull)
+                out, err = run_subprocess(sample.prokka.command)
+                threadlock.acquire()
+                write_to_logfile(sample.prokka.command, sample.prokka.command, self.logfile)
+                write_to_logfile(out, err, self.logfile)
+                threadlock.release()
             # List of the file extensions created with a prokka analysis
             files = ['err', 'faa', 'ffn', 'fna', 'fsa', 'gbk', 'gff', 'log', 'sqn', 'tbl', 'txt']
             # List of the files created for the sample by prokka
@@ -401,7 +408,8 @@ class Annotate(object):
         self.corequeue = Queue()
         self.codingqueue = Queue()
         self.headerqueue = Queue()
-        self.devnull = open(os.devnull, 'wb')
+        # self.devnull = open(os.devnull, 'wb')
+        self.logfile = inputobject.logfile
         # Run the analyses
         self.annotatethreads()
         # Print the metadata to file

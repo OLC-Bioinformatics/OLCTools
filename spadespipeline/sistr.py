@@ -54,6 +54,7 @@ class Sistr(object):
                 out, err = run_subprocess(sample.commands.sistr)
                 # call(sample.commands.sistr, shell=True, stdout=self.devnull, stderr=self.devnull)
                 threadlock.acquire()
+                write_to_logfile(sample.commands.sistr, sample.commands.sistr, self.logfile)
                 write_to_logfile(out, err, self.logfile)
                 threadlock.release()
             # Read in the output .json file into the metadata

@@ -43,6 +43,7 @@ class Prodigal(object):
             if not os.path.isfile(results) or size == 0:
                 out, err = run_subprocess(prodigal)
                 threadlock.acquire()
+                write_to_logfile(prodigal, prodigal, self.logfile)
                 write_to_logfile(out, err, self.logfile)
                 threadlock.release()
                 # call(prodigal, shell=True, stdout=fnull, stderr=fnull)

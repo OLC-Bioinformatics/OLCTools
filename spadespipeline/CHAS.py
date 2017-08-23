@@ -106,6 +106,9 @@ class CHAS(object):
             # Once processes are finished running, get the threadlock, because now it's output writing time.
             threadlock.acquire()
             # Write stuff to the logfile.
+            write_to_logfile(sample.commands.famap, sample.commands.famap, self.logfile)
+            write_to_logfile(sample.commands.fahash, sample.commands.fahash, self.logfile)
+            write_to_logfile(sample.commands.epcr, sample.commands.epcr, self.logfile)
             write_to_logfile(outstr, errstr, self.logfile)
             threadlock.release()
             # Read the results into a list

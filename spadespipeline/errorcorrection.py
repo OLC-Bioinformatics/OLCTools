@@ -51,6 +51,7 @@ class Correct(object):
                 threadlock = threading.Lock()
                 out, err = run_subprocess(sample.commands.errorcorrection)
                 threadlock.acquire()
+                write_to_logfile(sample.commands.errorcorrection, sample.commands.errorcorrection, self.logfile)
                 write_to_logfile(out, err, self.logfile)
                 threadlock.release()
                 # call(sample.commands.errorcorrection, shell=True, stdout=self.devnull, stderr=self.devnull)

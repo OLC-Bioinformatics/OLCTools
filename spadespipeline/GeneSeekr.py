@@ -146,6 +146,7 @@ class GeneSeekr(object):
                 #                            .format(fastapath, db)), stdout=fnull, stderr=fnull)
                 out, err = run_subprocess(command)
                 threadlock.acquire()
+                write_to_logfile(command, command, self.logfile)
                 write_to_logfile(out, err, self.logfile)
                 threadlock.release()
             self.dqueue.task_done()  # signals to dqueue job is done
@@ -1025,6 +1026,7 @@ class PipelineInit(object):
                 sample[self.analysistype].targetpath = 'NA'
                 sample[self.analysistype].targetnames = 'NA'
                 sample[self.analysistype].reportdir = 'NA'
+                sample[self.analysistype].blastresults = 'NA'
         if self.chas:
             from CHAS import CHAS
             CHAS(self, 'chas')

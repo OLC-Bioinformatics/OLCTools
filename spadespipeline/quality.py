@@ -99,6 +99,8 @@ class Quality(object):
                 # call(systemcall, shell=True, stdout=self.devnull, stderr=self.devnull)
                 # call(fastqcreads, shell=True, stdout=self.devnull, stderr=self.devnull)
                 threadlock.acquire()
+                write_to_logfile(systemcall, systemcall, self.logfile)
+                write_to_logfile(fastqcreads, fastqcreads, self.logfile)
                 write_to_logfile(outstr, errstr, self.logfile)
                 threadlock.release()
                 # Rename the outputs
@@ -192,6 +194,7 @@ class Quality(object):
                     # call(systemcall, shell=True, stdout=self.devnull, stderr=self.devnull)
                     out, err = run_subprocess(systemcall)
                     threadlock.acquire()
+                    write_to_logfile(systemcall, systemcall, self.logfile)
                     write_to_logfile(out, err, self.logfile)
                     threadlock.release()
                 # Define the output directory

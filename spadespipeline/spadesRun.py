@@ -94,6 +94,7 @@ class Spades(object):
                 # execute(command)
                 out, err = run_subprocess(command)
                 threadlock.acquire()
+                write_to_logfile(command, command, self.logfile)
                 write_to_logfile(out, err, self.logfile)
                 threadlock.release()
                 # call(command, shell=True, stdout=open(os.devnull, 'wb'), stderr=open(os.devnull, 'wb'))
