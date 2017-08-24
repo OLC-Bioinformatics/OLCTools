@@ -175,17 +175,20 @@ class GeneSeekr(object):
             # Do not re-perform the BLAST search each time
             make_path(sample[self.analysistype].reportdir)
             try:
-                report = glob('{}{}*rawresults*'.format(sample[self.analysistype].reportdir, genome))[0]
-                size = os.path.getsize(report)
+                sample[self.analysistype].report = \
+                    glob('{}{}*rawresults*'.format(sample[self.analysistype].reportdir, genome))[0]
+                size = os.path.getsize(sample[self.analysistype].report)
                 # If a report was created, but no results entered - program crashed, or no sequences passed thresholds,
                 # remove the report, and run the blast analyses again
                 if size == 0:
-                    os.remove(report)
-                    report = '{}{}_rawresults_{:}.csv'.format(sample[self.analysistype].reportdir, genome,
-                                                              time.strftime("%Y.%m.%d.%H.%M.%S"))
+                    os.remove(sample[self.analysistype].report)
+                    sample[self.analysistype].report = \
+                        '{}{}_rawresults_{:}.csv'.format(sample[self.analysistype].reportdir, genome,
+                                                         time.strftime("%Y.%m.%d.%H.%M.%S"))
             except IndexError:
-                report = '{}{}_rawresults_{:}.csv'.format(sample[self.analysistype].reportdir, genome,
-                                                          time.strftime("%Y.%m.%d.%H.%M.%S"))
+                sample[self.analysistype].report \
+                    = '{}{}_rawresults_{:}.csv'.format(sample[self.analysistype].reportdir, genome,
+                                                       time.strftime("%Y.%m.%d.%H.%M.%S"))
             db = target.split('.')[0]
             # BLAST command line call. Note the mildly restrictive evalue, and the high number of alignments.
             # Due to the fact that all the targets are combined into one database, this is to ensure that all potential
@@ -196,27 +199,27 @@ class GeneSeekr(object):
                                            #        "evalue bitscore slen length'",
                                            outfmt="'6 qseqid sseqid positive mismatch gaps "
                                                   "evalue bitscore slen length qstart qend qseq sstart send sseq'",
-                                           out=report)
+                                           out=sample[self.analysistype].report)
             # Save the blast command in the metadata
             sample[self.analysistype].blastcommand = str(blastn)
             # Only run blast if the report doesn't exist
-            if not os.path.isfile(report):
+            if not os.path.isfile(sample[self.analysistype].report):
                 try:
                     blastn()
                 except:
                     self.blastqueue.task_done()
                     self.blastqueue.join()
                     try:
-                        os.remove(report)
+                        os.remove(sample[self.analysistype].report)
                     except IOError:
                         pass
                     raise
             # Parse the output depending on whether unique results are desired
             if self.unique:
-                self.uniqueblastparser(report, sample)
+                self.uniqueblastparser(sample[self.analysistype].report, sample)
             else:
                 # Run the blast parsing module
-                self.blastparser(report, sample)
+                self.blastparser(sample[self.analysistype].report, sample)
             self.blastqueue.task_done()  # signals to dqueue job is done
 
     def blastparser(self, report, sample):
@@ -972,6 +975,7 @@ if __name__ == '__main__':
             self.referencefilepath = str()
             self.align = self.runmetadata.align
             self.unique = self.runmetadata.unique
+            self.logfile = self.runmetadata.logfile
             # self.resfinder = self.runmetadata.resfinder
             # self.virulencefinder = self.runmetadata.virulencefinder
             # Run the analyses
@@ -1028,7 +1032,7 @@ class PipelineInit(object):
                 sample[self.analysistype].reportdir = 'NA'
                 sample[self.analysistype].blastresults = 'NA'
         if self.chas:
-            from CHAS import CHAS
+            from spadespipeline.CHAS import CHAS
             CHAS(self, 'chas')
 
     def __init__(self, inputobject, analysistype, genusspecific, cutoff, unique):

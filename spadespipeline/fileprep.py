@@ -30,7 +30,7 @@ class Fileprep(object):
             # Don't make the file if it already exists
             if not os.path.isfile(sample.general.combined):
                 # Open this .fastq file to write all the decompressed reads
-                #with open(sample.general.combined, 'w') as combined:
+                # with open(sample.general.combined, 'w') as combined:
                     # Iterate through the uncompressed .fastq file(s)
                 for read in sample.general.fastqfiles:
                     # Only decompress if the reads are gzipped
