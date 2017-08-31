@@ -31,8 +31,14 @@ class Quality(object):
             fastqcreads = ''
             # Check to see if the fastq files exist
             if level == 'Trimmed':
-
-                reader = 'cat' if '.bz2' not in sample.general.trimmedfastqfiles[0] else 'bunzip2 --stdout'
+                # Set the appropriate method to read in the trimmed fastq files - if uncompressed, use cat, if
+                # compressed with bzip, use bunzip2, and if compressed with gzip use gunzip
+                if '.bz2' or '.gz' not in sample.general.trimmedfastqfiles[0]:
+                    reader = 'cat'
+                elif '.gz' in sample.general.trimmedfastqfiles[0]:
+                    reader = 'gunzip --to-stdout'
+                else:
+                    'bunzip2 --stdout'
                 # Try except loop to allow for missing samples
                 try:
                     fastqfiles = sample.general.trimmedfastqfiles
@@ -147,23 +153,23 @@ class Quality(object):
                     # BBduk 37.23 doesn't need the ktrim=l/mink=11 parameters, so they have been removed.
                     if len(fastqfiles) == 2:
                         if int(sample.run.forwardlength) > 75 and int(sample.run.reverselength) > 75:
-                            bbdukcall = "bbduk2.sh -Xmx1g in1={} in2={} out1={} out2={} qtrim=w trimq=20 " \
+                            bbdukcall = "bbduk.sh -Xmx1g in1={} in2={} out1={} out2={} qtrim=w trimq=20 " \
                                 "k=25 minlength=50 forcetrimleft=15 ref={}/resources/adapters.fa hdist=1 " \
                                         "tpe tbo" \
                                 .format(fastqfiles[0], fastqfiles[1], cleanforward, cleanreverse, self.bbduklocation)
                         else:
-                            bbdukcall = "bbduk2.sh -Xmx1g in1={} out1={} qtrim=w trimq=20 k=25 " \
+                            bbdukcall = "bbduk.sh -Xmx1g in1={} out1={} qtrim=w trimq=20 k=25 " \
                                         "minlength=50 forcetrimleft=15 ref={}/resources/adapters.fa hdist=1" \
                                 .format(fastqfiles[1], cleanreverse, self.bbduklocation)
                     elif len(fastqfiles) == 1:
-                        bbdukcall = "bbduk2.sh -Xmx1g in={} out={} qtrim=w trimq=20 k=25 " \
+                        bbdukcall = "bbduk.sh -Xmx1g in={} out={} qtrim=w trimq=20 k=25 " \
                             "minlength=50 forcetrimleft=15 ref={}/resources/adapters.fa hdist=1" \
                             .format(fastqfiles[0], cleanforward, self.bbduklocation)
                     else:
                         bbdukcall = ""
                 # Allows for exclusion of the reverse reads if desired
                 else:
-                    bbdukcall = "bbduk2.sh -Xmx1g in={} out={} qtrim=w trimq=20 k=25 " \
+                    bbdukcall = "bbduk.sh -Xmx1g in={} out={} qtrim=w trimq=20 k=25 " \
                                 "minlength=50 forcetrimleft=15 ref={}/resources/adapters.fa hdist=1" \
                         .format(fastqfiles[0], cleanforward, self.bbduklocation)
                     # There is a check to ensure that the trimmed reverse file is created. This will change the file
