@@ -66,7 +66,8 @@ class QualiMap(object):
                                                   samtools=samtools, #  This is supposed to pipe to samtools, but it messes up.
                                                   **indict)
 
-                sample.commands.bowtie2align = str(bowtie2align).replace(".bam","")
+                # sample.commands.bowtie2align = str(bowtie2align).replace(".bam","")
+                sample.commands.bowtie2align = str(bowtie2align)
                 sample.commands.bowtie2build = str(bowtie2build)
                 self.bowqueue.put((sample, sample.commands.bowtie2build, sample.commands.bowtie2align))
             else:

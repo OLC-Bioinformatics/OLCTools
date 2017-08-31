@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import bz2
+import gzip
 from queue import Queue
 from glob import glob
 from threading import Thread
@@ -36,7 +36,7 @@ class Compress(object):
         self.compressqueue.join()  # wait on the dqueue until everything has been processed
         # Remove the original files once they are compressed
         for compress in sorted(compressfile):
-            if os.path.isfile('{}.bz2'.format(compress)):
+            if os.path.isfile('{}.gz'.format(compress)):
                 try:
                     os.remove(compress)
                 except (OSError, IOError):
@@ -46,13 +46,11 @@ class Compress(object):
     def compress(self):
         while True:
             compressfile = self.compressqueue.get()
-            if '.bz2' not in compressfile:
-                if not os.path.isfile('{}.bz2'.format(compressfile)):
-                    output = bz2.BZ2File('{}.bz2'.format(compressfile), 'wb')
+            if '.gz' not in compressfile:
+                if not os.path.isfile('{}.gz'.format(compressfile)):
                     with open(compressfile, 'rb') as inputfile:
-                        for inputdata in inputfile:
-                            output.write(inputdata)
-                    output.close()
+                        with open('{}.gz'.format(compressfile), 'wb') as outputfile:
+                            outputfile.writelines(inputfile)
             self.compressqueue.task_done()
 
     def remove(self):
