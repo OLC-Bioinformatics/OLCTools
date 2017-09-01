@@ -78,7 +78,7 @@ class Sippr(object):
                 from Bio import SeqIO
                 tfafiles = glob(os.path.join(self.targetpath, '*.tfa'))
                 if tfafiles:
-                    with open(os.path.join(self.targetpath, 'combinedtargets.fasta'), 'wb') as combined:
+                    with open(os.path.join(self.targetpath, 'combinedtargets.fasta'), 'w') as combined:
                         for tfafile in tfafiles:
                             for record in SeqIO.parse(tfafile, 'fasta'):
                                 SeqIO.write(record, combined, 'fasta')
