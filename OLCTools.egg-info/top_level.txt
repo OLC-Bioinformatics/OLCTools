@@ -1,0 +1,5 @@
+accessoryFunctions
+coreGenome
+metagenomefilter
+sipprCommon
+spadespipeline
