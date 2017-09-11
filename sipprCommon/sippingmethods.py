@@ -52,7 +52,7 @@ class Sippr(object):
             for sample in self.runmetadata:
                 if sample.general.bestassemblyfile != 'NA':
                     # Create the hash file of the baitfile
-                    targetbase = sample[self.analysistype].baitfile.split('.')[0]
+                    targetbase = sample[self.analysistype].baitfile.split('.fasta')[0]
                     sample[self.analysistype].hashfile = targetbase + '.mhs.gz'
                     sample[self.analysistype].hashcall = 'cd {} && mirabait -b {} -k 19 -K {}'\
                         .format(sample[self.analysistype].targetpath,
@@ -71,7 +71,7 @@ class Sippr(object):
             # There is a relatively strict databasing scheme necessary for the custom targets. Eventually, there will
             # be a helper script to combine individual files into a properly formatted combined file
             try:
-                self.baitfile = glob('{}*.fasta'.format(self.targetpath))[0]
+                self.baitfile = glob(os.path.join(self.targetpath, '*.fasta'))[0]
             # If the fasta file is missing, raise a custom error
             except IndexError:
                 # Combine any .tfa files in the directory into a combined targets .fasta file
@@ -81,18 +81,42 @@ class Sippr(object):
                     with open(os.path.join(self.targetpath, 'combinedtargets.fasta'), 'w') as combined:
                         for tfafile in tfafiles:
                             for record in SeqIO.parse(tfafile, 'fasta'):
-                                SeqIO.write(record, combined, 'fasta')
+                                # In case FASTA records have been spliced together, allow for the splitting of
+                                # these records
+                                if ('>') in record.seq:
+                                    from Bio.SeqRecord import SeqRecord
+                                    from Bio.Alphabet import generic_dna
+                                    from Bio.Seq import Seq
+                                    import re
+                                    # Split the two records apart on '>' symbols
+                                    record.seq, hybrid = record.seq.split('>')
+                                    # Split the header from the sequence e.g. sspC:6:CP003808.1ATGGAAAGTACATTAGA...
+                                    # will be split into sspC:6:CP003808.1 and ATGGAAAGTACATTAGA
+                                    hybridid, seq = re.findall('(.+\d+\.\d)(.+)', str(hybrid))[0]
+                                    # Convert the string to a seq object
+                                    hybridseq = Seq(seq, generic_dna)
+                                    # Create a SeqRecord of the sequence - use the sequence object and id
+                                    hybridrecord = SeqRecord(hybridseq,
+                                                             description='',
+                                                             id=hybridid)
+                                    # Write the original record to the file
+                                    SeqIO.write(record, combined, 'fasta')
+                                    # Write the second record to file
+                                    SeqIO.write(hybridrecord, combined, 'fasta')
+                                else:
+                                    SeqIO.write(record, combined, 'fasta')
                 try:
-                    self.baitfile = glob('{}*.fasta'.format(self.targetpath))[0]
+                    self.baitfile = glob(os.path.join(self.targetpath, '*.fasta'))[0]
                 except IndexError as e:
                     # noinspection PyPropertyAccess
                     e.args = ['Cannot find the combined fasta file in {}. Please note that the file must have a '
                               '.fasta extension'.format(self.targetpath)]
                     raise
             # Create the hash file of the baitfile
-            targetbase = self.baitfile.split('.')[0]
+            targetbase = self.baitfile.split('.fasta')[0]
             self.hashfile = targetbase + '.mhs.gz'
             self.hashcall = 'cd {} && mirabait -b {} -k 19 -K {}'.format(self.targetpath, self.baitfile, self.hashfile)
+            # Create the hashfile if required
             if not os.path.isfile(self.hashfile):
                 call(self.hashcall, shell=True, stdout=self.devnull, stderr=self.devnull)
             # Ensure that the hash file was successfully created
@@ -168,7 +192,7 @@ class Sippr(object):
                 sample[self.analysistype].sortedbam = '{}/{}_sorted.bam'.format(sample[self.analysistype].outputdir,
                                                                                 self.analysistype)
                 # Remove the file extension of the bait file for use in the indexing command
-                sample[self.analysistype].baitfilenoext = sample[self.analysistype].baitfile.split('.')[0]
+                sample[self.analysistype].baitfilenoext = sample[self.analysistype].baitfile.split('.fasta')[0]
                 # Use bowtie2 wrapper to create index the target file
                 bowtie2build = Bowtie2BuildCommandLine(reference=sample[self.analysistype].baitfile,
                                                        bt2=sample[self.analysistype].baitfilenoext,
@@ -234,6 +258,7 @@ class Sippr(object):
         while True:
             # Get the necessary values from the queue
             sample, bowtie2build, bowtie2align, samindex = self.mapqueue.get()
+            # print(bowtie2align, bowtie2align)
             # Use samtools faidx to index the bait file - this will be used in the sample parsing
             if not os.path.isfile(sample[self.analysistype].faifile):
                 stdoutindex, stderrindex = map(StringIO, samindex(cwd=sample[self.analysistype].targetpath))
@@ -418,7 +443,8 @@ class Sippr(object):
                     averagedepth = float(depthdict[allele]) / float(matchdict[allele])
                     percentidentity = float(matchdict[allele]) / float(sample[self.analysistype].faidict[allele]) * 100
                     # Only report a positive result if this average depth is greater than the desired average depth
-                    if averagedepth > self.averagedepth:
+                    # and if the percent identity is greater or equal to the cutoff
+                    if averagedepth > self.averagedepth and percentidentity >= float(self.cutoff * 100):
                         # Populate resultsdict with the gene/allele name, the percent identity, and the average depth
                         sample[self.analysistype].results.update({allele: '{:.2f}'.format(percentidentity)})
                         sample[self.analysistype].avgdepth.update({allele: '{:.2f}'.format(averagedepth)})

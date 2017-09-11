@@ -134,7 +134,7 @@ class GeneSeekr(object):
         while True:  # while daemon
             fastapath = self.dqueue.get()  # grabs fastapath from dqueue
             # remove the path and the file extension for easier future globbing
-            db = fastapath.split('.')[0]
+            db = os.path.splitext(fastapath)[0]
             nhr = '{}.nhr'.format(db)  # add nhr for searching
             # fnull = open(os.devnull, 'w')  # define /dev/null
             if not os.path.isfile(str(nhr)):  # if check for already existing dbs
@@ -170,7 +170,7 @@ class GeneSeekr(object):
     def runblast(self):
         while True:  # while daemon
             (assembly, target, sample) = self.blastqueue.get()  # grabs fastapath from dqueue
-            genome = os.path.split(assembly)[1].split('.')[0]
+            genome = os.path.splitext(os.path.split(assembly)[1])[0]
             # Run the BioPython BLASTn module with the genome as query, fasta(target gene) as db.
             # Do not re-perform the BLAST search each time
             make_path(sample[self.analysistype].reportdir)
@@ -189,7 +189,7 @@ class GeneSeekr(object):
                 sample[self.analysistype].report \
                     = '{}{}_rawresults_{:}.csv'.format(sample[self.analysistype].reportdir, genome,
                                                        time.strftime("%Y.%m.%d.%H.%M.%S"))
-            db = target.split('.')[0]
+            db = os.path.splitext(target)[0]
             # BLAST command line call. Note the mildly restrictive evalue, and the high number of alignments.
             # Due to the fact that all the targets are combined into one database, this is to ensure that all potential
             # alignments are reported. Also note the custom outfmt: the doubled quotes are necessary to get it work
@@ -874,7 +874,7 @@ if __name__ == '__main__':
                 # Create the object
                 metadata = MetadataObject()
                 # Set the base file name of the sequence. Just remove the file extension
-                filename = os.path.split(sample)[1].split('.')[0]
+                filename = os.path.splitext(os.path.split(sample)[1])[0]
                 # Set the .name attribute to be the file name
                 metadata.name = filename
                 # Create the .general attribute
@@ -886,7 +886,6 @@ if __name__ == '__main__':
                 metadata[self.analysistype].targets = self.targets
                 metadata[self.analysistype].combinedtargets = self.combinedtargets
                 metadata[self.analysistype].targetpath = self.targetpath
-                # metadata[self.analysistype].targetnames = [os.path.split(x)[1].split('.')[0] for x in self.targets]
                 metadata[self.analysistype].targetnames = sequencenames(self.combinedtargets)
                 metadata[self.analysistype].reportdir = self.reportpath
                 # Append the metadata for each sample to the list of samples
