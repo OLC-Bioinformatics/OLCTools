@@ -37,7 +37,23 @@ class CLARK(object):
         #
         subprocess.call(self.targetcall, shell=True, stdout=self.devnull, stderr=self.devnull)
         # Classify the metagenome(s)
+        if self.clean_seqs:
+            self.clean_sequences()
         self.classifymetagenome()
+
+    def clean_sequences(self):
+        """Removes reads/contigs that contain plasmids, and masks phage sequences."""
+        printtime('Removing plasmid and masking phage', self.start)
+        plasmid_db = '/mnt/nas/Adam/assemblypipeline/plasmidfinder/plasmid_database.fa'
+        phage_db = '/mnt/nas/Adam/assemblypipeline/prophages/combinedtargets.tfa'
+        for sample in self.runmetadata.samples:
+            plasmid_removal = 'bbduk.sh ref={} in={} out={} overwrite'.format(plasmid_db, sample.general.combined, sample.general.combined.replace('.f', '_noplasmid.f'))
+            subprocess.call(plasmid_removal, shell=True, stdout=self.devnull, stderr=self.devnull)
+            phage_masking = 'bbduk.sh ref={} in={} out={} kmask=N overwrite'.format(phage_db, sample.general.combined.replace('.f', '_noplasmid.f'), sample.general.combined.replace('.f', '_clean.f'))
+            subprocess.call(phage_masking, shell=True, stdout=self.devnull, stderr=self.devnull)
+            os.remove(sample.general.combined)
+            os.rename(sample.general.combined.replace('.f', '_clean.f'), sample.general.combined)
+            os.remove(sample.general.combined.replace('.f', '_noplasmid.f'))
 
     def classifymetagenome(self):
         """Run the classify metagenome of the CLARK package on the samples"""
@@ -261,6 +277,7 @@ class CLARK(object):
         self.abundancequeue = Queue()
         self.datapath = ''
         self.reportpath = os.path.join(self.path, 'reports')
+        self.clean_seqs = args.clean_seqs
         # If run as part of the assembly pipeline, a few modifications are necessary to ensure that the metadata objects
         # and variables play nice
         try:
@@ -371,6 +388,9 @@ if __name__ == '__main__':
                         default=0.01,
                         help='Cutoff value for setting taxIDs to use when filtering fastq files. Defaults to 1 percent.'
                              ' Please note that you must use a decimal format: enter 0.05 to get a 5 percent cutoff.')
+    parser.add_argument('-cl', '--clean_seqs', default=False, action='store_true', help='If enabled, removes plasmid sequences and'
+                                                                         'masks phage sequences. Only usable if you '
+                                                                         'have access to the OLC NAS.')
     # Get the arguments into an object
     arguments = parser.parse_args()
 
