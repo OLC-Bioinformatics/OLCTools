@@ -15,7 +15,7 @@ class CLARK(object):
         from spadespipeline import createobject
         # Move the files to subfolders and create objects
         self.runmetadata = createobject.ObjectCreation(self)
-        if self.runmetadata.extension == '.fastq':
+        if self.runmetadata.extension == 'fastq':
             # To streamline the CLARK process, decompress and combine .gz and paired end files as required
             printtime('Decompressing and combining .fastq files for CLARK analysis', self.start)
             fileprep.Fileprep(self)
@@ -61,7 +61,7 @@ class CLARK(object):
         for sample in self.runmetadata.samples:
             # Define the name of the .csv classification file
             sample.general.classification = sample.general.combined.split('.')[0] + '.csv'
-            # If the file exists, then set classify to True
+            # If the file exists, then set classify to False
             if os.path.isfile(sample.general.classification):
                 classify = False
         # Run the system call if the samples have not been classified
@@ -141,7 +141,7 @@ class CLARK(object):
         # List of the headers to use
         headers = ['Strain', 'Name', 'TaxID', 'Lineage', 'Count', 'Proportion_All(%)', 'Proportion_Classified(%)']
         # Add an additional header for .fasta analyses
-        if self.runmetadata.extension == '.fasta':
+        if self.runmetadata.extension == 'fasta':
             headers.insert(4, 'TotalBP')
         # Populate the headers
         for category in headers:
@@ -192,7 +192,7 @@ class CLARK(object):
                 # contigs map to TaxID 630, however, added together, those 56 contigs are 4705838 bp, while the 50
                 # contigs added together are only 69602 bp. While this is unlikely a pure culture, only
                 # 69602 / (4705838 + 69602) = 1.5% of the total bp map to TaxID 630 compared to 45% of the contigs
-                if self.runmetadata.extension == '.fasta':
+                if self.runmetadata.extension == 'fasta':
                     # Initialise a variable to store the total bp mapped to the TaxID
                     result['TotalBP'] = int()
                     # Read the classification file into a dictionary
@@ -274,14 +274,12 @@ class CLARK(object):
                 if not os.path.isfile(self.report):
                     #
                     printtime('Performing CLARK analysis on {} files'.format(self.extension), self.start)
-                    if self.extension == '.fastq':
+                    if self.extension == 'fastq':
                         fileprep.Fileprep(self)
                     else:
                         for sample in self.runmetadata.samples:
                             sample.general.combined = sample.general.bestassemblyfile
-                    # Set the targets
-                    self.settargets()
-                    # Clean up the files and create/delete attributes to be consistent with pipeline Metadata objects
+                    # Prepare the objects to be processed with CLARK
                     for sample in self.runmetadata.samples:
                         # Create a GenObject to store metadata when this script is run as part of the pipeline
                         clarkextension = 'clark{}'.format(self.extension)
@@ -289,6 +287,10 @@ class CLARK(object):
                         # Create a folder to store all the CLARK files
                         sample[clarkextension].outputpath = os.path.join(sample.general.outputdirectory, 'CLARK')
                         make_path(sample[clarkextension].outputpath)
+                    # Set the targets and perform the analyses
+                    self.settargets()
+                    # Clean up the files and create/delete attributes to be consistent with pipeline Metadata objects
+                    for sample in self.runmetadata.samples:
                         # Move the files to the CLARK folder
                         move(sample.general.abundance,
                              '{}/{}'.format(sample[clarkextension].outputpath,
@@ -393,8 +395,13 @@ class PipelineInit(object):
         args = MetadataObject()
         args.path = inputobject.path
         args.sequencepath = inputobject.path
-        args.databasepath = '/mnt/nas/Adam/RefseqDatabase/Bos_taurus'
-        args.clarkpath = '/mnt/nas/bio_requests/7482/CLARKSCV1.2.3'
+        # args.databasepath = os.path.join(inputobject.reffilepath, 'clark')
+        args.databasepath = '{}clark'.format(inputobject.reffilepath)
+        make_path(args.databasepath)
+        args.clarkpath = os.path.split(subprocess.run(['which', 'estimate_abundance.sh'],
+                                                      stdout=subprocess.PIPE).stdout.decode('utf-8').rstrip())[0]
+        # args.databasepath = '/mnt/nas/Adam/RefseqDatabase/Bos_taurus'
+        # args.clarkpath = '/mnt/nas/bio_requests/7482/CLARKSCV1.2.3'
         args.cutoff = 0.005
         args.database = 'bacteria'
         args.rank = 'species'
@@ -403,14 +410,14 @@ class PipelineInit(object):
         args.runmetadata = inputobject.runmetadata
         if analysis == 'pipeline':
             # Run CLARK on both .fastq and .fasta files
-            for extension in ['.fastq', '.fasta']:
+            for extension in ['fastq', 'fasta']:
                 args.runmetadata.extension = extension
-                if extension == '.fasta':
+                if extension == 'fasta':
                     # Overwrite the .sequencepath attribute to point to the folder storing all the assemblies
                     args.sequencepath = os.path.join(args.path, 'BestAssemblies')
-            # Run CLARK
-            CLARK(args, inputobject.commit, inputobject.starttime, inputobject.homepath)
+                # Run CLARK
+                CLARK(args, inputobject.commit, inputobject.starttime, inputobject.homepath)
         else:
-            args.runmetadata.extension = '.fasta'
+            args.runmetadata.extension = 'fasta'
             # Run CLARK
             CLARK(args, inputobject.commit, inputobject.starttime, inputobject.homepath)
