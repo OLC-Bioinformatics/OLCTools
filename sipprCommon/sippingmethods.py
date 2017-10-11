@@ -53,20 +53,20 @@ class Sippr(object):
                 if sample.general.bestassemblyfile != 'NA':
                     # Create the hash file of the baitfile
                     targetbase = sample[self.analysistype].baitfile.split('.fasta')[0]
-                    # sample[self.analysistype].hashfile = targetbase + '.mhs.gz'
-                    # sample[self.analysistype].hashcall = 'cd {} && mirabait -b {} -k 19 -K {}'\
-                    #     .format(sample[self.analysistype].targetpath,
-                    #             sample[self.analysistype].baitfile,
-                    #             sample[self.analysistype].hashfile)
-                    # if not os.path.isfile(sample[self.analysistype].hashfile):
-                    #     call(sample[self.analysistype].hashcall, shell=True, stdout=self.devnull, stderr=self.devnull)
+                    sample[self.analysistype].hashfile = targetbase + '.mhs.gz'
+                    sample[self.analysistype].hashcall = 'cd {} && mirabait -b {} -k 19 -K {}'\
+                        .format(sample[self.analysistype].targetpath,
+                                sample[self.analysistype].baitfile,
+                                sample[self.analysistype].hashfile)
+                    if not os.path.isfile(sample[self.analysistype].hashfile):
+                        call(sample[self.analysistype].hashcall, shell=True, stdout=self.devnull, stderr=self.devnull)
                     # Ensure that the hash file was successfully created
-                    # assert os.path.isfile(sample[self.analysistype].hashfile), \
-                    #     u'Hashfile could not be created for the target file {0!r:s}'.format(
-                    #         sample[self.analysistype].baitfile)
+                    assert os.path.isfile(sample[self.analysistype].hashfile), \
+                        u'Hashfile could not be created for the target file {0!r:s}'.format(
+                            sample[self.analysistype].baitfile)
                     sample[self.analysistype].outputdir = os.path.join(sample.run.outputdirectory, self.analysistype)
                     sample[self.analysistype].baitedfastq = \
-                        '{}/{}_targetMatches.fastq.gz'.format(sample[self.analysistype].outputdir, self.analysistype)
+                        '{}/{}_targetMatches.fastq'.format(sample[self.analysistype].outputdir, self.analysistype)
         else:
             # There is a relatively strict databasing scheme necessary for the custom targets. Eventually, there will
             # be a helper script to combine individual files into a properly formatted combined file
@@ -112,16 +112,16 @@ class Sippr(object):
                     e.args = ['Cannot find the combined fasta file in {}. Please note that the file must have a '
                               '.fasta extension'.format(self.targetpath)]
                     raise
-            # # Create the hash file of the baitfile
-            # targetbase = self.baitfile.split('.fasta')[0]
-            # self.hashfile = targetbase + '.mhs.gz'
-            # self.hashcall = 'cd {} && mirabait -b {} -k 19 -K {}'.format(self.targetpath, self.baitfile, self.hashfile)
-            # # Create the hashfile if required
-            # if not os.path.isfile(self.hashfile):
-            #     call(self.hashcall, shell=True, stdout=self.devnull, stderr=self.devnull)
+            # Create the hash file of the baitfile
+            targetbase = self.baitfile.split('.fasta')[0]
+            self.hashfile = targetbase + '.mhs.gz'
+            self.hashcall = 'cd {} && mirabait -b {} -k 19 -K {}'.format(self.targetpath, self.baitfile, self.hashfile)
+            # Create the hashfile if required
+            if not os.path.isfile(self.hashfile):
+                call(self.hashcall, shell=True, stdout=self.devnull, stderr=self.devnull)
             # Ensure that the hash file was successfully created
-            # assert os.path.isfile(self.hashfile), u'Hashfile could not be created for the target file {0!r:s}' \
-            #     .format(self.baitfile)
+            assert os.path.isfile(self.hashfile), u'Hashfile could not be created for the target file {0!r:s}' \
+                .format(self.baitfile)
             for sample in self.runmetadata:
                 setattr(sample, self.analysistype, GenObject())
                 # Set attributes
@@ -130,152 +130,54 @@ class Sippr(object):
                 sample[self.analysistype].hashcall = self.hashcall
                 sample[self.analysistype].targetpath = self.targetpath
                 sample[self.analysistype].outputdir = os.path.join(sample.run.outputdirectory, self.analysistype)
-                sample[self.analysistype].baitedfastq = '{}/{}_targetMatches.fastq.gz'.format(sample[self.analysistype]
+                sample[self.analysistype].baitedfastq = '{}/{}_targetMatches.fastq'.format(sample[self.analysistype]
                                                                                            .outputdir,
                                                                                            self.analysistype)
         # Bait
-        self.bait()
+        self.baiting()
+
+    def baiting(self):
+        # Perform baiting
+        printtime('Performing kmer baiting of fastq files with {} targets'.format(self.analysistype), self.start)
+        # Create and start threads for each fasta file in the list
+        for i in range(len(self.runmetadata)):
+            # Send the threads to the bait method
+            threads = Thread(target=self.bait, args=())
+            # Set the daemon to true - something to do with thread management
+            threads.setDaemon(True)
+            # Start the threading
+            threads.start()
+        for sample in self.runmetadata:
+            if sample.general.bestassemblyfile != 'NA':
+                # Add the sample to the queue
+                self.baitqueue.put(sample)
+        self.baitqueue.join()
+        # Run the bowtie2 read mapping module
+        self.mapping()
 
     def bait(self):
         """
-        Use bbduk to perform baiting
+        Runs mirabait on the fastq files
         """
-        printtime('Performing kmer baiting of fastq files with {} targets'.format(self.analysistype), self.start)
-        for sample in self.runmetadata:
-            if sample.general.bestassemblyfile != 'NA':
-                # Create the folder (if necessary)
-                make_path(sample[self.analysistype].outputdir)
-                # Make the system call
-                if len(sample.general.fastqfiles) == 2:
-                    # Create the command to run the baiting - paired inputs and a single, zipped output
-                    sample[self.analysistype].bbdukcmd = 'bbduk.sh ref={} in1={} in2={} threads={} outm={}' \
-                        .format(sample[self.analysistype].baitfile,
-                                sample.general.trimmedcorrectedfastqfiles[0],
-                                sample.general.trimmedcorrectedfastqfiles[1],
-                                str(self.threads),
-                                sample[self.analysistype].baitedfastq)
-                else:
-                    sample[self.analysistype].bbdukcmd = 'bbduk.sh ref={} in={} threads={} outm={}' \
-                        .format(sample[self.analysistype].baitfile,
-                                sample.general.trimmedcorrectedfastqfiles[0],
-                                str(self.threads),
-                                sample[self.analysistype].baitedfastq)
-                # Run the system call (if necessary) , stdout=self.devnull, stderr=self.devnull
-                if not os.path.isfile(sample[self.analysistype].baitedfastq):
-                    call(sample[self.analysistype].bbdukcmd, shell=True)
-        if self.revbait:
-            self.reversebait()
-        else:
-            self.mapping1()
-
-    def reversebait(self):
-        """
-
-        """
-        printtime('Performing reverse kmer baiting of targets with fastq files', self.start)
-        for sample in self.runmetadata:
-            if sample.general.bestassemblyfile != 'NA':
-                outfile = os.path.join(sample[self.analysistype].outputdir, 'baitedtargets.fa')
-                sample[self.analysistype].revbbdukcmd = 'bbduk.sh ref={} in={} threads={} mincovfraction={} maskmiddle=f outm={}'\
-                    .format(sample[self.analysistype].baitedfastq,
-                            sample[self.analysistype].baitfile,
-                            str(self.threads),
-                            self.cutoff,
-                            outfile)
-                # Run the system call (if necessary) , stdout=self.devnull, stderr=self.devnull
-                if not os.path.isfile(outfile):
-                    call(sample[self.analysistype].revbbdukcmd, shell=True)
-                # Set the baitfile to use in the mapping steps as the newly created outfile
-                sample[self.analysistype].baitfile = outfile
-        self.mapping1()
-        # if self.subsample:
-        #     # self.subsample_reads()
-        #     self.mapping1()
-        # else:
-        #     # Run the read mapping module
-        #     self.mapping1()
-
-    def subsample_reads(self):
-        """
-        Subsampling of reads to 20X coverage of rMLST genes (roughly).
-        To be called after rMLST extraction and read trimming, in that order.
-        """
-        printtime('Subsampling {} reads'.format(self.analysistype), self.start)
-        for sample in self.runmetadata:
-            # Create the name of the subsampled read file
-            sample[self.analysistype].subsampledreads = os.path.join(
-                sample[self.analysistype].outputdir, '{}_targetMatches_subsampled.fastq.gz'.format(self.analysistype))
-            # Set the reformat.sh command - as this command will be run multiple times, overwrite previous iterations
-            # each time. Use samplebasestarget to provide an approximation of the number of bases to include in the
-            # subsampled reads e.g. for rMLST: 700000 (approx. 35000 bp total length of genes x 20X coverage)
-            sample[self.analysistype].subsamplecmd = 'reformat.sh in={} out={} overwrite samplebasestarget=700000' \
-                .format(sample[self.analysistype].baitedfastq,
-                        sample[self.analysistype].subsampledreads)
-            if not os.path.isfile(sample[self.analysistype].subsampledreads):
-                # Run the call
-                call(sample[self.analysistype].subsamplecmd, shell=True, stdout=self.devnull, stderr=self.devnull)
-            # Update the variable to store the baited reads
-            sample[self.analysistype].baitedfastq = sample[self.analysistype].subsampledreads
+        while True:
+            sample = self.baitqueue.get()
+            # Create the folder (if necessary)
+            make_path(sample[self.analysistype].outputdir)
+            # Make the system call
+            if len(sample.general.fastqfiles) == 2:
+                sample[self.analysistype].mirabaitcall = 'mirabait -c -B {} -t 4 -o {} -p {} {}' \
+                    .format(sample[self.analysistype].hashfile, sample[self.analysistype].baitedfastq,
+                            sample.general.fastqfiles[0], sample.general.fastqfiles[1])
+            else:
+                sample[self.analysistype].mirabaitcall = 'mirabait -c -B {} -t 4 -o {} {}' \
+                    .format(sample[self.analysistype].hashfile, sample[self.analysistype].baitedfastq,
+                            sample.general.fastqfiles[0])
+            # Run the system call (if necessary)
+            if not os.path.isfile(sample[self.analysistype].baitedfastq):
+                call(sample[self.analysistype].mirabaitcall, shell=True, stdout=self.devnull, stderr=self.devnull)
+            self.baitqueue.task_done()
 
     def mapping(self):
-        """
-        Runs bbmap on kmer fasta file, against kmer fasta file to generate a samfile which can then be parsed to find
-        low frequency kmers that have one mismatch to high frequency kmers, indicating that they're from contaminating
-        alleles.
-        """
-        printtime('Performing reference mapping', self.start)
-        # Determine the location of the SAM header editing script
-        import sipprCommon.editsamheaders
-        scriptlocation = sipprCommon.editsamheaders.__file__
-        for sample in self.runmetadata:
-            if sample.general.bestassemblyfile != 'NA':
-                # Create the name for the output bam file
-                sample[self.analysistype].bamfile = os.path.join(
-                    sample[self.analysistype].outputdir,
-                    '{}.bam'.format(self.analysistype))
-                sample[self.analysistype].sortedbam = os.path.join(
-                    sample[self.analysistype].outputdir,
-                    '{}_sorted.bam'.format(self.analysistype))
-                # Set the bbmap call use ambig=all to use all highest scoring mappings, nodisk to build index in
-                # memory, and only write output to disk, local to allow soft-clipping
-                # quickmatch=t
-                sample[self.analysistype].bbmapcmd = \
-                    'bbmap.sh ref={} in={} outm=stdout.sam ambig=all local vslow k=8 secondary maxsites=1000000 saa=f maxindel=200 maxsites2=1000000 threads={} | python3 {} | samtools sort - --threads {} -o {}'\
-                    .format(sample[self.analysistype].baitfile,
-                            sample[self.analysistype].baitedfastq,
-                            # sample[self.analysistype].bamfile,
-                            str(self.threads),
-                            scriptlocation,
-                            # sample[self.analysistype].bamfile,
-                            str(self.threads),
-                            sample[self.analysistype].sortedbam
-                            )
-                # Run the call
-                if not os.path.isfile(sample[self.analysistype].sortedbam):
-                    # , stdout=self.devnull, stderr=self.devnull
-                    call(sample[self.analysistype].bbmapcmd, shell=True)
-                # Sort the bam files
-                # sample[self.analysistype].sortcommand = 'samtools sort {} --threads {} -o {}' \
-                #     .format(sample[self.analysistype].bamfile,
-                #             str(self.threads),
-                #             sample[self.analysistype].sortedbam)
-                # if not os.path.isfile(sample[self.analysistype].sortedbam):
-                #     call(sample[self.analysistype].sortcommand, shell=True)
-                # Create the command to faidx index the bait file
-                sample[self.analysistype].faifile = sample[self.analysistype].baitfile + '.fai'
-                samindex = SamtoolsFaidxCommandline(reference=sample[self.analysistype].baitfile)
-                if not os.path.isfile(sample[self.analysistype].faifile):
-                    stdoutindex, stderrindex = map(StringIO, samindex(cwd=sample[self.analysistype].targetpath))
-                    # Write any error to a log file
-                    if stderrindex:
-                        # Write the standard error to log, bowtie2 puts alignment summary here
-                        with open(os.path.join(sample[self.analysistype].targetpath,
-                                               '{}_samtools_index.log'.format(self.analysistype)), 'a+') as log:
-                                log.writelines(logstr(samindex, stderrindex.getvalue(), stdoutindex.getvalue()))
-
-        self.indexing()
-
-    def mapping1(self):
         printtime('Performing reference mapping', self.start)
         for i in range(len(self.runmetadata)):
             # Send the threads to
@@ -316,9 +218,8 @@ class Sippr(object):
                     samsort]
                 # Add custom parameters to a dictionary to be used in the bowtie2 alignment wrapper
                 indict = {'--very-sensitive-local': True,
-                # indict = {'--very-fast-local': True,
                           # For short targets, the match bonus can be increased
-                          # '--ma': self.matchbonus,
+                          '--ma': self.matchbonus,
                           '-U': sample[self.analysistype].baitedfastq,
                           '-a': True,
                           '--threads': self.threads,
@@ -428,7 +329,6 @@ class Sippr(object):
             threads.start()
         for sample in self.runmetadata:
             if sample.general.bestassemblyfile != 'NA':
-                print(sample[self.analysistype].sortedbam, sample[self.analysistype].baitfile)
                 # Get the fai file into a dictionary to be used in parsing results
                 with open(sample[self.analysistype].faifile, 'r') as faifile:
                     for line in faifile:
@@ -559,7 +459,7 @@ class Sippr(object):
             self.parsequeue.task_done()
 
     # noinspection PyDefaultArgument
-    def __init__(self, inputobject, cutoff=0.98, revbait=False):
+    def __init__(self, inputobject, cutoff=0.98, matchbonus=2, builddict=dict(), extension='.bt2'):
         from queue import Queue
         self.path = inputobject.path
         self.sequencepath = inputobject.sequencepath
@@ -574,12 +474,13 @@ class Sippr(object):
         self.homepath = inputobject.homepath
         self.taxonomy = inputobject.taxonomy
         self.cutoff = cutoff
-        self.builddict = dict()
-        self.bowtiebuildextension = '.bt2'
+        self.matchbonus = matchbonus
+        self.builddict = builddict
+        self.bowtiebuildextension = extension
         try:
             self.averagedepth = inputobject.averagedepth
         except AttributeError:
-            self.averagedepth = 5
+            self.averagedepth = 10
         self.baitfile = str()
         self.hashfile = str()
         self.hashcall = str()
@@ -588,10 +489,6 @@ class Sippr(object):
         self.mapqueue = Queue(maxsize=self.cpus)
         self.indexqueue = Queue(maxsize=self.cpus)
         self.parsequeue = Queue(maxsize=self.cpus)
-        try:
-            self.revbait = inputobject.rebait
-        except AttributeError:
-            self.revbait = revbait
         # Run the analyses
         self.targets()
         # Print the metadata
