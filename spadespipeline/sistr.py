@@ -103,7 +103,8 @@ class Sistr(object):
         self.analysistype = analysistype
         # self.devnull = open(os.devnull, 'wb')
         self.queue = Queue()
-        self.headers = ['genome', 'cgmlst_distance', 'cgmlst_genome_match', 'cgmlst_matching_alleles', 'h1', 'h2',
+        self.headers = ['genome', 'cgmlst_distance', 'cgmlst_genome_match',
+                        'cgmlst_matching_alleles', 'h1', 'h2',
                         'serogroup', 'serovar', 'serovar_antigen', 'serovar_cgmlst']
         # Run the analyses
         self.sistr()
@@ -121,6 +122,7 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--sequencepath',
                         required=True,
                         help='Path of .fastq(.gz) files to process.')
+    parser.add_argument('logfile', help='Name of logfile.')
     # Get the arguments into an object
     arguments = parser.parse_args()
 
