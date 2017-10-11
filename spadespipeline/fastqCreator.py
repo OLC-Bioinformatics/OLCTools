@@ -13,6 +13,7 @@ class CreateFastq(object):
     def createfastq(self):
         """Uses bcl2fastq to create .fastq files from a MiSeqRun"""
         from time import sleep
+        from subprocess import call
         # Initialise samplecount
         samplecount = 0
         # If the fastq destination folder is not provided, make the default value of :path/:miseqfoldername
