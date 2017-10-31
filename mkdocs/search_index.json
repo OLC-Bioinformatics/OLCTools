@@ -2,43 +2,23 @@
     "docs": [
         {
             "location": "/",
-            "text": "Welcome to OLCTools\n\n\nHere, you will find documentation on the various sub-packages available within OLCTools.\n\n\nBioTools\n\n\nWrappers for commonly used programs, as well as a few handy methods.",
+            "text": "Welcome to OLCTools\n\n\nHere, you will find documentation on the various sub-packages available within OLCTools.\n\n\nBioTools\n\n\nWrappers for commonly used programs, as well as a few handy methods.\n\n\nWill this text show up if I just push changes and don't do a gh-deploy? Let's find out.",
             "title": "Home"
         },
         {
             "location": "/#welcome-to-olctools",
-            "text": "Here, you will find documentation on the various sub-packages available within OLCTools.  BioTools  Wrappers for commonly used programs, as well as a few handy methods.",
+            "text": "Here, you will find documentation on the various sub-packages available within OLCTools.  BioTools  Wrappers for commonly used programs, as well as a few handy methods.  Will this text show up if I just push changes and don't do a gh-deploy? Let's find out.",
             "title": "Welcome to OLCTools"
         },
         {
             "location": "/bbtools/",
-            "text": "BBTools Overview\n\n\nBBTools is an excellent suite of programs created by Brian Bushnell, which you can find \nhere\n.\n\n\nThe following wrappers for BBTools have been written:\n\n\nBBMap\n\n\nfrom biotools import bbtools\nbbtools.bbmap(reference, forward\\_in, out_bam)\n\n\n\n\nBBDuk_Trim\n\n\nfrom biotools import bbtools\nbbtools.bbduk\\_trim(forward\\_in, forward_out)\n\n\n\n\nBBDuk_Filter\n\n\nBBDuk_Bait",
+            "text": "BBTools Overview\n\n\nBBTools is an excellent suite of programs created by Brian Bushnell, which you can find \nhere\n.\n\n\nNOTE: The shell scripts used for calling the BBTools programs must be accessible from your $PATH for these wrappers to function.\n\n\nAll wrappers return out and err, the STDOUT and STDERR from the program being called.\n\n\nThe following wrappers for BBTools have been written:\n\n\nBBMap\n\n\nfrom biotools import bbtools\nout, err = bbtools.bbmap(reference, forward\\_in, out_bam)\n\n\n\n\nHere, reference should be the path to a FASTA (or multi-FASTA) file for reads to be aligned against, forward_in is a the path to a set of FASTQ reads (either compressed or uncompressed), and out_bam is\nan output file to write the alignment to (use a .bam ending to get BAM output, .sam to get SAM output).\n\n\nIf your reads are paired end, in the same folder, and follow the R1/R2 naming convention common to Illumina MiSeqs, the reverse reads will be found automatically if the forward reads are passed with the \nforward_in parameter. If the convention is not followed, add a reverse_in='path/to/reverse/reads/' to have the reverse reads also used.\n\n\nBy default, BBMap will use all cores on your computer. To change this, add the argument threads='Number', where Number is the number of cores you want to use. All other arguments accepted by BBMap can also be passed in this fashion.\n\n\nBBDuk_Trim\n\n\nfrom biotools import bbtools\nout, err = bbtools.bbduk\\_trim(forward\\_in, forward_out)\n\n\n\n\nDoes quality trimming of reads. As with bbmap, if R1/R2 naming convention is used, reverse input/output don't need to be specified. If convention isn't followed, specify with reverse_in='path' and reverse_out='path'. \n\n\nBBDuk_Filter\n\n\nBBDuk_Bait",
             "title": "Bbtools"
         },
         {
             "location": "/bbtools/#bbtools-overview",
-            "text": "BBTools is an excellent suite of programs created by Brian Bushnell, which you can find  here .  The following wrappers for BBTools have been written:",
+            "text": "BBTools is an excellent suite of programs created by Brian Bushnell, which you can find  here .  NOTE: The shell scripts used for calling the BBTools programs must be accessible from your $PATH for these wrappers to function.  All wrappers return out and err, the STDOUT and STDERR from the program being called.  The following wrappers for BBTools have been written:  BBMap  from biotools import bbtools\nout, err = bbtools.bbmap(reference, forward\\_in, out_bam)  Here, reference should be the path to a FASTA (or multi-FASTA) file for reads to be aligned against, forward_in is a the path to a set of FASTQ reads (either compressed or uncompressed), and out_bam is\nan output file to write the alignment to (use a .bam ending to get BAM output, .sam to get SAM output).  If your reads are paired end, in the same folder, and follow the R1/R2 naming convention common to Illumina MiSeqs, the reverse reads will be found automatically if the forward reads are passed with the \nforward_in parameter. If the convention is not followed, add a reverse_in='path/to/reverse/reads/' to have the reverse reads also used.  By default, BBMap will use all cores on your computer. To change this, add the argument threads='Number', where Number is the number of cores you want to use. All other arguments accepted by BBMap can also be passed in this fashion.  BBDuk_Trim  from biotools import bbtools\nout, err = bbtools.bbduk\\_trim(forward\\_in, forward_out)  Does quality trimming of reads. As with bbmap, if R1/R2 naming convention is used, reverse input/output don't need to be specified. If convention isn't followed, specify with reverse_in='path' and reverse_out='path'.   BBDuk_Filter  BBDuk_Bait",
             "title": "BBTools Overview"
-        },
-        {
-            "location": "/bbtools/#bbmap",
-            "text": "from biotools import bbtools\nbbtools.bbmap(reference, forward\\_in, out_bam)",
-            "title": "BBMap"
-        },
-        {
-            "location": "/bbtools/#bbduk_trim",
-            "text": "from biotools import bbtools\nbbtools.bbduk\\_trim(forward\\_in, forward_out)",
-            "title": "BBDuk_Trim"
-        },
-        {
-            "location": "/bbtools/#bbduk_filter",
-            "text": "",
-            "title": "BBDuk_Filter"
-        },
-        {
-            "location": "/bbtools/#bbduk_bait",
-            "text": "",
-            "title": "BBDuk_Bait"
         },
         {
             "location": "/jellyfish/",

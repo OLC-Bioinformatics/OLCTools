@@ -149,19 +149,27 @@
               
                 <h1 id="bbtools-overview">BBTools Overview</h1>
 <p>BBTools is an excellent suite of programs created by Brian Bushnell, which you can find <a href="https://jgi.doe.gov/data-and-tools/bbtools/">here</a>.</p>
+<p>NOTE: The shell scripts used for calling the BBTools programs must be accessible from your $PATH for these wrappers to function.</p>
+<p>All wrappers return out and err, the STDOUT and STDERR from the program being called.</p>
 <p>The following wrappers for BBTools have been written:</p>
-<h2 id="bbmap">BBMap</h2>
+<h3 id="bbmap">BBMap</h3>
 <pre><code class="python">from biotools import bbtools
-bbtools.bbmap(reference, forward\_in, out_bam)
+out, err = bbtools.bbmap(reference, forward\_in, out_bam)
 </code></pre>
 
-<h2 id="bbduk_trim">BBDuk_Trim</h2>
+<p>Here, reference should be the path to a FASTA (or multi-FASTA) file for reads to be aligned against, forward_in is a the path to a set of FASTQ reads (either compressed or uncompressed), and out_bam is
+an output file to write the alignment to (use a .bam ending to get BAM output, .sam to get SAM output).</p>
+<p>If your reads are paired end, in the same folder, and follow the R1/R2 naming convention common to Illumina MiSeqs, the reverse reads will be found automatically if the forward reads are passed with the 
+forward_in parameter. If the convention is not followed, add a reverse_in='path/to/reverse/reads/' to have the reverse reads also used.</p>
+<p>By default, BBMap will use all cores on your computer. To change this, add the argument threads='Number', where Number is the number of cores you want to use. All other arguments accepted by BBMap can also be passed in this fashion.</p>
+<h3 id="bbduk_trim">BBDuk_Trim</h3>
 <pre><code class="python">from biotools import bbtools
-bbtools.bbduk\_trim(forward\_in, forward_out)
+out, err = bbtools.bbduk\_trim(forward\_in, forward_out)
 </code></pre>
 
-<h2 id="bbduk_filter">BBDuk_Filter</h2>
-<h2 id="bbduk_bait">BBDuk_Bait</h2>
+<p>Does quality trimming of reads. As with bbmap, if R1/R2 naming convention is used, reverse input/output don't need to be specified. If convention isn't followed, specify with reverse_in='path' and reverse_out='path'. </p>
+<h3 id="bbduk_filter">BBDuk_Filter</h3>
+<h3 id="bbduk_bait">BBDuk_Bait</h3>
               
             </div>
           </div>
