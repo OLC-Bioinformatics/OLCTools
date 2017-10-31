@@ -1,0 +1,59 @@
+{
+    "docs": [
+        {
+            "location": "/",
+            "text": "Welcome to OLCTools\n\n\nHere, you will find documentation on the various sub-packages available within OLCTools.\n\n\nBioTools\n\n\nWrappers for commonly used programs, as well as a few handy methods.",
+            "title": "Home"
+        },
+        {
+            "location": "/#welcome-to-olctools",
+            "text": "Here, you will find documentation on the various sub-packages available within OLCTools.  BioTools  Wrappers for commonly used programs, as well as a few handy methods.",
+            "title": "Welcome to OLCTools"
+        },
+        {
+            "location": "/bbtools/",
+            "text": "BBTools Overview\n\n\nBBTools is an excellent suite of programs created by Brian Bushnell, which you can find \nhere\n.\n\n\nThe following wrappers for BBTools have been written:\n\n\nBBMap\n\n\nfrom biotools import bbtools\nbbtools.bbmap(reference, forward_in, out_bam)\n\n\n\n\nBBDuk_Trim\n\n\nBBDuk_Filter\n\n\nBBDuk_Bait",
+            "title": "Bbtools"
+        },
+        {
+            "location": "/bbtools/#bbtools-overview",
+            "text": "BBTools is an excellent suite of programs created by Brian Bushnell, which you can find  here .  The following wrappers for BBTools have been written:",
+            "title": "BBTools Overview"
+        },
+        {
+            "location": "/bbtools/#bbmap",
+            "text": "from biotools import bbtools\nbbtools.bbmap(reference, forward_in, out_bam)",
+            "title": "BBMap"
+        },
+        {
+            "location": "/bbtools/#bbduk_trim",
+            "text": "",
+            "title": "BBDuk_Trim"
+        },
+        {
+            "location": "/bbtools/#bbduk_filter",
+            "text": "",
+            "title": "BBDuk_Filter"
+        },
+        {
+            "location": "/bbtools/#bbduk_bait",
+            "text": "",
+            "title": "BBDuk_Bait"
+        },
+        {
+            "location": "/jellyfish/",
+            "text": "",
+            "title": "Jellyfish"
+        },
+        {
+            "location": "/kmc/",
+            "text": "",
+            "title": "Kmc"
+        },
+        {
+            "location": "/mash/",
+            "text": "",
+            "title": "Mash"
+        }
+    ]
+}
