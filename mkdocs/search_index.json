@@ -12,7 +12,7 @@
         },
         {
             "location": "/bbtools/",
-            "text": "BBTools Overview\n\n\nBBTools is an excellent suite of programs created by Brian Bushnell, which you can find \nhere\n.\n\n\nThe following wrappers for BBTools have been written:\n\n\nBBMap\n\n\nfrom biotools import bbtools\nbbtools.bbmap(reference, forward_in, out_bam)\n\n\n\n\nBBDuk_Trim\n\n\nBBDuk_Filter\n\n\nBBDuk_Bait",
+            "text": "BBTools Overview\n\n\nBBTools is an excellent suite of programs created by Brian Bushnell, which you can find \nhere\n.\n\n\nThe following wrappers for BBTools have been written:\n\n\nBBMap\n\n\nfrom biotools import bbtools\nbbtools.bbmap(reference, forward\\_in, out_bam)\n\n\n\n\nBBDuk_Trim\n\n\nfrom biotools import bbtools\nbbtools.bbduk\\_trim(forward\\_in, forward_out)\n\n\n\n\nBBDuk_Filter\n\n\nBBDuk_Bait",
             "title": "Bbtools"
         },
         {
@@ -22,12 +22,12 @@
         },
         {
             "location": "/bbtools/#bbmap",
-            "text": "from biotools import bbtools\nbbtools.bbmap(reference, forward_in, out_bam)",
+            "text": "from biotools import bbtools\nbbtools.bbmap(reference, forward\\_in, out_bam)",
             "title": "BBMap"
         },
         {
             "location": "/bbtools/#bbduk_trim",
-            "text": "",
+            "text": "from biotools import bbtools\nbbtools.bbduk\\_trim(forward\\_in, forward_out)",
             "title": "BBDuk_Trim"
         },
         {
