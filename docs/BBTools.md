@@ -7,10 +7,10 @@ NOTES:
 - The shell scripts used for calling the BBTools programs must be accessible from your $PATH for these wrappers to function.
 - All wrappers return out and err, the STDOUT and STDERR from the program being called.
 - All wrappers will automatically look for reverse reads if they're present, so you can be lazy and only specify your forward reads if the reads are paired. For this to work, forward reads and reverse
-reads must be in the same folder and follow Illumina's R1/R2 naming convention. If you have paired reads that don't follow these assumptions, use the keyword argument reverse\_in='path/to/paired_reads'.
-- The default setting for all programs is to use the number of cores on your computer, as BBTools tend to be able to take advantage of multiple processors fairly well. To change this, add the argument threads='8' for 8 cores, or change it to whatever else you want to use.
-- Default behaviour for BBTools is to not overwrite output files if they're already there. If they are there, BBTools will crash. To change this behaviour, set overwrite='t'.
-- Any other parameters you want to change for BBTools are also possible to change, using the same parameter='argument' format.
+reads must be in the same folder and follow Illumina's R1/R2 naming convention. If you have paired reads that don't follow these assumptions, use the keyword argument `reverse_in='path/to/paired_reads'`.
+- The default setting for all programs is to use the number of cores on your computer, as BBTools tend to be able to take advantage of multiple processors fairly well. To change this, add the argument `threads='8'` for 8 cores, or change it to whatever else you want to use.
+- Default behaviour for BBTools is to not overwrite output files if they're already there. If they are there, BBTools will crash. To change this behaviour, set `overwrite='t'`.
+- Any other parameters you want to change for BBTools are also possible to change, using the same `parameter='argument'` format.
 
 The following wrappers for BBTools have been written:
 
