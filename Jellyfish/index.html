@@ -76,6 +76,10 @@
             
                 <li class="toctree-l3"><a href="#jellyfish-overview">Jellyfish Overview</a></li>
                 
+                    <li><a class="toctree-l4" href="#jellyfish-count">Jellyfish Count</a></li>
+                
+                    <li><a class="toctree-l4" href="#jellyfish-dump">Jellyfish Dump</a></li>
+                
             
             </ul>
         
@@ -144,8 +148,22 @@
 <p>NOTES: </p>
 <ul>
 <li>The jellyfish executable must be accessible from your $PATH for these wrappers to function.</li>
+<li>Any options you want to specify for Jellyfish commands that are not implemented as keyword arguments should be entered as options='', where the options string contains the options exactly as they would be specified on the command line.</li>
+<li>Wrappers will return STDOUT and STDERR.</li>
+<li>All wrappers will automatically look for reverse reads if they're present, so you can be lazy and only specify your forward reads if the reads are paired. For this to work, forward reads and reverse reads must be in the same folder and follow Illumina's R1/R2 naming convention. If you have paired reads that don't follow these assumptions, use the keyword argument <code>reverse_in='path/to/paired_reads'</code>.</li>
 </ul>
-<p>Actual documentation to be added...</p>
+<h3 id="jellyfish-count">Jellyfish Count</h3>
+<pre><code class="python">from biotools import jellyfish
+out, err = jellyfish.count(forward_in, reverse_in='NA', kmer_size=31, count_file='mer_counts.jf', hash_size='100M')
+</code></pre>
+
+<p>This command will count kmers of size 31 (changeable with <code>kmer_size</code>) and place the output in <code>mer_counts.jf</code>, which can be changed with the option <code>count_file</code>. Input reads can be uncompressed or gzip compressed, and as of Jellyfish 2.0 <code>hash_size</code> doesn't really matter - it will be increased automatically if the initial specification isn't enough.</p>
+<h3 id="jellyfish-dump">Jellyfish Dump</h3>
+<pre><code class="python">from biotools import jellyfish
+out, err = jellyfish.dump(mer_file, output_file='counts.fasta')
+</code></pre>
+
+<p>This command will dump the counts created by <code>jellyfish count</code> into a human-readable format, default FASTA.</p>
               
             </div>
           </div>

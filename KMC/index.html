@@ -81,6 +81,15 @@
         
             <ul>
             
+                <li class="toctree-l3"><a href="#kmc-overview">KMC Overview</a></li>
+                
+                    <li><a class="toctree-l4" href="#kmc-count-kmers">KMC (Count Kmers)</a></li>
+                
+                    <li><a class="toctree-l4" href="#kmc-dump">KMC Dump</a></li>
+                
+                    <li><a class="toctree-l4" href="#kmc-intersect">KMC Intersect</a></li>
+                
+            
             </ul>
         
     </li>
@@ -136,7 +145,35 @@
           <div role="main">
             <div class="section">
               
-                
+                <h1 id="kmc-overview">KMC Overview</h1>
+<p>KMC is a kmer counter, which can be found <a href="http://sun.aei.polsl.pl/REFRESH/index.php?page=projects&amp;project=kmc&amp;subpage=download">here</a>.
+In addition to being able to count kmers, version 3.0 has some neat extra utilities, such as being able to find intersections between two sets of kmers.</p>
+<p>NOTES: </p>
+<ul>
+<li>The kmc executables must be accessible from your $PATH for these wrappers to function.</li>
+<li>Any extra options you want to specify for KMC commands can be specified using <code>parameter='argument'</code>.</li>
+<li>Wrappers will return STDOUT and STDERR.</li>
+<li>All wrappers will automatically look for reverse reads if they're present, so you can be lazy and only specify your forward reads if the reads are paired. For this to work, forward reads and reverse reads must be in the same folder and follow Illumina's R1/R2 naming convention. If you have paired reads that don't follow these assumptions, use the keyword argument <code>reverse_in='path/to/paired_reads'</code>.</li>
+</ul>
+<h3 id="kmc-count-kmers">KMC (Count Kmers)</h3>
+<pre><code class="python">from biotools import kmc
+out, err = kmc.kmc(forward_in, database_name, min_occurrences=1, reverse_in='NA', k=31, cleanup=True, tmpdir='tmp')
+</code></pre>
+
+<p>This command will count kmers of size 31 (changeable with <code>k</code>) and place the output in <code>database_name</code>. Low frequency kmers can be screened out by changing <code>min_occurrences</code>. By default, this command will create a temporary directory needed by KMC called <code>tmp</code>, which will be deleted upon completion of kmer counting. If you want to keep the temporary directory, change the <code>cleanup</code> argument to <code>False</code>, and if you would prefer a different temporary directory, specify it with the <code>tmpdir</code> parameter.</p>
+<p>IMPORTANT NOTE: KMC assumes that input will be in FASTQ format. If your input file is in FASTA format, add <code>fm=''</code> to your function call.</p>
+<h3 id="kmc-dump">KMC Dump</h3>
+<pre><code class="python">from biotools import kmc
+out, err = kmc.dump(database, output, min_occurences=1, max_occurences=250)
+</code></pre>
+
+<p>This command will dump the kmers contained in <code>database</code> to a human-readable format, ignoring kmers with fewer instances than <code>min_occurrences</code> and kmers with more instances than <code>max_occurrences</code>.</p>
+<h3 id="kmc-intersect">KMC Intersect</h3>
+<pre><code class="python">from biotools import kmc
+out, err = kmc.intersect(database_1, database_2, results)
+</code></pre>
+
+<p>This command will create a database (<code>results</code>) that contains kmers that are present in both <code>database_1</code> and <code>database_2</code>, where both these databases were created using <code>kmc.kmc</code>. The <code>results</code> database can then be dumped using <code>kmc.dump</code> in order to inspect it.</p>
               
             </div>
           </div>
