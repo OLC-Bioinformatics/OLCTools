@@ -6,7 +6,7 @@ repo_url: "https://github.com/lowandrew/OLCTools"
 pages:
     - Home: index.md
     - BioTools:
-        - bbtools.md
-        - jellyfish.md
-        - kmc.md
-        - mash.md
+        - BBTools.md
+        - Jellyfish.md
+        - KMC.md
+        - Mash.md
