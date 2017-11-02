@@ -1,11 +1,48 @@
 #!/usr/bin/env python
 import errno
 import os
+import datetime
+import subprocess
+import time
 from subprocess import Popen, PIPE, STDOUT
 
 # noinspection PyProtectedMember
 from Bio.Application import _Option, AbstractCommandline, _Switch
 __author__ = 'adamkoziol', 'andrewlow'
+
+
+def download_file(address, hour_start=18, hour_end=6, timeout=600):
+    """
+    Downloads a file, between specified hours. (Hour start has to be greater than hour end for this to work in current
+    iteration).
+    :param address: Address of file that you want to download.
+    :param hour_start: Start of window where downloading is acceptable. Default 6PM (1800h)
+    :param hour_end: End of window where downloading is acceptable. Default 6AM (600h)
+    :param timeout: How often to check if you're outside the acceptable download window (default 600 seconds).
+    :return:
+    """
+    out = open(os.devnull, 'w')
+    returncode = 28  # While loop is based on returncode given by curl, so need to initialize it to something.
+    while returncode != 0:  # 0 means that the file has already been downloaded completely, so stop looping then.
+        # Figure out what hour it is. If not in acceptable download window, wait a while before checking again.
+        hour = datetime.datetime.now().time().hour
+        minute = datetime.datetime.now().time().minute
+        if hour_end < hour < hour_start:
+            print('Current time is {hour}:{minute}. I am not allowed to start downloading until'
+                  ' {start_hour}:00.'.format(hour=hour, minute=minute, start_hour=hour_start))
+            time.sleep(timeout)
+        # If the file doesn't already exist, start downloading it.
+        elif not os.path.exists(address.split('/')[-1]):
+            cmd = 'curl -O --max-time {timeout} {address}'.format(timeout=timeout,
+                                                                  address=address)
+            # print(cmd)
+            returncode = subprocess.call(cmd, shell=True, stdout=out, stderr=out)
+        # If the file does already exist, download it starting from filesize offset.
+        else:
+            cmd = 'curl -O --max-time {timeout} -C - {address}'.format(timeout=timeout,
+                                                                       address=address)
+            # print(cmd)
+            returncode = subprocess.call(cmd, shell=True, stdout=out, stderr=out)
 
 
 def write_to_logfile(out, err, logfile):
