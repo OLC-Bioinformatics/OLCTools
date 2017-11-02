@@ -11,11 +11,12 @@ from Bio.Application import _Option, AbstractCommandline, _Switch
 __author__ = 'adamkoziol', 'andrewlow'
 
 
-def download_file(address, hour_start=18, hour_end=6, timeout=600):
+def download_file(address, output_name, hour_start=18, hour_end=6, timeout=600):
     """
     Downloads a file, between specified hours. (Hour start has to be greater than hour end for this to work in current
     iteration).
     :param address: Address of file that you want to download.
+    :param output_name: Where you want to save the file to.
     :param hour_start: Start of window where downloading is acceptable. Default 6PM (1800h)
     :param hour_end: End of window where downloading is acceptable. Default 6AM (600h)
     :param timeout: How often to check if you're outside the acceptable download window (default 600 seconds).
@@ -32,16 +33,18 @@ def download_file(address, hour_start=18, hour_end=6, timeout=600):
                   ' {start_hour}:00.'.format(hour=hour, minute=minute, start_hour=hour_start))
             time.sleep(timeout)
         # If the file doesn't already exist, start downloading it.
-        elif not os.path.exists(address.split('/')[-1]):
-            cmd = 'curl -O --max-time {timeout} {address}'.format(timeout=timeout,
-                                                                  address=address)
-            # print(cmd)
+        elif not os.path.exists(output_name):
+            cmd = 'curl -o {outname} --max-time {timeout} {address}'.format(timeout=timeout,
+                                                                            address=address,
+                                                                            outname=output_name)
             returncode = subprocess.call(cmd, shell=True, stdout=out, stderr=out)
         # If the file does already exist, download it starting from filesize offset.
         else:
-            cmd = 'curl -O --max-time {timeout} -C - {address}'.format(timeout=timeout,
-                                                                       address=address)
-            # print(cmd)
+            file_size = os.path.getsize(output_name)
+            cmd = 'curl -o {outname} --max-time {timeout} -C {file_size} {address}'.format(timeout=timeout,
+                                                                                           address=address,
+                                                                                           outname=output_name,
+                                                                                           file_size=file_size)
             returncode = subprocess.call(cmd, shell=True, stdout=out, stderr=out)
 
 
