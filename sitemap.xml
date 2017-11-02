@@ -4,7 +4,15 @@
     
     <url>
      <loc>None/</loc>
-     <lastmod>2017-11-01</lastmod>
+     <lastmod>2017-11-02</lastmod>
+     <changefreq>daily</changefreq>
+    </url>
+    
+
+    
+    <url>
+     <loc>None/AccessoryFunctions/</loc>
+     <lastmod>2017-11-02</lastmod>
      <changefreq>daily</changefreq>
     </url>
     
@@ -13,25 +21,25 @@
         
     <url>
      <loc>None/BBTools/</loc>
-     <lastmod>2017-11-01</lastmod>
+     <lastmod>2017-11-02</lastmod>
      <changefreq>daily</changefreq>
     </url>
         
     <url>
      <loc>None/Jellyfish/</loc>
-     <lastmod>2017-11-01</lastmod>
+     <lastmod>2017-11-02</lastmod>
      <changefreq>daily</changefreq>
     </url>
         
     <url>
      <loc>None/KMC/</loc>
-     <lastmod>2017-11-01</lastmod>
+     <lastmod>2017-11-02</lastmod>
      <changefreq>daily</changefreq>
     </url>
         
     <url>
      <loc>None/Mash/</loc>
-     <lastmod>2017-11-01</lastmod>
+     <lastmod>2017-11-02</lastmod>
      <changefreq>daily</changefreq>
     </url>
         

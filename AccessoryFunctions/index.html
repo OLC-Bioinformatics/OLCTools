@@ -5,7 +5,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>Jellyfish - OLCTools</title>
+  <title>AccessoryFunctions - OLCTools</title>
   
 
   <link rel="shortcut icon" href="../img/favicon.ico">
@@ -20,7 +20,7 @@
   
   <script>
     // Current page data
-    var mkdocs_page_name = "Jellyfish";
+    var mkdocs_page_name = "AccessoryFunctions";
   </script>
   
   <script src="../js/jquery-2.1.1.min.js"></script>
@@ -57,8 +57,21 @@
 <li>
           
             <li>
-    <li class="toctree-l1 ">
-        <a class="" href="../AccessoryFunctions/">AccessoryFunctions</a>
+    <li class="toctree-l1 current">
+        <a class="current" href="./">AccessoryFunctions</a>
+        
+            <ul>
+            
+                <li class="toctree-l3"><a href="#accessoryfunctions-overview">AccessoryFunctions Overview</a></li>
+                
+                    <li><a class="toctree-l4" href="#download-file">Download File</a></li>
+                
+                    <li><a class="toctree-l4" href="#make-path">Make Path</a></li>
+                
+                    <li><a class="toctree-l4" href="#print-time">Print Time</a></li>
+                
+            
+            </ul>
         
     </li>
 <li>
@@ -76,19 +89,8 @@
 
         
             
-    <li class="toctree-l1 current">
-        <a class="current" href="./">Jellyfish</a>
-        
-            <ul>
-            
-                <li class="toctree-l3"><a href="#jellyfish-overview">Jellyfish Overview</a></li>
-                
-                    <li><a class="toctree-l4" href="#jellyfish-count">Jellyfish Count</a></li>
-                
-                    <li><a class="toctree-l4" href="#jellyfish-dump">Jellyfish Dump</a></li>
-                
-            
-            </ul>
+    <li class="toctree-l1 ">
+        <a class="" href="../Jellyfish/">Jellyfish</a>
         
     </li>
 
@@ -131,12 +133,8 @@
     <li><a href="..">Docs</a> &raquo;</li>
     
       
-        
-          <li>BioTools &raquo;</li>
-        
-      
     
-    <li>Jellyfish</li>
+    <li>AccessoryFunctions</li>
     <li class="wy-breadcrumbs-aside">
       
         
@@ -150,27 +148,27 @@
           <div role="main">
             <div class="section">
               
-                <h1 id="jellyfish-overview">Jellyfish Overview</h1>
-<p>Jellyfish is a popular kmer counter, which can be found <a href="https://github.com/gmarcais/Jellyfish/releases">here</a>.</p>
-<p>NOTES: </p>
-<ul>
-<li>The jellyfish executable must be accessible from your $PATH for these wrappers to function.</li>
-<li>Any options you want to specify for Jellyfish commands that are not implemented as keyword arguments should be entered as options='', where the options string contains the options exactly as they would be specified on the command line.</li>
-<li>Wrappers will return STDOUT and STDERR.</li>
-<li>All wrappers will automatically look for reverse reads if they're present, so you can be lazy and only specify your forward reads if the reads are paired. For this to work, forward reads and reverse reads must be in the same folder and follow Illumina's R1/R2 naming convention. If you have paired reads that don't follow these assumptions, use the keyword argument <code>reverse_in='path/to/paired_reads'</code>.</li>
-</ul>
-<h3 id="jellyfish-count">Jellyfish Count</h3>
-<pre><code class="python">from biotools import jellyfish
-out, err = jellyfish.count(forward_in, reverse_in='NA', kmer_size=31, count_file='mer_counts.jf', hash_size='100M')
+                <h1 id="accessoryfunctions-overview">AccessoryFunctions Overview</h1>
+<p>AccessoryFunctions contains miscellaneous methods that don't necessarily fit anywhere else. They may be useful.</p>
+<h3 id="download-file">Download File</h3>
+<pre><code class="python">from accessoryFunctions import accessoryFunctions
+accessoryFunctions.download_file(address, hour_start=18, hour_end=6, timeout=600)
 </code></pre>
 
-<p>This command will count kmers of size 31 (changeable with <code>kmer_size</code>) and place the output in <code>mer_counts.jf</code>, which can be changed with the option <code>count_file</code>. Input reads can be uncompressed or gzip compressed, and as of Jellyfish 2.0 <code>hash_size</code> doesn't really matter - it will be increased automatically if the initial specification isn't enough.</p>
-<h3 id="jellyfish-dump">Jellyfish Dump</h3>
-<pre><code class="python">from biotools import jellyfish
-out, err = jellyfish.dump(mer_file, output_file='counts.fasta')
+<p>This method will allow for file downloads between specified hours (default 6PM to 6AM). The <code>address</code> argument must the URL for a single file, not a folder.
+If the download is interrupted by the end of the download window, it will be continued when the download window reopens. </p>
+<h3 id="make-path">Make Path</h3>
+<pre><code class="python">from accessoryFunctions import accessoryFunctions
+accessoryFunctions.make_path(inpath)
 </code></pre>
 
-<p>This command will dump the counts created by <code>jellyfish count</code> into a human-readable format, default FASTA.</p>
+<p>Simple method to make a directory if it doesn't already exist. Only argument is the directory you want to create.</p>
+<h3 id="print-time">Print Time</h3>
+<pre><code class="python">from accessoryFunctions import accessoryFunctions
+accessoryFunctions.printtime(string, start)
+</code></pre>
+
+<p>Prints out elapsed time since <code>start</code>, followed by the text contained in <code>string</code>. Prints it out in bold, so it looks good! </p>
               
             </div>
           </div>
@@ -178,10 +176,10 @@ out, err = jellyfish.dump(mer_file, output_file='counts.fasta')
   
     <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
       
-        <a href="../KMC/" class="btn btn-neutral float-right" title="KMC"/>Next <span class="icon icon-circle-arrow-right"></span></a>
+        <a href="../BBTools/" class="btn btn-neutral float-right" title="BBTools"/>Next <span class="icon icon-circle-arrow-right"></span></a>
       
       
-        <a href="../BBTools/" class="btn btn-neutral" title="BBTools"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href=".." class="btn btn-neutral" title="Home"><span class="icon icon-circle-arrow-left"></span> Previous</a>
       
     </div>
   
@@ -209,10 +207,10 @@ out, err = jellyfish.dump(mer_file, output_file='counts.fasta')
           <a class="icon icon-github" style="float: left; color: #fcfcfc"> GitHub</a>
       
       
-        <span><a href="../BBTools/" style="color: #fcfcfc;">&laquo; Previous</a></span>
+        <span><a href=".." style="color: #fcfcfc;">&laquo; Previous</a></span>
       
       
-        <span style="margin-left: 15px"><a href="../KMC/" style="color: #fcfcfc">Next &raquo;</a></span>
+        <span style="margin-left: 15px"><a href="../BBTools/" style="color: #fcfcfc">Next &raquo;</a></span>
       
     </span>
 </div>
