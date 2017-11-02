@@ -57,6 +57,11 @@
 <li>
           
             <li>
+    <ul class="subnav">
+    <li><span>AccessoryFunctions</span></li>
+
+        
+            
     <li class="toctree-l1 current">
         <a class="current" href="./">AccessoryFunctions</a>
         
@@ -74,6 +79,9 @@
             </ul>
         
     </li>
+
+        
+    </ul>
 <li>
           
             <li>
@@ -133,6 +141,10 @@
     <li><a href="..">Docs</a> &raquo;</li>
     
       
+        
+          <li>AccessoryFunctions &raquo;</li>
+        
+      
     
     <li>AccessoryFunctions</li>
     <li class="wy-breadcrumbs-aside">
@@ -152,11 +164,12 @@
 <p>AccessoryFunctions contains miscellaneous methods that don't necessarily fit anywhere else. They may be useful.</p>
 <h3 id="download-file">Download File</h3>
 <pre><code class="python">from accessoryFunctions import accessoryFunctions
-accessoryFunctions.download_file(address, hour_start=18, hour_end=6, timeout=600)
+accessoryFunctions.download_file(address, output_name, hour_start=18, hour_end=6, timeout=600)
 </code></pre>
 
 <p>This method will allow for file downloads between specified hours (default 6PM to 6AM). The <code>address</code> argument must the URL for a single file, not a folder.
 If the download is interrupted by the end of the download window, it will be continued when the download window reopens. </p>
+<p>IMPORTANT: <code>output_name</code> must be an absolute path, and for whatever reason curl doesn't like the <em>~</em> character, so it can't be used in this command.</p>
 <h3 id="make-path">Make Path</h3>
 <pre><code class="python">from accessoryFunctions import accessoryFunctions
 accessoryFunctions.make_path(inpath)
