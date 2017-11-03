@@ -11,7 +11,7 @@ from Bio.Application import _Option, AbstractCommandline, _Switch
 __author__ = 'adamkoziol', 'andrewlow'
 
 
-def download_file(address, output_name, hour_start=18, hour_end=6, timeout=600):
+def download_file(address, output_name, hour_start=18, hour_end=6, day_start=5, day_end=6, timeout=600):
     """
     Downloads a file, between specified hours. (Hour start has to be greater than hour end for this to work in current
     iteration).
@@ -19,6 +19,8 @@ def download_file(address, output_name, hour_start=18, hour_end=6, timeout=600):
     :param output_name: Where you want to save the file to.
     :param hour_start: Start of window where downloading is acceptable. Default 6PM (1800h)
     :param hour_end: End of window where downloading is acceptable. Default 6AM (600h)
+    :param day_start: Start of window where it's always OK to download. Default Saturday (day 5).
+    :param day_end: End of window where it's always OK to download. Default Sunday (day 6).
     :param timeout: How often to check if you're outside the acceptable download window (default 600 seconds).
     :return:
     """
@@ -28,7 +30,10 @@ def download_file(address, output_name, hour_start=18, hour_end=6, timeout=600):
         # Figure out what hour it is. If not in acceptable download window, wait a while before checking again.
         hour = datetime.datetime.now().time().hour
         minute = datetime.datetime.now().time().minute
-        if hour_end < hour < hour_start:
+        day = datetime.datetime.today().weekday()
+        acceptable_hour = not(hour_end < hour < hour_start)  # True if current hour is between start and end.
+        acceptable_day = day_start <= day <= day_end  # True if current day is a weekend day.
+        if not(acceptable_hour or acceptable_day):
             print('Current time is {hour}:{minute}. I am not allowed to start downloading until'
                   ' {start_hour}:00.'.format(hour=hour, minute=minute, start_hour=hour_start))
             time.sleep(timeout)
