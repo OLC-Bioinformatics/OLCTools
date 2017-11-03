@@ -40,7 +40,7 @@ from biotools import mash
 out, err = mash.screen(query_file_1, query_file_2, output_file='screen.tab', threads=1)
 ```
 
-Mash screen will find how well one query is contained within another. The first argument must be a sketch file, and subsequent arguments can be FASTA files, FASTQ files, or other sketches. This command will only work if mash>=2.0 is installed, and output cannot yet be read by `read_mash_output`.
+Mash screen will find how well one query is contained within another. The first argument must be a sketch file, and subsequent arguments can be FASTA files, FASTQ files, or other sketches. This command will only work if mash>=2.0 is installed. Output of the mash screen command can be read by `mash.read_mash_screen`.
 
 
 ### Read Mash Output
@@ -51,5 +51,15 @@ mash_results = mash.read_mash_output(result_file)
 ```
 
 This command takes a result file from `mash.dist` as input, and will return a list of results, with each index corresponding to one line of the result file. Each item in the list has the following attributes: reference, query, distance, pvalue, and matching_hash.
+
+### Read Mash Screen
+
+```python
+from biotools import mash
+mash_results = mash.read_mash_screen(screen_result)
+```
+
+This command takes a result file from `mash.screen` as input, and will return a list of results, with each index corresponding to one line of the result file. Each item in the list has the following attributes: identity, shared\_hashes, median\_multiplicity, pvalue, and query_id.
+
 
 
