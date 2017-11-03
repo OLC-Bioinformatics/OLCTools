@@ -113,6 +113,8 @@
                 
                     <li><a class="toctree-l4" href="#read-mash-output">Read Mash Output</a></li>
                 
+                    <li><a class="toctree-l4" href="#read-mash-screen">Read Mash Screen</a></li>
+                
             
             </ul>
         
@@ -191,13 +193,19 @@ out, err = mash.dist(query_file_1, query_file_2, output_file='distances.tab', th
 out, err = mash.screen(query_file_1, query_file_2, output_file='screen.tab', threads=1)
 </code></pre>
 
-<p>Mash screen will find how well one query is contained within another. The first argument must be a sketch file, and subsequent arguments can be FASTA files, FASTQ files, or other sketches. This command will only work if mash&gt;=2.0 is installed, and output cannot yet be read by <code>read_mash_output</code>.</p>
+<p>Mash screen will find how well one query is contained within another. The first argument must be a sketch file, and subsequent arguments can be FASTA files, FASTQ files, or other sketches. This command will only work if mash&gt;=2.0 is installed. Output of the mash screen command can be read by <code>mash.read_mash_screen</code>.</p>
 <h3 id="read-mash-output">Read Mash Output</h3>
 <pre><code class="python">from biotools import mash
 mash_results = mash.read_mash_output(result_file)
 </code></pre>
 
 <p>This command takes a result file from <code>mash.dist</code> as input, and will return a list of results, with each index corresponding to one line of the result file. Each item in the list has the following attributes: reference, query, distance, pvalue, and matching_hash.</p>
+<h3 id="read-mash-screen">Read Mash Screen</h3>
+<pre><code class="python">from biotools import mash
+mash_results = mash.read_mash_screen(screen_result)
+</code></pre>
+
+<p>This command takes a result file from <code>mash.screen</code> as input, and will return a list of results, with each index corresponding to one line of the result file. Each item in the list has the following attributes: identity, shared_hashes, median_multiplicity, pvalue, and query_id.</p>
               
             </div>
           </div>
