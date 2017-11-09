@@ -1,10 +1,22 @@
 #!/usr/bin/env python
 from glob import glob
 from spadespipeline import runMetadata
-from accessoryFunctions.accessoryFunctions import *
+from accessoryFunctions.accessoryFunctions import make_path, run_subprocess, write_to_logfile, GenObject, printtime
+import os
 from spadespipeline.offhours import Offhours
 import threading
-
+from time import sleep, time
+from shutil import move, copyfile
+import errno
+from re import sub
+import subprocess
+from argparse import ArgumentParser
+# Import ElementTree - try first to import the faster C version, if that doesn't
+# work, try to import the regular version
+try:
+    import xml.etree.cElementTree as ElementTree
+except ImportError:
+    import xml.etree.ElementTree as ElementTree
 __author__ = 'adamkoziol'
 
 
@@ -12,7 +24,6 @@ class CreateFastq(object):
 
     def createfastq(self):
         """Uses bcl2fastq to create .fastq files from a MiSeqRun"""
-        from time import sleep
         # Initialise samplecount
         samplecount = 0
         # If the fastq destination folder is not provided, make the default value of :path/:miseqfoldername
@@ -127,12 +138,6 @@ class CreateFastq(object):
     def configfilepopulator(self):
         """Populates an unpopulated config.xml file with run-specific values and creates
         the file in the appropriate location"""
-        # Import ElementTree - try first to import the faster C version, if that doesn't
-        # work, try to import the regular version
-        try:
-            import xml.etree.cElementTree as ElementTree
-        except ImportError:
-            import xml.etree.ElementTree as ElementTree
         # Set the number of cycles for each read and index using the number of reads specified in the sample sheet
         self.forwardlength = self.metadata.header.forwardlength
         self.reverselength = self.metadata.header.reverselength
@@ -190,9 +195,6 @@ class CreateFastq(object):
 
     def fastqmover(self):
         """Links .fastq files created above to :self.path/:sample.name/"""
-        from shutil import move, copyfile
-        import errno
-        from re import sub
         # Create the project path variable
         self.projectpath = self.fastqdestination + "/Project_" + self.projectname
         # Iterate through all the sample names
@@ -272,11 +274,9 @@ class CreateFastq(object):
         # Create fastq files
         self.createfastq()
 
+
 # If the script is called from the command line, then call the argument parser
 if __name__ == '__main__':
-    import subprocess
-    from time import time
-    from accessoryFunctions.accessoryFunctions import printtime
     # Get the current commit of the pipeline from git
     # Extract the path of the current script from the full path + file name
     homepath = os.path.split(os.path.abspath(__file__))[0]
@@ -284,7 +284,6 @@ if __name__ == '__main__':
     # a git command to return the short version of the commit hash
     commit = subprocess.Popen('cd {} && git tag | tail -n 1'.format(homepath),
                               shell=True, stdout=subprocess.PIPE).communicate()[0].rstrip()
-    from argparse import ArgumentParser
     # Parser for arguments
     parser = ArgumentParser(description='Assemble genomes from Illumina fastq files')
     parser.add_argument('-v', '--version',

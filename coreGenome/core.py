@@ -1,5 +1,9 @@
 #!/usr/bin/env python
-from spadespipeline.GeneSeekr import *
+from accessoryFunctions.accessoryFunctions import MetadataObject
+from spadespipeline.GeneSeekr import GeneSeekr
+from csv import DictReader
+from glob import glob
+import operator
 import os
 
 __author__ = 'adamkoziol'
@@ -8,14 +12,17 @@ __author__ = 'adamkoziol'
 class CoreGenome(GeneSeekr):
 
     def blastparser(self, report, sample):
-        import operator
         # Open the sequence profile file as a dictionary
         blastdict = DictReader(open(report), fieldnames=self.fieldnames, dialect='excel-tab')
-        resultdict = {}
+        resultdict = dict()
+        coregenomes = list()
         # Create a list of all the names of the database files - glob, replace - with _, remove path and extension
-        coregenomes = list(map(lambda x: os.path.basename(x).split('.')[0].replace('-', '_'),
-                               glob('{}/*.fas'.format(os.path.join(self.referencefilepath,
-                                                                   self.analysistype, sample.general.referencegenus)))))
+        corefiles = glob(
+            os.path.join(self.referencefilepath, self.analysistype, sample.general.referencegenus, '*.fasta'))
+        for fasta in corefiles:
+            fastaname = os.path.basename(os.path.splitext(fasta)[0]).replace('-', '_')
+            fastaname = fastaname.split('.')[0]
+            coregenomes.append(fastaname)
         # Initialise resultdict with an integer for every database file
         for genome in coregenomes:
             resultdict[genome] = int()
@@ -38,6 +45,7 @@ class CoreGenome(GeneSeekr):
                 if underscored == sorted(coregenomes)[0]:
                     coregenes.add(target)
                 # If the percent identity is greater than the cutoff - adjust the cutoff to 90% for these analyses
+                # print(sample.name, target, percentidentity, row)
                 self.cutoff = 90
                 if percentidentity >= self.cutoff:
                     # Update the dictionary with the target and the number of hits
@@ -61,34 +69,33 @@ class CoreGenome(GeneSeekr):
         for sample in self.metadata:
             try:
                 if sample[self.analysistype].blastresults != 'NA':
-                    # Write the sample name, closest ref genome, and the number of genes found / total number of genes
-                    closestref = list(sample[self.analysistype].blastresults.items())[0][0]
-                    coregenes = list(sample[self.analysistype].blastresults.items())[0][1][0]
-                    totalcore = list(sample[self.analysistype].blastresults.items())[0][1][1]
-                    # Add the data to the object
-                    sample[self.analysistype].targetspresent = coregenes
-                    sample[self.analysistype].totaltargets = totalcore
-                    row = '{},{},{}/{}\n'.format(sample.name, closestref, coregenes, totalcore)
-                    # If the script is being run as part of the assembly pipeline, make a report for each sample
-                    if self.pipeline:
-                        # Open the report
-                        with open('{}{}_{}.csv'.format(sample[self.analysistype].reportdir, sample.name,
-                                                       self.analysistype), 'w') as report:
-                            # Write the row to the report
-                            report.write(header)
-                            report.write(row)
-                    data += row
-                    # Remove the messy blast results from the object
-                    try:
-                        delattr(sample[self.analysistype], "blastresults")
-                    except KeyError:
-                        pass
-                else:
-                    sample[self.analysistype].targetspresent = 'NA'
-                    sample[self.analysistype].totaltargets = 'NA'
+                    if sample.general.closestrefseqgenus == 'Listeria':
+                        # Write the sample name, closest ref genome, and the # of genes found / total # of genes
+                        closestref = list(sample[self.analysistype].blastresults.items())[0][0]
+                        coregenes = list(sample[self.analysistype].blastresults.items())[0][1][0]
+                        totalcore = list(sample[self.analysistype].blastresults.items())[0][1][1]
+                        # Add the data to the object
+                        sample[self.analysistype].targetspresent = coregenes
+                        sample[self.analysistype].totaltargets = totalcore
+                        sample[self.analysistype].coreresults = '{}/{}'.format(coregenes, totalcore)
+                        row = '{},{},{}/{}\n'.format(sample.name, closestref, coregenes, totalcore)
+                        # If the script is being run as part of the assembly pipeline, make a report for each sample
+                        if self.pipeline:
+                            # Open the report
+                            with open('{}{}_{}.csv'.format(sample[self.analysistype].reportdir, sample.name,
+                                                           self.analysistype), 'w') as report:
+                                # Write the row to the report
+                                report.write(header)
+                                report.write(row)
+                        data += row
+                    else:
+                        sample[self.analysistype].targetspresent = 'NA'
+                        sample[self.analysistype].totaltargets = 'NA'
+                        sample[self.analysistype].coreresults = 'NA'
             except KeyError:
                 sample[self.analysistype].targetspresent = 'NA'
                 sample[self.analysistype].totaltargets = 'NA'
+                sample[self.analysistype].coreresults = 'NA'
         with open('{}coregenome.csv'.format(self.reportpath), 'w') as report:
             # Write the data to the report
             report.write(header)
@@ -149,9 +156,19 @@ class AnnotatedCore(object):
             for sample in self.runmetadata.samples:
                 # Convert the set to a list for JSON serialization
                 sample[self.analysistype].coreset = list(sample[self.analysistype].coreset)
+                sample[self.analysistype].coreresults = '{}/{}'.format(len(sample[self.analysistype].coreset),
+                                                                       len(self.coregenomes))
                 # Add strain name, the number of core genes present, and the number of total core genes to the string
-                data += '{},{}/{}\n'.format(sample.name, len(sample[self.analysistype].coreset), len(self.coregenomes))
+                data += '{},{}\n'.format(sample.name, sample[self.analysistype].coreresults)
             report.write(data)
+
+        for sample in self.metadata:
+            # Remove the messy blast results from the object
+            try:
+                delattr(sample[self.analysistype], "blastresults")
+                delattr(sample[self.analysistype], 'coreset')
+            except KeyError:
+                pass
 
     def __init__(self, inputobject):
         self.start = inputobject.starttime

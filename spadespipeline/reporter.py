@@ -1,61 +1,207 @@
 #!/usr/bin/env python
-from accessoryFunctions.accessoryFunctions import *
+from accessoryFunctions.accessoryFunctions import printtime, GenObject
+from datetime import datetime
+import os
 __author__ = 'adamkoziol'
 
 
 class Reporter(object):
 
     def reporter(self):
-        from collections import OrderedDict
+        """
+        Creates the metadata report by pulling specific attributes from the metadata objects
+        """
         printtime('Creating summary report', self.starttime)
+        header = '{}\n'.format(','.join(self.headers))
+        # Create a string to store all the results
+        data = str()
+        for sample in self.metadata:
+            if sample.general.bestassemblyfile != 'NA':
+                # Add the value of the appropriate attribute to the results string
+                data += GenObject.returnattr(sample, 'name')
+                # SequencingDate
+                data += GenObject.returnattr(sample.run, 'Date')
+                # Analyst
+                data += GenObject.returnattr(sample.run, 'InvestigatorName')
+                # SamplePurity
+                data += GenObject.returnattr(sample.confinder, 'contam_status')
+                # N50
+                data += GenObject.returnattr(sample.quast, 'N50')
+                # NumContigs
+                data += GenObject.returnattr(sample.mapping, 'Contigs')
+                # TotalLength
+                data += GenObject.returnattr(sample.quast, 'TotalLength')
+                # MeanInsertSize
+                data += GenObject.returnattr(sample.mapping, 'MeanInsertSize')
+                # InsertSizeSTD
+                data += GenObject.returnattr(sample.mapping, 'StdInsertSize')
+                # AverageCoverageDepth
+                data += GenObject.returnattr(sample.mapping, 'MeanCoveragedata')
+                # CoverageDepthSTD
+                data += GenObject.returnattr(sample.mapping, 'StdCoveragedata')
+                # PercentGC
+                data += GenObject.returnattr(sample.mapping, 'GcPercentage')
+                # MASH_ReferenceGenome
+                data += GenObject.returnattr(sample.mash, 'closestrefseq')
+                # MASH_NumMatchingHashes
+                data += GenObject.returnattr(sample.mash, 'nummatches')
+                # 16S_result
+                data += GenObject.returnattr(sample.sixteens_full, 'genus')
+                # rMLST_Result
+                data += GenObject.returnattr(sample.rmlst, 'sequencetype') if sample.rmlst.matches == 53 else '-,'
+                # MLST_Result
+                try:
+                    data += GenObject.returnattr(sample.mlst, 'sequencetype') if sample.mlst.matches == 7 else '-,'
+                except KeyError:
+                    data += '-'
+                # MLST_gene_X_alleles
+                try:
+                    for allele in sorted(sample.mlst.results):
+                        data += allele + ','
+                    # If there are fewer than seven matching alleles, add a - for each missing result
+                    if len(sample.mlst.results) < 7:
+                        data += (7 - len(sample.mlst.results)) * '-,'
+                    if not sample.mlst.results:
+                        data += '-,-,-,-,-,-,-,'
+                except KeyError:
+                    data += '-,-,-,-,-,-,-,'
+                # CoreGenesPresent
+                data += GenObject.returnattr(sample.coregenome, 'coreresults')
+                # E_coli_Serotype
+                try:
+                    serotype = '{oset} ({opid}):{hset} ({hpid}),'\
+                        .format(oset=';'.join(sample.serosippr.o_set),
+                                opid=sample.serosippr.best_o_pid,
+                                hset=';'.join(sample.serosippr.h_set),
+                                hpid=sample.serosippr.best_h_pid)
+                    # Make sure that the string was populated with values rather than 'NA' or '-'
+                    if serotype == '- (-):- (-),':
+                        data += '-,'
+                    else:
+                        data += serotype
+                except KeyError:
+                    data += '-,'
+                # SISTR_serovar_antigen
+                data += GenObject.returnattr(sample.sistr, 'serovar_antigen')
+                # SISTR_serovar_cgMLST
+                data += GenObject.returnattr(sample.sistr, 'serovar_cgmlst')
+                # SISTR_serogroup
+                data += GenObject.returnattr(sample.sistr, 'serogroup')
+                # SISTR_h1
+                data += GenObject.returnattr(sample.sistr, 'h1') .replace(',', ';') + ','
+                # SISTR_h2
+                data += GenObject.returnattr(sample.sistr, 'h2').replace(',', ';') + ','
+                # SISTR_serovar
+                data += GenObject.returnattr(sample.sistr, 'serovar')
+                # GeneSeekr_Profile
+                try:
+                    results = list()
+                    for result, percentid in sorted(sample.genesippr.results.items()):
+                        if float(percentid) > 70:
+                            results.append(result)
+                    data += ';'.join(results) + ','
+                except KeyError:
+                    data += '-,'
+                # Vtyper_Profile
+                try:
+                    data += ';'.join(sorted(sample.vtyper.profile)) + ','
+                except KeyError:
+                    data += '-,'
+                # AMR_Profile
+                try:
+                    data += ';'.join(sorted(sample.resfinder.pipelineresults)) + ','
+                except KeyError:
+                    data += '-,'
+                # Plasmid_MLST_Result'
+                try:
+                    data += 'TODO,'
+                except KeyError:
+                    data += 'TODO,'
+                # TotalPredictedGenes
+                data += GenObject.returnattr(sample.prodigal, 'predictedgenestotal')
+                # PredictedGenesOver3000bp
+                data += GenObject.returnattr(sample.prodigal, 'predictedgenesover3000bp')
+                # PredictedGenesOver1000bp
+                data += GenObject.returnattr(sample.prodigal, 'predictedgenesover1000bp')
+                # PredictedGenesOver500bp
+                data += GenObject.returnattr(sample.prodigal, 'predictedgenesover500bp')
+                # PredictedGenesUnder500bp
+                data += GenObject.returnattr(sample.prodigal, 'predictedgenesunder500bp')
+                # NumClustersPF
+                data += GenObject.returnattr(sample.run, 'NumberofClustersPF')
+                # LengthForwardRead
+                data += GenObject.returnattr(sample.run, 'forwardlength')
+                # LengthReverseRead
+                data += GenObject.returnattr(sample.run, 'reverselength')
+                # PipelineVersion
+                data += self.commit + ','
+                # AssemblyDate
+                data += datetime.now().strftime('%Y-%m-%d')
+                # Append a new line to the end of the results for this sample
+                data += '\n'
+            else:
+                data += sample.name + '\n'
+        # Replace any NA values with -
+        cleandata = data.replace('NA', '-')
+        with open(os.path.join(self.reportpath, 'combinedMetadata.csv'), 'w') as metadatareport:
+            metadatareport.write(header)
+            metadatareport.write(cleandata)
+
+    def legacy_reporter(self):
+        """
+        Creates an output that is compatible with the legacy metadata reports. This method will be removed once
+        a new database scheme is implemented
+        """
+        from collections import OrderedDict
+        printtime('Creating legacy summary report', self.starttime)
         row = ''
         # Create a dictionary of tuples to be printed in the final report
         for sample in self.metadata:
             if sample.general.bestassemblyfile != 'NA':
                 data = OrderedDict([
                     ('SampleName', sample.name),
-                    ('N50', sample.quast.N50.split('Count')[0]),
+                    ('N50', sample.quast.N50),
                     ('NumContigs', sample.mapping.Contigs),
                     ('TotalLength', sample.mapping.Bases.split('bp')[0]),
                     ('MeanInsertSize', sample.mapping.MeanInsertSize),
                     ('AverageCoverageDepth', sample.mapping.MeanCoveragedata.split("X")[0]),
-                    # ('ReferenceGenome', sample.general.referencegenus),
-                    # ('RefGenomeAlleleMatches', str(sample.rmlst.matchestoreferencegenome)),
-                    # ('16sPhylogeny', sample['sixteens_full'].taxonomy),
+                    ('ReferenceGenome', sample.mash.closestrefseq),
+                    ('RefGenomeAlleleMatches', '-'),
+                    ('16sPhylogeny', sample.sixteens_full.genus),
                     ('rMLSTsequenceType', sample.rmlst.sequencetype),
                     ('MLSTsequencetype', sample.mlst.sequencetype),
                     ('MLSTmatches', str(sample.mlst.matchestosequencetype)),
-                    ('coreGenome', '{}/{}'.format(sample.coregenome.targetspresent, sample.coregenome.totaltargets)),
-                    # ('Serotype', sample.serotype.serotype),
-                    # ('geneSeekrProfile', ';'.join(result for result in sample.geneseekr.blastresults)
-                    #     if sample.geneseekr.blastresults != 'NA' else 'NA'),
-                    # ('vtyperProfile', sample.vtyper.toxinprofile),
-                    # ('percentGC', sample.mapping.GcPercentage),
-                    # ('TotalPredictedGenes', str(sample.prodigal.predictedgenestotal)),
-                    # ('predictedgenesover3000bp', str(sample.prodigal.predictedgenesover3000bp)),
-                    # ('predictedgenesover1000bp', str(sample.prodigal.predictedgenesover1000bp)),
-                    # ('predictedgenesover500bp', str(sample.prodigal.predictedgenesover500bp)),
-                    # ('predictedgenesunder500bp', str(sample.prodigal.predictedgenesunder500bp)),
-                    # ('SequencingDate', sample.run.Date),
-                    # ('Investigator', sample.run.InvestigatorName),
-                    # ('TotalClustersinRun', str(sample.run.TotalClustersinRun)),
-                    # ('NumberofClustersPF', str(sample.run.NumberofClustersPF)),
-                    # ('PercentOfClusters', str(sample.run.PercentOfClusters)),
-                    # ('LengthofForwardRead', str(sample.run.forwardlength)),
-                    # ('LengthofReverseRead', str(sample.run.reverselength)),
-                    # ('Project', str(sample.run.SampleProject)),
+                    ('coreGenome', GenObject.returnattr(sample.coregenome, 'coreresults')),
+                    ('SeroType', '{oset}:{hset}'
+                        .format(oset=';'.join(sample.serosippr.o_set),
+                                hset=';'.join(sample.serosippr.h_set))),
+                    ('geneSeekrProfile', ';'.join(result for result, pid in sorted(sample.genesippr.results.items()))),
+                    ('vtyperProfile', ';'.join(sorted(sample.vtyper.profile))),
+                    ('percentGC', sample.mapping.GcPercentage),
+                    ('TotalPredictedGenes', str(sample.prodigal.predictedgenestotal)),
+                    ('predictedgenesover3000bp', str(sample.prodigal.predictedgenesover3000bp)),
+                    ('predictedgenesover1000bp', str(sample.prodigal.predictedgenesover1000bp)),
+                    ('predictedgenesover500bp', str(sample.prodigal.predictedgenesover500bp)),
+                    ('predictedgenesunder500bp', str(sample.prodigal.predictedgenesunder500bp)),
+                    ('SequencingDate', sample.run.Date),
+                    ('Investigator', sample.run.InvestigatorName),
+                    ('TotalClustersinRun', str(sample.run.TotalClustersinRun)),
+                    ('NumberofClustersPF', str(sample.run.NumberofClustersPF)),
+                    ('PercentOfClusters', str(sample.run.PercentOfClusters)),
+                    ('LengthofForwardRead', str(sample.run.forwardlength)),
+                    ('LengthofReverseRead', str(sample.run.reverselength)),
+                    ('Project', str(sample.run.SampleProject)),
                     ('PipelineVersion', self.commit)
                 ])
 
                 if not row:
                     row += ','.join([key for key, value in data.items()])
                 row += '\n'
-                row += ','.join(value for key, value in data.items())
+                row += ','.join([value for key, value in data.items()])
             else:
-                # 'ReferenceGenome', 'RefGenomeAlleleMatches',
                 if not row:
                     data = ['SampleName', 'N50', 'NumContigs', 'TotalLength', 'MeanInsertSize', 'AverageCoverageDepth',
-                             '16sPhylogeny', 'rMLSTsequenceType',
+                            'ReferenceGenome', 'RefGenomeAlleleMatches', '16sPhylogeny', 'rMLSTsequenceType',
                             'MLSTsequencetype', 'MLSTmatches', 'coreGenome', 'Serotype', 'geneSeekrProfile',
                             'vtyperProfile', 'percentGC', 'TotalPredictedGenes', 'predictedgenesover3000bp',
                             'predictedgenesover1000bp', 'predictedgenesover500bp', 'predictedgenesunder500bp',
@@ -64,8 +210,9 @@ class Reporter(object):
                             'PipelineVersion']
                     row += ','.join(data)
                 row += '\n{}'.format(sample.name)
-        with open('{}/combinedMetadata.csv'.format(self.reportpath), 'w') as metadatareport:
-            metadatareport.write(row)
+        cleanrow = row.replace('NA', '-')
+        with open(os.path.join(self.reportpath, 'legacy_combinedMetadata.csv'), 'w') as metadatareport:
+            metadatareport.write(cleanrow)
 
     def database(self):
         """
@@ -106,9 +253,11 @@ class Reporter(object):
                 # Allow for certain analyses, such as core genome, not being performed on all strains
                 try:
                     # Create the table (if it doesn't already exist)
+                    # sample_id INTEGER
                     cursor.execute('''
                       CREATE TABLE IF NOT EXISTS {} (
-                        sample_id INTEGER
+                      sample_id INTEGER,
+                      FOREIGN KEY(sample_id) REFERENCES Samples(id)
                       )
                       '''.format(tablename))
                     # Key and value: data description and data value e.g. targets present: 1012, etc.
@@ -187,6 +336,18 @@ class Reporter(object):
         self.commit = inputobject.commit
         self.reportpath = inputobject.reportpath
         self.starttime = inputobject.starttime
+        # 'rMLST_ReferenceGenome', 'rMLST_NumMatchingAlleles',
+        self.headers = ['SeqID', 'SequencingDate', 'Analyst', 'SamplePurity', 'N50', 'NumContigs', 'TotalLength',
+                        'MeanInsertSize', 'InsertSizeSTD', 'AverageCoverageDepth', 'CoverageDepthSTD', 'PercentGC',
+                        'MASH_ReferenceGenome', 'MASH_NumMatchingHashes', '16S_result', 'rMLST_Result', 'MLST_Result',
+                        'MLST_gene_1_allele', 'MLST_gene_2_allele', 'MLST_gene_3_allele', 'MLST_gene_4_allele',
+                        'MLST_gene_5_allele', 'MLST_gene_6_allele', 'MLST_gene_7_allele', 'CoreGenesPresent',
+                        'E_coli_Serotype', 'SISTR_serovar_antigen', 'SISTR_serovar_cgMLST', 'SISTR_serogroup',
+                        'SISTR_h1', 'SISTR_h2', 'SISTR_serovar', 'GeneSeekr_Profile', 'Vtyper_Profile', 'AMR_Profile',
+                        'Plasmid_MLST_Result', 'TotalPredictedGenes', 'PredictedGenesOver3000bp',
+                        'PredictedGenesOver1000bp', 'PredictedGenesOver500bp', "PredictedGenesUnder500bp",
+                        'NumClustersPF', 'LengthForwardRead', 'LengthReverseRead', 'PipelineVersion', 'AssemblyDate']
         self.reporter()
+        self.legacy_reporter()
         # Create a database to store all the metadata
         self.database()

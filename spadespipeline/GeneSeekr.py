@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-import shlex
-import subprocess
+from Bio.Application import ApplicationError
 import time
+import os
 from collections import defaultdict
 from csv import DictReader
 from glob import glob
@@ -11,7 +11,8 @@ from Bio.Blast.Applications import NcbiblastnCommandline
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.Alphabet import IUPAC
-from accessoryFunctions.accessoryFunctions import *
+from accessoryFunctions.accessoryFunctions import printtime, run_subprocess, write_to_logfile, make_path, \
+    combinetargets, MetadataObject, GenObject, make_dict
 
 __author__ = 'adamkoziol'
 
@@ -49,47 +50,50 @@ class GeneSeekr(object):
             sample[self.analysistype].blastresults = list()
             resultdict = dict()
             rowdict = dict()
-            # Iterate through all the contigs, which had BLAST hits
-            for contig in sample[self.analysistype].queryranges:
-                # Find all the locations in each contig that correspond to the BLAST hits
-                for location in sample[self.analysistype].queryranges[contig]:
-                    # Extract the BLAST result dictionary for the contig
-                    for row in sample[self.analysistype].results[contig]:
-                        # Initialise variable to reduce the number of times row['value'] needs to be typed
-                        contig = row['query_id']
-                        high = row['high']
-                        low = row['low']
-                        percentidentity = row['percentidentity']
-                        # Join the two ranges in the location list with a comma
-                        locstr = ','.join([str(x) for x in location])
-                        # Create a set of the location of all the base pairs between the low and high (-1) e.g.
-                        # [6, 10] would give 6, 7, 8, 9, but NOT 10. This turns out to be useful, as there are
-                        # genes located back-to-back in the genome e.g. strB and strA, with locations of 2557,3393
-                        # and 3393,4196, respectively. By not including 3393 in the strB calculations, I don't
-                        # have to worry about this single bp overlap
-                        loc = set(range(low, high))
-                        # Use a set intersection to determine whether the current result overlaps with location
-                        # This will allow all the hits to be grouped together based on their location
-                        if loc.intersection(set(range(location[0], location[1]))):
-                            # Populate the grouped hits for each location
-                            try:
-                                resultdict[contig][locstr].append(percentidentity)
-                                rowdict[contig][locstr].append(row)
-                            # Initialise and populate the lists of the nested dictionary
-                            except KeyError:
+            try:
+                # Iterate through all the contigs, which had BLAST hits
+                for contig in sample[self.analysistype].queryranges:
+                    # Find all the locations in each contig that correspond to the BLAST hits
+                    for location in sample[self.analysistype].queryranges[contig]:
+                        # Extract the BLAST result dictionary for the contig
+                        for row in sample[self.analysistype].results[contig]:
+                            # Initialise variable to reduce the number of times row['value'] needs to be typed
+                            contig = row['query_id']
+                            high = row['high']
+                            low = row['low']
+                            percentidentity = row['percentidentity']
+                            # Join the two ranges in the location list with a comma
+                            locstr = ','.join([str(x) for x in location])
+                            # Create a set of the location of all the base pairs between the low and high (-1) e.g.
+                            # [6, 10] would give 6, 7, 8, 9, but NOT 10. This turns out to be useful, as there are
+                            # genes located back-to-back in the genome e.g. strB and strA, with locations of 2557,3393
+                            # and 3393,4196, respectively. By not including 3393 in the strB calculations, I don't
+                            # have to worry about this single bp overlap
+                            loc = set(range(low, high))
+                            # Use a set intersection to determine whether the current result overlaps with location
+                            # This will allow all the hits to be grouped together based on their location
+                            if loc.intersection(set(range(location[0], location[1]))):
+                                # Populate the grouped hits for each location
                                 try:
-                                    resultdict[contig][locstr] = list()
                                     resultdict[contig][locstr].append(percentidentity)
-                                    rowdict[contig][locstr] = list()
                                     rowdict[contig][locstr].append(row)
-                                # As this is a nested dictionary, it needs to be initialised here
+                                # Initialise and populate the lists of the nested dictionary
                                 except KeyError:
-                                    resultdict[contig] = dict()
-                                    resultdict[contig][locstr] = list()
-                                    resultdict[contig][locstr].append(percentidentity)
-                                    rowdict[contig] = dict()
-                                    rowdict[contig][locstr] = list()
-                                    rowdict[contig][locstr].append(row)
+                                    try:
+                                        resultdict[contig][locstr] = list()
+                                        resultdict[contig][locstr].append(percentidentity)
+                                        rowdict[contig][locstr] = list()
+                                        rowdict[contig][locstr].append(row)
+                                    # As this is a nested dictionary, it needs to be initialised here
+                                    except KeyError:
+                                        resultdict[contig] = dict()
+                                        resultdict[contig][locstr] = list()
+                                        resultdict[contig][locstr].append(percentidentity)
+                                        rowdict[contig] = dict()
+                                        rowdict[contig][locstr] = list()
+                                        rowdict[contig][locstr].append(row)
+            except KeyError:
+                pass
             # Find the best hit for each location based on percent identity
             for contig in resultdict:
                 for location in resultdict[contig]:
@@ -146,8 +150,8 @@ class GeneSeekr(object):
                 #                            .format(fastapath, db)), stdout=fnull, stderr=fnull)
                 out, err = run_subprocess(command)
                 threadlock.acquire()
-                write_to_logfile(command, command, self.logfile)
-                write_to_logfile(out, err, self.logfile)
+                write_to_logfile(command, command, self.logfile, None, None, None, None)
+                write_to_logfile(out, err, self.logfile, None, None, None, None)
                 threadlock.release()
             self.dqueue.task_done()  # signals to dqueue job is done
 
@@ -211,7 +215,7 @@ class GeneSeekr(object):
                     self.blastqueue.join()
                     try:
                         os.remove(sample[self.analysistype].report)
-                    except IOError:
+                    except (IOError, ApplicationError):
                         pass
                     raise
             # Parse the output depending on whether unique results are desired

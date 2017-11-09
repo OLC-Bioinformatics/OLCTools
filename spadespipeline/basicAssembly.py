@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 import subprocess
-
+from glob import glob
 from spadespipeline import metadataReader
-from accessoryFunctions.accessoryFunctions import *
+from accessoryFunctions.accessoryFunctions import filer, MetadataObject, GenObject, make_path
+import errno
+import os
 
 __author__ = 'adamkoziol'
 
@@ -10,7 +12,6 @@ __author__ = 'adamkoziol'
 class Basic(object):
 
     def basic(self):
-        from glob import glob
         # Grab any .fastq files in the path
         fastqfiles = glob('{}*.fastq*'.format(self.path))
         # Extract the base name of the globbed name + path provided
@@ -29,9 +30,8 @@ class Basic(object):
             # Link the files to the output folder
             try:
                 # Link the .gz files to :self.path/:filename
-                # map(lambda x: os.symlink(x, '{}/{}'.format(outputdir, os.path.split(x)[1])), specificfastq)
                 list(map(lambda x: os.symlink('../{}'.format(os.path.basename(x)),
-                                         '{}/{}'.format(outputdir, os.path.basename(x))), specificfastq))  # Had to add list here due to some sort of 2to3 conversion issue.
+                                              '{}/{}'.format(outputdir, os.path.basename(x))), specificfastq))
             # Except os errors
             except OSError as exception:
                 # If there is an exception other than the file exists, raise it
@@ -41,10 +41,14 @@ class Basic(object):
             metadata.general = GenObject()
             metadata.run = GenObject()
             # Populate the .fastqfiles category of :self.metadata
-            metadata.general.fastqfiles = [fastq for fastq in glob('{}/{}*.fastq*'.format(outputdir, fastqname))
-                                           if 'trimmed' not in fastq]
+            metadata.general.fastqfiles = [fastq for fastq in sorted(
+                glob('{}/{}*.fastq*'.format(outputdir, metadata.name))) if 'trimmed' not in fastq and
+                                           'normalised' not in fastq and 'corrected' not in fastq and
+                                           'paired' not in fastq and 'unpaired' not in fastq]
             # Add the output directory to the metadata
             metadata.general.outputdirectory = outputdir
+            metadata.general.logout = os.path.join(self.path, metadata.name, '{}_log_out.txt'.format(metadata.name))
+            metadata.general.logerr = os.path.join(self.path, metadata.name, '{}_log_err.txt'.format(metadata.name))
             # Append the metadata to the list of samples
             self.samples.append(metadata)
         # Grab metadata from previous runs
@@ -122,7 +126,7 @@ class Basic(object):
                         sample.run.reverselength = 'NA'
 
     def __init__(self, inputobject):
-        self.samples = []
+        self.samples = list()
         self.path = inputobject.path
         self.kmers = inputobject.kmers
         self.basic()
