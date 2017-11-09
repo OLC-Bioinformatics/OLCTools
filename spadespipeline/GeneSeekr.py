@@ -853,7 +853,6 @@ def sequencenames(contigsfile):
         sequences.append(record.id)
     return sequences
 
-
 if __name__ == '__main__':
 
     class Parser(object):
@@ -953,7 +952,6 @@ if __name__ == '__main__':
             self.targets = list()
             self.combinedtargets = str()
             self.samples = list()
-            self.logfile = os.path.join(self.sequencepath, 'log.txt')
             if self.resfinder:
                 self.analysistype = 'resfinder'
             elif self.virulencefinder:

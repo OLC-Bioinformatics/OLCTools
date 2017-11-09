@@ -22,7 +22,7 @@ class CLARK(object):
         """Create objects to store data and metadata for each sample. Also, perform necessary file manipulations"""
         # Move the files to subfolders and create objects
         self.runmetadata = createobject.ObjectCreation(self)
-        if self.runmetadata.extension == 'fastq':
+        if self.runmetadata.extension == '.fastq':
             # To streamline the CLARK process, decompress and combine .gz and paired end files as required
             printtime('Decompressing and combining .fastq files for CLARK analysis', self.start)
             fileprep.Fileprep(self)
@@ -44,7 +44,23 @@ class CLARK(object):
         #
         subprocess.call(self.targetcall, shell=True, stdout=self.devnull, stderr=self.devnull)
         # Classify the metagenome(s)
+        if self.clean_seqs:
+            self.clean_sequences()
         self.classifymetagenome()
+
+    def clean_sequences(self):
+        """Removes reads/contigs that contain plasmids, and masks phage sequences."""
+        printtime('Removing plasmid and masking phage', self.start)
+        plasmid_db = '/mnt/nas/Adam/assemblypipeline/plasmidfinder/plasmid_database.fa'
+        phage_db = '/mnt/nas/Adam/assemblypipeline/prophages/combinedtargets.tfa'
+        for sample in self.runmetadata.samples:
+            plasmid_removal = 'bbduk.sh ref={} in={} out={} overwrite'.format(plasmid_db, sample.general.combined, sample.general.combined.replace('.f', '_noplasmid.f'))
+            subprocess.call(plasmid_removal, shell=True, stdout=self.devnull, stderr=self.devnull)
+            phage_masking = 'bbduk.sh ref={} in={} out={} kmask=N overwrite'.format(phage_db, sample.general.combined.replace('.f', '_noplasmid.f'), sample.general.combined.replace('.f', '_clean.f'))
+            subprocess.call(phage_masking, shell=True, stdout=self.devnull, stderr=self.devnull)
+            os.remove(sample.general.combined)
+            os.rename(sample.general.combined.replace('.f', '_clean.f'), sample.general.combined)
+            os.remove(sample.general.combined.replace('.f', '_noplasmid.f'))
 
     def classifymetagenome(self):
         """Run the classify metagenome of the CLARK package on the samples"""
@@ -69,7 +85,7 @@ class CLARK(object):
         for sample in self.runmetadata.samples:
             # Define the name of the .csv classification file
             sample.general.classification = sample.general.combined.split('.')[0] + '.csv'
-            # If the file exists, then set classify to False
+            # If the file exists, then set classify to True
             if os.path.isfile(sample.general.classification):
                 classify = False
         # Run the system call if the samples have not been classified
@@ -147,7 +163,7 @@ class CLARK(object):
         # List of the headers to use
         headers = ['Strain', 'Name', 'TaxID', 'Lineage', 'Count', 'Proportion_All(%)', 'Proportion_Classified(%)']
         # Add an additional header for .fasta analyses
-        if self.runmetadata.extension == 'fasta':
+        if self.runmetadata.extension == '.fasta':
             headers.insert(4, 'TotalBP')
         # Populate the headers
         for category in headers:
@@ -198,7 +214,7 @@ class CLARK(object):
                 # contigs map to TaxID 630, however, added together, those 56 contigs are 4705838 bp, while the 50
                 # contigs added together are only 69602 bp. While this is unlikely a pure culture, only
                 # 69602 / (4705838 + 69602) = 1.5% of the total bp map to TaxID 630 compared to 45% of the contigs
-                if self.runmetadata.extension == 'fasta':
+                if self.runmetadata.extension == '.fasta':
                     # Initialise a variable to store the total bp mapped to the TaxID
                     result['TotalBP'] = int()
                     # Read the classification file into a dictionary
@@ -265,6 +281,7 @@ class CLARK(object):
         self.abundancequeue = Queue()
         self.datapath = ''
         self.reportpath = os.path.join(self.path, 'reports')
+        self.clean_seqs = args.clean_seqs
         # If run as part of the assembly pipeline, a few modifications are necessary to ensure that the metadata objects
         # and variables play nice
         try:
@@ -277,12 +294,14 @@ class CLARK(object):
                 if not os.path.isfile(self.report):
                     #
                     printtime('Performing CLARK analysis on {} files'.format(self.extension), self.start)
-                    if self.extension == 'fastq':
+                    if self.extension == '.fastq':
                         fileprep.Fileprep(self)
                     else:
                         for sample in self.runmetadata.samples:
                             sample.general.combined = sample.general.bestassemblyfile
-                    # Prepare the objects to be processed with CLARK
+                    # Set the targets
+                    self.settargets()
+                    # Clean up the files and create/delete attributes to be consistent with pipeline Metadata objects
                     for sample in self.runmetadata.samples:
                         # Create a GenObject to store metadata when this script is run as part of the pipeline
                         clarkextension = 'clark{}'.format(self.extension)
@@ -290,10 +309,6 @@ class CLARK(object):
                         # Create a folder to store all the CLARK files
                         sample[clarkextension].outputpath = os.path.join(sample.general.outputdirectory, 'CLARK')
                         make_path(sample[clarkextension].outputpath)
-                    # Set the targets and perform the analyses
-                    self.settargets()
-                    # Clean up the files and create/delete attributes to be consistent with pipeline Metadata objects
-                    for sample in self.runmetadata.samples:
                         # Move the files to the CLARK folder
                         move(sample.general.abundance,
                              '{}/{}'.format(sample[clarkextension].outputpath,
@@ -374,6 +389,9 @@ if __name__ == '__main__':
                         default=0.01,
                         help='Cutoff value for setting taxIDs to use when filtering fastq files. Defaults to 1 percent.'
                              ' Please note that you must use a decimal format: enter 0.05 to get a 5 percent cutoff.')
+    parser.add_argument('-cl', '--clean_seqs', default=False, action='store_true', help='If enabled, removes plasmid sequences and'
+                                                                         'masks phage sequences. Only usable if you '
+                                                                         'have access to the OLC NAS.')
     # Get the arguments into an object
     arguments = parser.parse_args()
 
@@ -408,14 +426,14 @@ class PipelineInit(object):
         args.runmetadata = inputobject.runmetadata
         if analysis == 'pipeline':
             # Run CLARK on both .fastq and .fasta files
-            for extension in ['fastq', 'fasta']:
+            for extension in ['.fastq', '.fasta']:
                 args.runmetadata.extension = extension
-                if extension == 'fasta':
+                if extension == '.fasta':
                     # Overwrite the .sequencepath attribute to point to the folder storing all the assemblies
                     args.sequencepath = os.path.join(args.path, 'BestAssemblies')
-                # Run CLARK
-                CLARK(args, inputobject.commit, inputobject.starttime, inputobject.homepath)
+            # Run CLARK
+            CLARK(args, inputobject.commit, inputobject.starttime, inputobject.homepath)
         else:
-            args.runmetadata.extension = 'fasta'
+            args.runmetadata.extension = '.fasta'
             # Run CLARK
             CLARK(args, inputobject.commit, inputobject.starttime, inputobject.homepath)

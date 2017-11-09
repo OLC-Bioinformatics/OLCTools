@@ -6,6 +6,9 @@ import re
 import time
 import sys
 from collections import defaultdict
+import datetime
+import subprocess
+
 from subprocess import Popen, PIPE, STDOUT
 from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
@@ -16,7 +19,50 @@ from Bio.Application import _Option, AbstractCommandline, _Switch
 __author__ = 'adamkoziol', 'andrewlow'
 
 
-def write_to_logfile(out, err, logfile, samplelog, sampleerr, analysislog, analysiserr):
+
+def download_file(address, output_name, hour_start=18, hour_end=6, day_start=5, day_end=6, timeout=600):
+    """
+    Downloads a file, between specified hours. (Hour start has to be greater than hour end for this to work in current
+    iteration).
+    :param address: Address of file that you want to download.
+    :param output_name: Where you want to save the file to.
+    :param hour_start: Start of window where downloading is acceptable. Default 6PM (1800h)
+    :param hour_end: End of window where downloading is acceptable. Default 6AM (600h)
+    :param day_start: Start of window where it's always OK to download. Default Saturday (day 5).
+    :param day_end: End of window where it's always OK to download. Default Sunday (day 6).
+    :param timeout: How often to check if you're outside the acceptable download window (default 600 seconds).
+    :return:
+    """
+    out = open(os.devnull, 'w')
+    returncode = 28  # While loop is based on returncode given by curl, so need to initialize it to something.
+    while returncode != 0:  # 0 means that the file has already been downloaded completely, so stop looping then.
+        # Figure out what hour it is. If not in acceptable download window, wait a while before checking again.
+        hour = datetime.datetime.now().time().hour
+        minute = datetime.datetime.now().time().minute
+        day = datetime.datetime.today().weekday()
+        acceptable_hour = not(hour_end < hour < hour_start)  # True if current hour is between start and end.
+        acceptable_day = day_start <= day <= day_end  # True if current day is a weekend day.
+        if not(acceptable_hour or acceptable_day):
+            print('Current time is {hour}:{minute}. I am not allowed to start downloading until'
+                  ' {start_hour}:00.'.format(hour=hour, minute=minute, start_hour=hour_start))
+            time.sleep(timeout)
+        # If the file doesn't already exist, start downloading it.
+        elif not os.path.exists(output_name):
+            cmd = 'curl -o {outname} --max-time {timeout} {address}'.format(timeout=timeout,
+                                                                            address=address,
+                                                                            outname=output_name)
+            returncode = subprocess.call(cmd, shell=True, stdout=out, stderr=out)
+        # If the file does already exist, download it starting from filesize offset.
+        else:
+            file_size = os.path.getsize(output_name)
+            cmd = 'curl -o {outname} --max-time {timeout} -C {file_size} {address}'.format(timeout=timeout,
+                                                                                           address=address,
+                                                                                           outname=output_name,
+                                                                                           file_size=file_size)
+            returncode = subprocess.call(cmd, shell=True, stdout=out, stderr=out)
+
+
+def write_to_logfile(out, err, logfile):
     """
     Writes out and err (both should be strings) to logfile.
     """
