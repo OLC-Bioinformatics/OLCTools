@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-from accessoryFunctions.accessoryFunctions import *
+from accessoryFunctions.accessoryFunctions import MetadataObject
+import os
 # import createFastq
 import sipprCommon.fastqCreator as fastqCreator
 import sipprCommon.createObject as createObject

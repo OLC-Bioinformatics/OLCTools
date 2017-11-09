@@ -1,10 +1,9 @@
 #!/usr/bin/env python
-import sys
-
 import Bio
-
-from accessoryFunctions.accessoryFunctions import *
-from spadespipeline.bowtie import *
+from accessoryFunctions.accessoryFunctions import GenObject, printtime, get_version
+import sys
+import os
+from spadespipeline.bowtie import Bowtie2CommandLine
 
 __author__ = 'adamkoziol'
 
@@ -60,7 +59,6 @@ class Versions(object):
         self.fastqc = get_version(['fastqc', '--version']).decode('utf-8').split('\n')[0].split()[1]
         # Uncomment this once you figure ou where this file is stored.
         self.bcl2fastq = "2"
-        #self.bcl2fastq = get_version(['configureBclToFastq.pl']).decode('utf-8').split('\n')[-2].split()[2].split('/')[4].split('-')[1]
         self.perl = get_version(['perl', '-v']).decode('utf-8').split('\n')[1].split('This is ')[1]
         self.biopython = Bio.__version__
         self.java = get_version(['java', '-showversion']).decode('utf-8').split('\n')[0].split()[2].replace('"', '')

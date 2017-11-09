@@ -1,7 +1,8 @@
 #!/usr/bin/env python
-from accessoryFunctions.accessoryFunctions import *
+from accessoryFunctions.accessoryFunctions import printtime, make_path, run_subprocess, write_to_logfile, GenObject
 from threading import Thread
 import threading
+import os
 __author__ = 'adamkoziol'
 
 
@@ -21,13 +22,7 @@ class Quast(object):
                 # Create the quast output directory
                 quastoutputdirectory = '{}/quast_results/'.format(sample.general.outputdirectory)
                 make_path(quastoutputdirectory)
-                # If the best reference genome was identified using rMLST, perform the GAGE analysis
-                # if sample['rmlst'].referencegenomepath != 'NA':
-                #     quastcall = 'quast.py -R {} --gage {} -o {}'.format(sample['rmlst'].referencegenomepath,
-                #                                                         sample.general.filteredfile,
-                #                                                         quastoutputdirectory)
-                # Otherwise run quast without GAGE analyses
-                # else:
+                # Set the quast system call
                 quastcall = 'quast.py {} -o {}'.format(sample.general.filteredfile, quastoutputdirectory)
                 # Add the command to the metadata
                 sample.commands.quast = quastcall
@@ -37,7 +32,6 @@ class Quast(object):
         self.quastqueue.join()
 
     def runquast(self):
-        from subprocess import call
         while True:
             sample, quastoutputdirectory = self.quastqueue.get()
             make_path(quastoutputdirectory)
@@ -48,8 +42,9 @@ class Quast(object):
                 out, err = run_subprocess(sample.commands.quast)
                 # call(sample.commands.quast, shell=True, stdout=fnull, stderr=fnull)
                 threadlock.acquire()
-                write_to_logfile(sample.commands.quast, sample.commands.quast, self.logfile)
-                write_to_logfile(out, err, self.logfile)
+                write_to_logfile(sample.commands.quast, sample.commands.quast, self.logfile,
+                                 sample.general.logout, sample.general.logerr, None, None)
+                write_to_logfile(out, err, self.logfile, sample.general.logout, sample.general.logerr, None, None)
                 threadlock.release()
             # Following the analysis, parse the report (if it exists) into the metadata object
             if os.path.isfile('{}/report.tsv'.format(quastoutputdirectory)):
@@ -68,11 +63,11 @@ class Quast(object):
             if os.path.isfile("{0:s}/gage_report.tsv".format(quastoutputdirectory)) \
             else "{0:s}/report.tsv".format(quastoutputdirectory)
         with open(resfile) as report:
-            # report.next() # Next doesn't work in python3. Pretty sure getting rid of this just adds one extra item to an object.
             for line in report:
                 # Use headings in report as keys for the GenObject supplied from generator and replace incrementally
                 # with reduce and lambda function below
-                k, v = [functools.reduce(lambda a, kv: a.replace(*kv), repls, s.title()) for s in line.rstrip().split('\t')]
+                k, v = [functools.reduce(lambda a, kv: a.replace(*kv), repls, s.title()) for s in
+                        line.rstrip().split('\t')]
                 quast[k] = v
         # Create the quast metadata object
         sample.quast = GenObject(quast)

@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 from threading import Thread, Lock
-from accessoryFunctions.accessoryFunctions import *
-
+from queue import Queue
+from accessoryFunctions.accessoryFunctions import printtime, GenObject, make_path, run_subprocess, write_to_logfile
+import os
 __author__ = 'adamkoziol'
 
 threadlock = Lock()
@@ -25,7 +26,6 @@ class Prodigal(object):
         self.predictqueue.join()
 
     def predict(self):
-        from subprocess import call
         while True:
             sample = self.predictqueue.get()
             # fnull = open(os.devnull, 'w')  # define /dev/null
@@ -43,15 +43,15 @@ class Prodigal(object):
             if not os.path.isfile(results) or size == 0:
                 out, err = run_subprocess(prodigal)
                 threadlock.acquire()
-                write_to_logfile(prodigal, prodigal, self.logfile)
-                write_to_logfile(out, err, self.logfile)
+                write_to_logfile(prodigal, prodigal, self.logfile, sample.general.logout, sample.general.logerr, None,
+                                 None)
+                write_to_logfile(out, err, self.logfile, sample.general.logout, sample.general.logerr, None, None)
                 threadlock.release()
                 # call(prodigal, shell=True, stdout=fnull, stderr=fnull)
             self.predictqueue.task_done()
 
     def prodigalparse(self):
         printtime('Parsing gene predictions', self.start)
-
         for sample in self.metadata:
             if sample.general.bestassemblyfile != 'NA':
                 sample.prodigal.predictedgenestotal = 0
@@ -76,7 +76,6 @@ class Prodigal(object):
                                 sample.prodigal.predictedgenesunder500bp += 1
 
     def __init__(self, inputobject):
-        from queue import Queue
         self.metadata = inputobject.runmetadata.samples
         self.start = inputobject.starttime
         self.logfile = inputobject.logfile

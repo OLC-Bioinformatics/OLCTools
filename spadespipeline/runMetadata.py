@@ -1,15 +1,14 @@
 #!/usr/bin/env python
 import os
-
 from accessoryFunctions.accessoryFunctions import MetadataObject, GenObject
-
+import copy
+from linecache import getline
 # Import ElementTree - try first to import the faster C version, if that doesn't
 # work, try to import the regular version
 try:
     import xml.etree.cElementTree as ElementTree
 except ImportError:
     import xml.etree.ElementTree as ElementTree
-
 __author__ = 'adamkoziol'
 
 
@@ -42,7 +41,6 @@ class Metadata(object):
     def parsesamplesheet(self):
         """Parses the sample sheet (SampleSheet.csv) to determine certain values
         important for the creation of the assembly report"""
-        import copy
         # Open the sample sheet
         with open(self.samplesheet, "rb") as samplesheet:
             # Iterate through the sample sheet
@@ -83,6 +81,10 @@ class Metadata(object):
                         # Create the 'General' category for strainmetadata
                         strainmetadata.general = GenObject({'outputdirectory': os.path.join(self.path, samplename),
                                                             'pipelinecommit': self.commit})
+                        strainmetadata.general.logout = os.path.join(self.path, samplename,
+                                                                     '{}_log_out.txt'.format(samplename))
+                        strainmetadata.general.logerr = os.path.join(self.path, samplename,
+                                                                     '{}_log_err.txt'.format(samplename))
                         # Add the output directory to the general category
                         # Append the strainmetadata object to a list
                         self.samples.append(strainmetadata)
@@ -140,7 +142,6 @@ class Metadata(object):
                 except IndexError:
                     pass
         elif os.path.isfile("{}indexingQC.txt".format(self.path)):
-            from linecache import getline
             # Grab the first element from the second line in the file
             tclusterspf = float(getline("{}indexingQC.txt".format(self.path), 2).split("\t")[0])
             # Open the file and extract the relevant data

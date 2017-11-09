@@ -1,10 +1,18 @@
 #!/usr/bin/env python
-from accessoryFunctions.accessoryFunctions import *
+from accessoryFunctions.accessoryFunctions import printtime, GenObject, MetadataObject, make_path
 import accessoryFunctions.metadataprinter as metadataprinter
-from spadespipeline import fileprep
+from spadespipeline import fileprep, createobject
+from metagenomefilter import filtermetagenome
+from argparse import ArgumentParser
 from threading import Thread
+from csv import DictReader
+import multiprocessing
+from queue import Queue
+from shutil import move, which
 import subprocess
+import xlsxwriter
 import time
+import os
 __author__ = 'adamkoziol'
 
 
@@ -12,7 +20,6 @@ class CLARK(object):
 
     def objectprep(self):
         """Create objects to store data and metadata for each sample. Also, perform necessary file manipulations"""
-        from spadespipeline import createobject
         # Move the files to subfolders and create objects
         self.runmetadata = createobject.ObjectCreation(self)
         if self.runmetadata.extension == '.fastq':
@@ -62,8 +69,9 @@ class CLARK(object):
         with open(self.filelist, 'w') as filelist:
             with open(self.reportlist, 'w') as reportlist:
                 for sample in self.runmetadata.samples:
-                    filelist.write(sample.general.combined + '\n')
-                    reportlist.write(sample.general.combined.split('.')[0] + '\n')
+                    if sample.general.combined != 'NA':
+                        filelist.write(sample.general.combined + '\n')
+                        reportlist.write(sample.general.combined.split('.')[0] + '\n')
         # Define the system call
         # Need to add the cwd to self.filelist and self.reportlist.
         # self.filelist = os.getcwd() + "/" + self.filelist
@@ -133,9 +141,7 @@ class CLARK(object):
 
     def reports(self):
         """Create reports from the abundance estimation"""
-        import xlsxwriter
         printtime('Creating report', self.start)
-        from csv import DictReader
         # Create a workbook to store the report. Using xlsxwriter rather than a simple csv format, as I want to be
         # able to have appropriately sized, multi-line cells
         workbook = xlsxwriter.Workbook(self.report)
@@ -245,8 +251,6 @@ class CLARK(object):
         workbook.close()
 
     def __init__(self, args, pipelinecommit, startingtime, scriptpath):
-        import multiprocessing
-        from queue import Queue
         # Initialise variables
         self.commit = str(pipelinecommit)
         self.start = startingtime
@@ -282,7 +286,6 @@ class CLARK(object):
         # and variables play nice
         try:
             if args.runmetadata:
-                from shutil import move
                 self.runmetadata = args.runmetadata
                 self.extension = self.runmetadata.extension
                 # Create the name of the final report
@@ -341,7 +344,6 @@ class CLARK(object):
             self.objectprep()
         # Optionally filter the .fastq reads based on taxonomic assignment
         if args.filter:
-            from metagenomefilter import filtermetagenome
             filtermetagenome.PipelineInit(self)
         # Print the metadata to file
         metadataprinter.MetadataPrinter(self)
@@ -349,7 +351,6 @@ class CLARK(object):
 
 if __name__ == '__main__':
     # Argument parser for user-inputted values, and a nifty help menu
-    from argparse import ArgumentParser
     # Get the current commit of the pipeline from git
     # Extract the path of the current script from the full path + file name
     homepath = os.path.split(os.path.abspath(__file__))[0]
@@ -413,8 +414,10 @@ class PipelineInit(object):
         args = MetadataObject()
         args.path = inputobject.path
         args.sequencepath = inputobject.path
-        args.databasepath = '/mnt/nas/Adam/RefseqDatabase/Bos_taurus'
-        args.clarkpath = '/mnt/nas/bio_requests/7482/CLARKSCV1.2.3'
+        # args.databasepath = os.path.join(inputobject.reffilepath, 'clark')
+        args.databasepath = '{}clark'.format(inputobject.reffilepath)
+        make_path(args.databasepath)
+        args.clarkpath = os.path.dirname(which('estimate_abundance.sh'))
         args.cutoff = 0.005
         args.database = 'bacteria'
         args.rank = 'species'
