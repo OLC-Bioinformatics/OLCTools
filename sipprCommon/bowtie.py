@@ -314,12 +314,12 @@ class Bowtie2CommandLine(_Bowtie2BaseCommandLine):
             _Option(["--rdg", "rdg"],
                     "Sets the read gap open (<int1>) and extend (<int2>) penalties. A read gap of length N gets"
                     " a penalty of <int1> + N * <int2>. Default: 5, 3.",
-                    checker_function=lambda value: re.match('[-d.],[-d.]', value) is not None,
+                    checker_function=lambda value: re.match('\d{1,2},\d{1,2}', value) is not None,
                     equate=False),
             _Option(["--rfg", "rfg"],
                     "Sets the reference gap open (<int1>) and extend (<int2>) penalties. A reference gap of "
                     "length N gets a penalty of <int1> + N * <int2>. Default: 5, 3.",
-                    checker_function=lambda value: re.match('[-d.],[-d.]', value) is not None,
+                    checker_function=lambda value: re.match('\d{1,2},\d{1,2}', value) is not None,
                     equate=False),
             _Option(["--mp", "mp"],
                     "Sets the maximum (MX) and minimum (MN) mismatch penalties, both integers. A number less "

@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 import threading
 from threading import Thread
-from accessoryFunctions.accessoryFunctions import *
+from accessoryFunctions.accessoryFunctions import printtime, MetadataObject, GenObject, make_path, \
+    run_subprocess, write_to_logfile
+import os
 from spadespipeline import metadataprinter
-import subprocess
-
 __author__ = 'adamkoziol'
 
 
@@ -217,6 +217,7 @@ if __name__ == '__main__':
             make_path(self.reportpath)
             # Initialise metadata
             self.runmetadata.samples = self.setup()
+            self.logfile = os.path.join(self.path, 'vtyper_logfile.txt')
             # Run the analyses
             Vtyper(self, self.analysistype)
             # Create a report
@@ -228,5 +229,3 @@ if __name__ == '__main__':
             print(u'\033[92m' + u'\033[1m' + u'\nElapsed Time: %0.2f seconds' % (time() - self.starttime) + u'\033[0m')
 
     Setup()
-
-# -f /home/blais/git/V-Typer/vtx_subtyping_primers.txt

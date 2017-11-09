@@ -1,14 +1,12 @@
 #!/usr/bin/env python
 import os
-import time
 from queue import Queue
 from glob import glob
-from subprocess import call
 import threading
 from threading import Thread
-
-from accessoryFunctions.accessoryFunctions import *
-
+from accessoryFunctions.accessoryFunctions import printtime, make_path, run_subprocess, write_to_logfile
+import shutil
+from subprocess import Popen, PIPE
 __author__ = 'adamkoziol'
 
 
@@ -53,6 +51,22 @@ class Quality(object):
                 except KeyError:
                     fastqfiles = ""
                     pass
+            elif level == 'normalised':
+                reader = 'gunzip --to-stdout'
+                # Try except loop to allow for missing samples
+                try:
+                    fastqfiles = sample.general.normalisedreads
+                except KeyError:
+                    fastqfiles = ""
+                    pass
+            elif level == 'merged':
+                reader = 'gunzip --to-stdout'
+                # Try except loop to allow for missing samples
+                try:
+                    fastqfiles = [sample.general.mergedreads]
+                except KeyError:
+                    fastqfiles = ""
+                    pass
             else:
                 reader = 'cat' if '.gz' not in sample.general.fastqfiles[0] else 'gunzip --to-stdout'
                 fastqfiles = sample.general.fastqfiles
@@ -60,19 +74,20 @@ class Quality(object):
             # :fastqfiles is a list
             if type(fastqfiles) is list:
                 # Set the output directory location
-                outdir = '{}/fastqc/fastqc{}'.format(sample.general.outputdirectory, level)
+                outdir = os.path.join(sample.general.outputdirectory, 'fastqc', level)
+                make_path(outdir)
                 # Separate system calls for paired and unpaired fastq files
                 if len(fastqfiles) == 2:
                     # Combine the fastq files, so that the paired files are processed together
                     # Call fastqc with -q (quiet), -o (output directory), -t (number of threads) flags
                     fastqccall = '{} {} {} | fastqc -q -t {} stdin -o {}'\
-                        .format(reader, fastqfiles[0], fastqfiles[1], self.cpus, outdir)
+                        .format(reader, fastqfiles[0], fastqfiles[1], self.threads, outdir)
                     # Also perform QC on the individual forward and reverse reads
                     fastqcreads = "fastqc {} {} -q -o {} -t 12".format(fastqfiles[0], fastqfiles[1], outdir)
                 elif len(fastqfiles) == 1:
                     # fastqccall = "fastqc {} -q -o {} -t 12".format(fastqfiles[0], outdir)
                     fastqccall = '{} {} | fastqc -q -t {} stdin -o {}'\
-                        .format(reader, fastqfiles[0], self.cpus, outdir)
+                        .format(reader, fastqfiles[0], self.threads, outdir)
                     fastqcreads = "fastqc {} -q -o {} -t 12".format(fastqfiles[0], outdir)
                 # Add the arguments to the queue
                 sample.commands.fastqc = fastqccall
@@ -83,14 +98,14 @@ class Quality(object):
 
     def fastqc(self):
         """Run fastqc system calls"""
-        from accessoryFunctions.accessoryFunctions import make_path
-        import shutil
         while True:  # while daemon
             threadlock = threading.Lock()
             # Unpack the variables from the queue
             (sample, systemcall, outputdir, fastqcreads) = self.qcqueue.get()
             # Check to see if the output HTML file already exists
-            if not os.path.isfile('{}/{}_fastqc.html'.format(outputdir, sample.name)):
+            try:
+                _ = glob(os.path.join(outputdir, '*.html'))[0]
+            except IndexError:
                 # Make the output directory
                 make_path(outputdir)
                 # Run the system calls
@@ -105,9 +120,11 @@ class Quality(object):
                 # call(systemcall, shell=True, stdout=self.devnull, stderr=self.devnull)
                 # call(fastqcreads, shell=True, stdout=self.devnull, stderr=self.devnull)
                 threadlock.acquire()
-                write_to_logfile(systemcall, systemcall, self.logfile)
-                write_to_logfile(fastqcreads, fastqcreads, self.logfile)
-                write_to_logfile(outstr, errstr, self.logfile)
+                write_to_logfile(systemcall, systemcall, self.logfile, sample.general.logout, sample.general.logerr,
+                                 None, None)
+                write_to_logfile(fastqcreads, fastqcreads, self.logfile, sample.general.logout, sample.general.logerr,
+                                 None, None)
+                write_to_logfile(outstr, errstr, self.logfile, sample.general.logout, sample.general.logerr, None, None)
                 threadlock.release()
                 # Rename the outputs
                 try:
@@ -144,8 +161,8 @@ class Quality(object):
                 # Define the output directory
                 outputdir = sample.general.outputdirectory
                 # Define the name of the trimmed fastq files
-                cleanforward = '{}/{}_R1_trimmed.fastq'.format(outputdir, sample.name)
-                cleanreverse = '{}/{}_R2_trimmed.fastq'.format(outputdir, sample.name)
+                cleanforward = '{}/{}_R1_trimmed.fastq.gz'.format(outputdir, sample.name)
+                cleanreverse = '{}/{}_R2_trimmed.fastq.gz'.format(outputdir, sample.name)
                 if self.numreads == 2:
                     # Separate system calls for paired and unpaired fastq files
                     # TODO minlen=number - incorporate read length
@@ -183,8 +200,6 @@ class Quality(object):
         # Wait on the trimqueue until everything has been processed
         self.trimqueue.join()
         # Add all the trimmed files to the metadata
-
-        #print("\r[{:}] Fastq files trimmed".format(time.strftime("%H:%M:%S")))
         printtime('Fastq files trimmed', self.start)
         self.fastqcthreader('Trimmed')
 
@@ -200,24 +215,26 @@ class Quality(object):
                     # call(systemcall, shell=True, stdout=self.devnull, stderr=self.devnull)
                     out, err = run_subprocess(systemcall)
                     threadlock.acquire()
-                    write_to_logfile(systemcall, systemcall, self.logfile)
-                    write_to_logfile(out, err, self.logfile)
+                    write_to_logfile(systemcall, systemcall, self.logfile, sample.general.logout, sample.general.logerr,
+                                     None, None)
+                    write_to_logfile(out, err, self.logfile, sample.general.logout, sample.general.logerr, None, None)
                     threadlock.release()
                 # Define the output directory
                 outputdir = sample.general.outputdirectory
                 # Add the trimmed fastq files to a list
-                trimmedfastqfiles = sorted(glob('{}/*trimmed.fastq'.format(outputdir, sample.name)))
-                if not trimmedfastqfiles:
-                    trimmedfastqfiles = sorted(glob('{}/*trimmed.fastq.bz2'.format(outputdir, sample.name)))
+                trimmedfastqfiles = sorted(glob('{}/*trimmed.fastq.gz'.format(outputdir, sample.name)))
                 # Populate the metadata if the files exist
                 sample.general.trimmedfastqfiles = trimmedfastqfiles if trimmedfastqfiles else 'NA'
             # Signal to trimqueue that job is done
             self.trimqueue.task_done()
 
     def __init__(self, inputobject):
-        from subprocess import Popen, PIPE
         self.metadata = inputobject.runmetadata.samples
         self.cpus = inputobject.cpus
+        try:
+            self.threads = int(self.cpus / len(self.metadata)) if self.cpus / len(self.metadata) > 1 else 1
+        except TypeError:
+            self.threads = self.cpus
         # self.devnull = open(os.devnull, 'wb')
         self.qcqueue = Queue(maxsize=self.cpus)
         self.trimqueue = Queue(maxsize=self.cpus)

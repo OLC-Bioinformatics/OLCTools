@@ -2,7 +2,8 @@
 from glob import glob
 import sipprCommon.runMetadata as runMetadata
 from sipprCommon.offhours import Offhours
-from accessoryFunctions.accessoryFunctions import *
+from accessoryFunctions.accessoryFunctions import make_path, printtime, GenObject
+import os
 # Import ElementTree - try first to import the faster C version, if that doesn't
 # work, try to import the regular version
 try:
@@ -280,6 +281,7 @@ class CreateFastq(object):
         self.totalreads = self.metadata.totalreads
         # Create fastq files
         self.createfastq()
+
 
 # If the script is called from the command line, then call the argument parser
 if __name__ == '__main__':

@@ -1,13 +1,21 @@
 #!/usr/bin/env python
-from accessoryFunctions.accessoryFunctions import *
-import threading
+
+from accessoryFunctions.accessoryFunctions import printtime, GenObject, run_subprocess, write_to_logfile, make_path, \
+    MetadataObject
+from argparse import ArgumentParser
+import time
+import multiprocessing
+from glob import glob
+from queue import Queue
+import json
+import os
 __author__ = 'adamkoziol'
 
 class Sistr(object):
 
     def sistr(self):
         """Perform sistr analyses on Salmonella"""
-        from threading import Thread
+
         printtime('Performing sistr analyses', self.start)
         # Create and start threads
         for i in range(self.cpus):
@@ -18,27 +26,41 @@ class Sistr(object):
             # Start the threading
             threads.start()
         for sample in self.metadata:
-            try:
-                # Only process strains that have been determined to be Salmonella
-                if sample.general.referencegenus == 'Salmonella':
-                    # Create the analysis-type specific attribute
-                    setattr(sample, self.analysistype, GenObject())
-                    # Set and create the path of the directory to store the strain-specific reports
-                    sample[self.analysistype].reportdir = '{}/{}/'.format(sample.general.outputdirectory,
-                                                                          self.analysistype)
-                    make_path(sample[self.analysistype].reportdir)
-                    # Name of the .json output file
-                    sample[self.analysistype].jsonoutput = '{}{}.json'\
-                        .format(sample[self.analysistype].reportdir, sample.name)
-                    # Set the sistr system call
-                    sample.commands.sistr = \
-                        'sistr -f json -o {} -t 4 -T {}tmp {}'.format(sample[self.analysistype].jsonoutput,
-                                                                      sample[self.analysistype].reportdir,
-                                                                      sample.general.bestassemblyfile)
-                    # Add the sample to the queue
-                    self.queue.put(sample)
-            except (ValueError, KeyError):
-                pass
+            if sample.general.bestassemblyfile != 'NA':
+                try:
+                    # Only process strains that have been determined to be Salmonella
+                    if sample.general.referencegenus == 'Salmonella':
+                        # Create the analysis-type specific attribute
+                        setattr(sample, self.analysistype, GenObject())
+                        # Set and create the path of the directory to store the strain-specific reports
+                        sample[self.analysistype].reportdir = os.path.join(sample.general.outputdirectory,
+                                                                           self.analysistype)
+                        # Name of the .json output file
+                        sample[self.analysistype].jsonoutput = os.path.join(sample[self.analysistype].reportdir,
+                                                                            '{}.json'.format(sample.name))
+                        # Set the sistr system call
+                        sample.commands.sistr = \
+                            'sistr -f json -o {} -t {} -T {} {}'\
+                            .format(sample[self.analysistype].jsonoutput,
+                                    self.cpus,
+                                    os.path.join(sample[self.analysistype].reportdir, 'tmp'),
+                                    sample.general.bestassemblyfile)
+                        #
+                        sample[self.analysistype].logout = os.path.join(sample[self.analysistype].reportdir, 'logout')
+                        sample[self.analysistype].logerr = os.path.join(sample[self.analysistype].reportdir, 'logerr')
+                        # Only run the analyses if the output json file does not exist
+                        if not os.path.isfile(sample[self.analysistype].jsonoutput):
+                            out, err = run_subprocess(sample.commands.sistr)
+                            write_to_logfile(sample.commands.sistr, sample.commands.sistr, self.logfile,
+                                             sample.general.logout, sample.general.logerr,
+                                             sample[self.analysistype].logout, sample[self.analysistype].logerr)
+                            write_to_logfile(out, err, self.logfile, sample.general.logout, sample.general.logerr,
+                                             sample[self.analysistype].logout, sample[self.analysistype].logerr)
+                        # Read in the output .json file into the metadata
+                        sample[self.analysistype].jsondata = json.load(open(sample[self.analysistype].jsonoutput, 'r'))
+                        self.queue.task_done()
+                except (ValueError, KeyError):
+                    pass
         self.queue.join()
         self.report()
 
@@ -67,18 +89,22 @@ class Sistr(object):
         header = '\t'.join(self.headers) + '\n'
         data = ''
         for sample in self.metadata:
-            # Each strain is a fresh row
-            row = ''
-            try:
-                # Set the name of the report.
-                # Note that this is a tab-separated file, as there can be commas in the results
-                sample[self.analysistype].report = sample[self.analysistype].reportdir + sample.name + '.tsv'
-                # Iterate through all the headers to use as keys in the json-formatted output
-                for category in self.headers:
-                    # Tab separate all the results
-                    row += '{}\t'.format(sample[self.analysistype].jsondata[0][category])
-                # End the results with a newline
-                row += '\n'
+            if sample.general.bestassemblyfile != 'NA':
+                # Each strain is a fresh row
+                row = ''
+                try:
+                    # Set the name of the report.
+                    # Note that this is a tab-separated file, as there can be commas in the results
+                    sample[self.analysistype].report = os.path.join(sample[self.analysistype].reportdir,
+                                                                    '{}.tsv'.format(sample.name))
+                    # Iterate through all the headers to use as keys in the json-formatted output
+                    for category in self.headers:
+                        # Tab separate all the results
+                        row += '{}\t'.format(sample[self.analysistype].jsondata[0][category])
+                        # Create attributes for each category
+                        setattr(sample[self.analysistype], category, sample[self.analysistype].jsondata[0][category])
+                    # End the results with a newline
+                    row += '\n'
 
                 data += row
                 # Create and write headers and results to the strain-specific report
@@ -93,7 +119,6 @@ class Sistr(object):
             report.write(data)
 
     def __init__(self, inputobject, analysistype):
-        from queue import Queue
         self.metadata = inputobject.runmetadata.samples
         self.start = inputobject.starttime
         self.cpus = inputobject.cpus
@@ -110,11 +135,6 @@ class Sistr(object):
         self.sistr()
 
 if __name__ == '__main__':
-    # Argument parser for user-inputted values, and a nifty help menu
-    from argparse import ArgumentParser
-    import time
-    import multiprocessing
-    from glob import glob
     # Parser for arguments
     parser = ArgumentParser(description='Automate sistr analyses on a folder of .fasta files')
     parser.add_argument('path',

@@ -1,11 +1,9 @@
 #!/usr/bin/env python
-import gzip
 from queue import Queue
 from glob import glob
 from threading import Thread
-
-from accessoryFunctions.accessoryFunctions import *
-
+import os
+from accessoryFunctions.accessoryFunctions import printtime
 __author__ = 'adamkoziol'
 
 
@@ -15,7 +13,7 @@ class Compress(object):
         """Compresses large files created by the pipeline"""
         import re
         printtime('Compressing large files', self. start)
-        compressfile = []
+        compressfile = list()
         for sample in self.metadata:
             for key, value in sample.general.datastore.items():
                 if type(value) is list:

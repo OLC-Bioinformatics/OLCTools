@@ -1,7 +1,11 @@
 #!/usr/bin/env python
-from accessoryFunctions.accessoryFunctions import printtime
+from accessoryFunctions.accessoryFunctions import printtime, make_path
 from glob import glob
 import os
+import time
+import re
+import shutil
+import errno
 __author__ = 'adamkoziol'
 
 
@@ -62,12 +66,6 @@ class Offhours(object):
 
     def fastqlinker(self):
         """Ensure that the sequencing run is completed, and then copy the directory to :self.path"""
-        # Module-specific imports
-        import time
-        import re
-        import shutil
-        import errno
-        from accessoryFunctions.accessoryFunctions import make_path
         # Glob for .gz files in the appropriate subfolder of :miseqfolder. Discard 'Undetermined' files
         gzfiles = [gzfile for gzfile in glob('{}Data/Intensities/BaseCalls/*.gz'.format(self.miseqfolder))
                    if "Undetermined" not in gzfile]

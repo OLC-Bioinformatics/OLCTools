@@ -1,14 +1,23 @@
 #!/usr/bin/env python
 import errno
+import shlex
 import os
+import re
+import time
+import sys
+from collections import defaultdict
 import datetime
 import subprocess
-import time
-from subprocess import Popen, PIPE, STDOUT
 
+from subprocess import Popen, PIPE, STDOUT
+from Bio import SeqIO
+from Bio.SeqRecord import SeqRecord
+from Bio.Alphabet import generic_dna
+from Bio.Seq import Seq
 # noinspection PyProtectedMember
 from Bio.Application import _Option, AbstractCommandline, _Switch
 __author__ = 'adamkoziol', 'andrewlow'
+
 
 
 def download_file(address, output_name, hour_start=18, hour_end=6, day_start=5, day_end=6, timeout=600):
@@ -57,10 +66,40 @@ def write_to_logfile(out, err, logfile):
     """
     Writes out and err (both should be strings) to logfile.
     """
+    # Run log
     with open(logfile + '_out.txt', 'a+') as outfile:
         outfile.write(out + '\n')
     with open(logfile + '_err.txt', 'a+') as outfile:
         outfile.write(err + '\n')
+    # Sample log
+    if samplelog:
+        with open(samplelog, 'a+') as outfile:
+            outfile.write(out + '\n')
+        with open(sampleerr, 'a+') as outfile:
+            outfile.write(err + '\n')
+    # Analysis log
+    if analysislog:
+        with open(analysislog, 'a+') as outfile:
+            outfile.write(out + '\n')
+        with open(analysiserr, 'a+') as outfile:
+            outfile.write(err + '\n')
+
+
+def clear_logfile(logfile):
+    """
+    As logfiles are appended to each time the same data are processed, sometimes it is desirable to clear out
+    logsfiles from previous iterations
+    :param logfile: Base name of logfile
+    """
+    try:
+        os.remove(logfile + '_out.txt')
+    except IOError:
+        pass
+    try:
+        os.remove(logfile + '_err.txt')
+    except IOError:
+        pass
+
 
 def run_subprocess(command):
     """
@@ -72,6 +111,7 @@ def run_subprocess(command):
     out = out.decode('utf-8')
     err = err.decode('utf-8')
     return out, err
+
 
 def get_version(exe):
     """
@@ -103,7 +143,6 @@ def make_path(inpath):
 
 def make_dict():
     """Makes Perl-style dictionaries"""
-    from collections import defaultdict
     return defaultdict(make_dict)
 
 
@@ -112,7 +151,6 @@ def printtime(string, start):
     :param string: a string to be printed in bold
     :param start: integer of the starting time
     """
-    import time
     print('\n\033[1m' + "[Elapsed Time: {:.2f} seconds] {}".format(time.time() - start, string) + '\033[0m')
 
 
@@ -125,7 +163,6 @@ class Dotter(object):
     def dotter(self):
         """Prints formatted time to stdout at the start of a line, as well as a "."
         whenever the length of the line is equal or lesser than 80 "." long"""
-        import sys
         if self.globalcount <= 80:
             sys.stdout.write('.')
             self.globalcount += 1
@@ -135,6 +172,7 @@ class Dotter(object):
 
     def __init__(self):
         self.globalcount = 0
+
 
 # Initialise globalcount
 globalcount = 0
@@ -149,8 +187,6 @@ def globalcounter():
 def dotter():
     """Prints formatted time to stdout at the start of a line, as well as a "."
     whenever the length of the line is equal or lesser than 80 "." long"""
-    # import time
-    import sys
     # Use a global variable
     global globalcount
     if globalcount <= 80:
@@ -168,8 +204,6 @@ def execute(command, outfile=""):
     :param outfile: optional string of an output file
     from https://stackoverflow.com/questions/4417546/constantly-print-subprocess-output-while-process-is-running
     """
-    import sys
-    import time
     # Initialise count
     count = 0
     # Initialise the starting time
@@ -177,7 +211,6 @@ def execute(command, outfile=""):
     maxtime = 0
     # Removing Shell=True to prevent excess memory use thus shlex split if needed
     if type(command) is not list:
-        import shlex
         command = shlex.split(command)
     # Run the commands - direct stdout to PIPE and stderr to stdout
     # DO NOT USE subprocess.PIPE if not writing it!
@@ -229,7 +262,6 @@ def filer(filelist, extension='fastq'):
     :param filelist: List of files to parse
     :param extension: the file extension to use. Default value is 'fastq
     """
-    import re
     # Initialise the set
     fileset = set()
     for seqfile in filelist:
@@ -302,6 +334,16 @@ class GenObject(object):
     def __delattr__(self, key):
         del self.datastore[key]
 
+    def returnattr(self, key):
+        try:
+            if self.datastore[key] or self.datastore[key] == 0 or self.datastore[key] is False \
+                    or all(self.datastore[key]):
+                return '{},'.format(self.datastore[key])
+            else:
+                return '-,'
+        except KeyError:
+            return '-,'
+
 
 class MetadataObject(object):
     """Object to store static variables"""
@@ -337,7 +379,7 @@ class MetadataObject(object):
                     try:
                         metadata[attr] = self.datastore[attr].datastore
                     except AttributeError:
-                        print(attr)
+                        print('dumperror', attr)
         return metadata
 
 
@@ -378,32 +420,81 @@ class MakeBlastDB(AbstractCommandline):
 
 def combinetargets(targets, targetpath):
     """
+    Creates a set of all unique sequences in a list of supplied FASTA files. Properly formats headers and sequences
+    to be compatible with local pipelines. Splits hybrid entries. Removes illegal characters.
     :param targets: fasta gene targets to combine
     :param targetpath: folder containing the targets
     """
-    from Bio import SeqIO
     make_path(targetpath)
-    recordlist = []
-    # Open the combined allele file to write
-    with open('{}/combinedtargets.tfa'.format(targetpath), 'w') as combinedfile:
-        # Open each target file
-        for target in sorted(targets):
-            # with open(allele, 'rU') as fasta:
-            for record in SeqIO.parse(open(target, 'rU'), 'fasta'):
-                # Extract the sequence record from each entry in the multifasta
-                # Replace and dashes in the record.id with underscores
-                record.id = record.id.replace('-', '_')
-                # Remove and dashes or 'N's from the sequence data - makeblastdb can't handle sequences
-                # with gaps
-                # noinspection PyProtectedMember
-                record.seq._data = record.seq._data.replace('-', '').replace('N', '')
-                # Clear the name and description attributes of the record
-                record.name = ''
-                record.description = ''
-                if record.id not in recordlist:
-                    # Write each record to the combined file
-                    SeqIO.write(record, combinedfile, 'fasta')
-                    recordlist.append(record.id)
+    with open(os.path.join(targetpath, 'combinedtargets.fasta'), 'w') as combined:
+        idset = set()
+        for target in targets:
+            # Remove non-unicode characters present in the FASTA files
+            cleanedstring = str()
+            # Read in the file as binary
+            with open(target, 'rb') as fasta:
+                # Import all the text
+                text = fasta.read()
+                # Convert the binary variable to a string, ignoring non-UTF-8 characters
+                cleanedstring += text.decode('utf-8', 'ignore')
+            # Overwrite the file with the clean string
+            with open(target, 'w') as fasta:
+                fasta.write(cleanedstring)
+            # Clean up each record
+            for record in SeqIO.parse(target, 'fasta'):
+                # In case FASTA records have been spliced together, allow for the splitting of
+                # these records
+                if '>' in record.seq:
+                    # Split the two records apart on '>' symbols
+                    record.seq, hybrid = record.seq.split('>')
+                    # Split the header from the sequence e.g. sspC:6:CP003808.1ATGGAAAGTACATTAGA...
+                    # will be split into sspC:6:CP003808.1 and ATGGAAAGTACATTAGA
+                    hybridid, seq = re.findall('(.+\d+\.\d)(.+)', str(hybrid))[0]
+                    # Replace and dashes in the record.id with underscores
+                    hybridid = hybridid.replace('-', '_')
+                    # Convert the string to a seq object
+                    hybridseq = Seq(seq, generic_dna)
+                    # Create a SeqRecord of the sequence - use the sequence object and id
+                    hybridrecord = SeqRecord(hybridseq,
+                                             description='',
+                                             id=hybridid)
+
+                    # Remove and dashes or 'N's from the sequence data - makeblastdb can't handle sequences
+                    # with gaps
+                    # noinspection PyProtectedMember
+                    hybridrecord.seq._data = hybridrecord.seq._data.replace('-', '').replace('N', '')
+                    # Write the original record to the file
+                    # Extract the sequence record from each entry in the multifasta
+                    # Replace and dashes in the record.id with underscores
+                    record.id = record.id.replace('-', '_')
+                    # Remove and dashes or 'N's from the sequence data - makeblastdb can't handle sequences
+                    # with gaps
+                    # noinspection PyProtectedMember
+                    record.seq._data = record.seq._data.replace('-', '').replace('N', '')
+                    # Clear the name and description attributes of the record
+                    record.name = ''
+                    record.description = ''
+                    if record.id not in idset:
+                        SeqIO.write(record, combined, 'fasta')
+                    if hybridrecord.id not in idset:
+                        # Write the second record to file
+                        SeqIO.write(hybridrecord, combined, 'fasta')
+                        idset.add(hybridrecord.id)
+
+                else:
+                    # Extract the sequence record from each entry in the multifasta
+                    # Replace and dashes in the record.id with underscores
+                    record.id = record.id.replace('-', '_')
+                    # Remove and dashes or 'N's from the sequence data - makeblastdb can't handle sequences
+                    # with gaps
+                    # noinspection PyProtectedMember
+                    record.seq._data = record.seq._data.replace('-', '').replace('N', '')
+                    # Clear the name and description attributes of the record
+                    record.name = ''
+                    record.description = ''
+                    if record.id not in idset:
+                        SeqIO.write(record, combined, 'fasta')
+                        idset.add(record.id)
 
 
 class KeyboardInterruptError(Exception):
