@@ -91,15 +91,20 @@ class Sippr(object):
                 sample[self.analysistype].logerr = os.path.join(sample[self.analysistype].outputdir, 'logerr.txt')
                 sample[self.analysistype].baitedfastq = \
                     os.path.join(sample[self.analysistype].outputdir,
-                                 '{}_targetMatches.fastq.gz'.format(self.analysistype))
         # Bait
-        self.bait()
+        self.baiting()
 
-    def bait(self):
-        """
-        Use bbduk to perform baiting
-        """
+    def baiting(self):
+        # Perform baiting
         printtime('Performing kmer baiting of fastq files with {} targets'.format(self.analysistype), self.start)
+        # Create and start threads for each fasta file in the list
+        for i in range(len(self.runmetadata)):
+            # Send the threads to the bait method
+            threads = Thread(target=self.bait, args=())
+            # Set the daemon to true - something to do with thread management
+            threads.setDaemon(True)
+            # Start the threading
+            threads.start()
         for sample in self.runmetadata:
             if sample.general.bestassemblyfile != 'NA' and sample[self.analysistype].runanalysis:
                 # Create the folder (if necessary)
@@ -166,12 +171,12 @@ class Sippr(object):
                 # Set the baitfile to use in the mapping steps as the newly created outfile
                 sample[self.analysistype].baitfile = outfile
         # Run the read mapping module
+
         self.mapping()
 
-    def subsample_reads(self):
+    def bait(self):
         """
-        Subsampling of reads to 20X coverage of rMLST genes (roughly).
-        To be called after rMLST extraction and read trimming, in that order.
+        Runs mirabait on the fastq files
         """
         printtime('Subsampling {} reads'.format(self.analysistype), self.start)
         for sample in self.runmetadata:
@@ -708,12 +713,13 @@ class Sippr(object):
         self.taxonomy = inputobject.taxonomy
         self.logfile = inputobject.logfile
         self.cutoff = cutoff
-        self.builddict = dict()
-        self.bowtiebuildextension = '.bt2'
+        self.matchbonus = matchbonus
+        self.builddict = builddict
+        self.bowtiebuildextension = extension
         try:
             self.averagedepth = inputobject.averagedepth
         except AttributeError:
-            self.averagedepth = 5
+            self.averagedepth = 10
         self.baitfile = str()
         self.hashfile = str()
         self.hashcall = str()
