@@ -1,30 +1,21 @@
 #!/usr/bin/env python
-
 from accessoryFunctions.accessoryFunctions import printtime, GenObject, run_subprocess, write_to_logfile, make_path, \
     MetadataObject
 from argparse import ArgumentParser
-import time
+from queue import Queue
 import multiprocessing
 from glob import glob
-from queue import Queue
 import json
+import time
 import os
 __author__ = 'adamkoziol'
+
 
 class Sistr(object):
 
     def sistr(self):
         """Perform sistr analyses on Salmonella"""
-
         printtime('Performing sistr analyses', self.start)
-        # Create and start threads
-        for i in range(self.cpus):
-            # Send the threads to the appropriate destination function
-            threads = Thread(target=self.sistrthreads, args=())
-            # Set the daemon to true - something to do with thread management
-            threads.setDaemon(True)
-            # Start the threading
-            threads.start()
         for sample in self.metadata:
             if sample.general.bestassemblyfile != 'NA':
                 try:
@@ -64,25 +55,6 @@ class Sistr(object):
         self.queue.join()
         self.report()
 
-    def sistrthreads(self):
-        from subprocess import call
-        import json
-        while True:
-            # Get the sample object from the queue
-            threadlock = threading.Lock()
-            sample = self.queue.get()
-            # Only run the analyses if the output json file does not exist
-            if not os.path.isfile(sample[self.analysistype].jsonoutput):
-                out, err = run_subprocess(sample.commands.sistr)
-                # call(sample.commands.sistr, shell=True, stdout=self.devnull, stderr=self.devnull)
-                threadlock.acquire()
-                write_to_logfile(sample.commands.sistr, sample.commands.sistr, self.logfile)
-                write_to_logfile(out, err, self.logfile)
-                threadlock.release()
-            # Read in the output .json file into the metadata
-            sample[self.analysistype].jsondata = json.load(open(sample[self.analysistype].jsonoutput, 'r'))
-            self.queue.task_done()
-
     def report(self):
         """Creates sistr reports"""
         # Initialise strings to store report data
@@ -106,33 +78,33 @@ class Sistr(object):
                     # End the results with a newline
                     row += '\n'
 
-                data += row
-                # Create and write headers and results to the strain-specific report
-                with open(sample[self.analysistype].report, 'w') as strainreport:
-                    strainreport.write(header)
-                    strainreport.write(row)
-            except (KeyError, AttributeError):
-                pass
-        # Create and write headers and cumulative results to the combined report
-        with open('{}sistr.tsv'.format(self.reportdir), 'w') as report:
-            report.write(header)
-            report.write(data)
+                    data += row
+                    # Create and write headers and results to the strain-specific report
+                    with open(sample[self.analysistype].report, 'w') as strainreport:
+                        strainreport.write(header)
+                        strainreport.write(row)
+                except (KeyError, AttributeError):
+                    pass
+            # Create and write headers and cumulative results to the combined report
+            with open(os.path.join(self.reportdir, 'sistr.tsv'), 'w') as report:
+                report.write(header)
+                report.write(data)
 
     def __init__(self, inputobject, analysistype):
         self.metadata = inputobject.runmetadata.samples
         self.start = inputobject.starttime
         self.cpus = inputobject.cpus
         self.logfile = inputobject.logfile
-        self.reportdir = '{}/'.format(inputobject.reportpath)
+        self.reportdir = os.path.join(inputobject.reportpath, '')
         make_path(self.reportdir)
         self.analysistype = analysistype
         # self.devnull = open(os.devnull, 'wb')
         self.queue = Queue()
-        self.headers = ['genome', 'cgmlst_distance', 'cgmlst_genome_match',
-                        'cgmlst_matching_alleles', 'h1', 'h2',
+        self.headers = ['genome', 'cgmlst_distance', 'cgmlst_genome_match', 'cgmlst_matching_alleles', 'h1', 'h2',
                         'serogroup', 'serovar', 'serovar_antigen', 'serovar_cgmlst']
         # Run the analyses
         self.sistr()
+
 
 if __name__ == '__main__':
     # Parser for arguments
@@ -142,7 +114,6 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--sequencepath',
                         required=True,
                         help='Path of .fastq(.gz) files to process.')
-    parser.add_argument('logfile', help='Name of logfile.')
     # Get the arguments into an object
     arguments = parser.parse_args()
 

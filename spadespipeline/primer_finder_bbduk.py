@@ -162,7 +162,7 @@ class PrimerFinder(object):
         for sample in self.metadata:
             setattr(sample, self.analysistype, GenObject())
             # Set the destination folder
-            sample[self.analysistype].outputdir = os.path.join(self.path, self.analysistype)
+            sample[self.analysistype].outputdir = os.path.join(sample.general.outputdirectory, self.analysistype)
             # Make the destination folder
             make_path(sample[self.analysistype].outputdir)
             sample[self.analysistype].baitedfastq = os.path.join(
@@ -567,6 +567,7 @@ class PrimerFinder(object):
             for sample in self.metadata:
                 # Initialise variables to convert attributes from set to list
                 sample[self.analysistype].genes = dict()
+                sample[self.analysistype].profile = list()
                 sample[self.analysistype].ntrange = dict()
                 try:
                     # If there are multiple hits per sample, don't write the sample name on every row; leave a blank
@@ -577,6 +578,7 @@ class PrimerFinder(object):
                         # Iterate through each contig with genes present, and the list of genes on the contig
                         for contig, genes in sorted(sample[self.analysistype].genespresent.items()):
                             sample[self.analysistype].genes[contig] = list(genes)
+                            sample[self.analysistype].profile.extend(list(genes))
                             # Iterate through the set of genes
                             for gene in sorted(genes):
                                 # Determine which primers had the best lowest number of mismatches
@@ -712,12 +714,30 @@ class PrimerFinder(object):
 
     def __init__(self, args, analysistype, filetype='fastq'):
         self.path = os.path.join(args.path)
-        self.sequencepath = os.path.join(args.sequencepath)
-        self.start = args.start
-        self.primerfile = args.primerfile
-        self.mismatches = int(args.mismatches)
         try:
-            self.metadata = args.runmetadata
+            self.sequencepath = os.path.join(args.sequencepath)
+        except AttributeError:
+            self.sequencepath = os.path.join(args.path)
+        try:
+            self.start = args.start
+        except AttributeError:
+            self.start = args.starttime
+        try:
+            self.analysistype = args.analysistype
+        except AttributeError:
+            self.analysistype = analysistype
+        try:
+            self.primerfile = args.primerfile
+            self.formattedprimers = os.path.join(self.path, 'formattedprimers.fa')
+        except AttributeError:
+            self.primerfile = os.path.join(args.reffilepath, self.analysistype, 'primers.txt')
+            self.formattedprimers = os.path.join(args.reffilepath, self.analysistype, 'formattedprimers.fa')
+        try:
+            self.mismatches = int(args.mismatches)
+        except AttributeError:
+            self.mismatches = 1
+        try:
+            self.metadata = args.runmetadata.samples
         except AttributeError:
             self.metadata = list()
         # Use the argument for the number of threads to use, or default to the number of cpus in the system
@@ -726,10 +746,6 @@ class PrimerFinder(object):
         except (AttributeError, TypeError):
             self.cpus = multiprocessing.cpu_count()
         self.threads = int()
-        try:
-            self.analysistype = args.analysistype
-        except AttributeError:
-            self.analysistype = analysistype
         self.formattedprimers = os.path.join(self.path, 'formattedprimers.fa')
         self.faidict = dict()
         self.filetype = filetype
@@ -738,8 +754,8 @@ class PrimerFinder(object):
             self.kmers = args.kmerlength
         except AttributeError:
             self.kmers = '99'
-        self.queue = Queue()
-        self.blastqueue = Queue()
+        self.queue = Queue(maxsize=self.cpus)
+        self.blastqueue = Queue(maxsize=self.cpus)
         # Set the location to send stdout and stderr from system calls
         self.devnull = open(os.devnull, 'wb')
         # Fields used for custom outfmt 6 BLAST output:
@@ -756,6 +772,8 @@ class PrimerFinder(object):
         self.klength = 20
         # A list of valid file extensions for FASTA formatted-files
         self.extensions = ['.fasta', '.fa', '.fas', '.fsa', '.fna', '.tfa']
+        # Run the script
+        self.main()
 
 
 if __name__ == '__main__':

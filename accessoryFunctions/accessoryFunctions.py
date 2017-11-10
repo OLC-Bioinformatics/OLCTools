@@ -8,7 +8,6 @@ import sys
 from collections import defaultdict
 import datetime
 import subprocess
-
 from subprocess import Popen, PIPE, STDOUT
 from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
@@ -17,8 +16,6 @@ from Bio.Seq import Seq
 # noinspection PyProtectedMember
 from Bio.Application import _Option, AbstractCommandline, _Switch
 __author__ = 'adamkoziol', 'andrewlow'
-
-
 
 def download_file(address, output_name, hour_start=18, hour_end=6, day_start=5, day_end=6, timeout=600):
     """
@@ -62,7 +59,7 @@ def download_file(address, output_name, hour_start=18, hour_end=6, day_start=5, 
             returncode = subprocess.call(cmd, shell=True, stdout=out, stderr=out)
 
 
-def write_to_logfile(out, err, logfile):
+def write_to_logfile(out, err, logfile, samplelog, sampleerr, analysislog, analysiserr):
     """
     Writes out and err (both should be strings) to logfile.
     """

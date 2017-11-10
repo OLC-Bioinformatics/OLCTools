@@ -48,6 +48,8 @@ class ObjectCreation(object):
             metadata.run.outputdirectory = outputdir
             metadata.general.bestassemblyfile = True
             metadata.general.trimmedcorrectedfastqfiles = metadata.general.fastqfiles
+            metadata.general.logout = os.path.join(metadata.general.outputdirectory, 'logout')
+            metadata.general.logerr = os.path.join(metadata.general.outputdirectory, 'logerr')
             # Initialise an attribute to store commands
             metadata.commands = GenObject()
             # Append the metadata to the list of samples

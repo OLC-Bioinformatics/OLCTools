@@ -1,23 +1,21 @@
 #!/usr/bin/env python
-import json
-import operator
-import re
-import shlex
-import shutil
-import subprocess
-import time
-from queue import Queue
-from collections import defaultdict
-from csv import DictReader
-from glob import glob
-from threading import Thread
-import threading
-
-from Bio import SeqIO
-from Bio.Blast.Applications import NcbiblastnCommandline
-
+from accessoryFunctions.accessoryFunctions import dotter, globalcounter, make_dict, make_path, printtime
 from spadespipeline import getmlst
-from accessoryFunctions.accessoryFunctions import *
+from Bio.Blast.Applications import NcbiblastnCommandline
+from Bio import SeqIO
+from collections import defaultdict
+from threading import Thread
+from csv import DictReader
+from queue import Queue
+from glob import glob
+import subprocess
+import operator
+import shutil
+import shlex
+import json
+import time
+import re
+import os
 
 __author__ = 'akoziol, mikeknowles'
 """ Includes threading found in examples:
@@ -74,14 +72,14 @@ class MLST(object):
         # Initialise variables
         profiledata = defaultdict(make_dict)
         profileset = set()
-        supplementalset = ''
+        # supplementalset = ''
         genedict = {}
         # Find all the unique profiles to use with a set
         for sample in self.metadata:
             if sample[self.analysistype].profile != 'NA':
                 profileset.add(sample[self.analysistype].profile[0])
-                if self.analysistype == 'rmlst':
-                    supplementalset = sample[self.analysistype].supplementalprofile
+                # if self.analysistype == 'rmlst':
+                #     supplementalset = sample[self.analysistype].supplementalprofile
         # Extract the profiles for each set
         for sequenceprofile in profileset:
             # Clear the list of genes
@@ -110,15 +108,15 @@ class MLST(object):
                         except KeyError:
                             raise
 
-            # Load the supplemental profile definitions
-            if self.analysistype == 'rmlst':
-                supplementalprofile = DictReader(open(supplementalset), dialect='excel-tab')
-                # Do the same with the supplemental profile
-                for row in supplementalprofile:
-                    # Iterate through the genes
-                    for gene in genelist:
-                        # Add the sequence profile, and type, the gene name and the allele number to the dictionary
-                        profiledata[sequenceprofile][row['rST']][gene] = row[gene]
+            # # Load the supplemental profile definitions
+            # if self.analysistype == 'rmlst':
+            #     supplementalprofile = DictReader(open(supplementalset), dialect='excel-tab')
+            #     # Do the same with the supplemental profile
+            #     for row in supplementalprofile:
+            #         # Iterate through the genes
+            #         for gene in genelist:
+            #             # Add the sequence profile, and type, the gene name and the allele number to the dictionary
+            #             profiledata[sequenceprofile][row['rST']][gene] = row[gene]
             # Add the gene list to a dictionary
             genedict[sequenceprofile] = sorted(genelist)
             # Add the profile data, and gene list to each sample
@@ -450,7 +448,7 @@ class MLST(object):
                                 else '{}/rMLST_combined'.format(alleledir)
                             allelefile = allelefilenoext + '.fa' if self.pipeline else allelefilenoext + '.fasta'
                             # Create the file if it doesn't exist
-                            open(allelefile, 'ab').close()
+                            open(allelefile, 'a').close()
                             # Create a list of all the blast database files in the folder
                             dbfiles = glob('{}.n*'.format(allelefilenoext))
                             # Remove the database files
@@ -544,7 +542,7 @@ class MLST(object):
                                 allelelist = []
                                 allelenumber = 1000000
                                 # Open the allele file to find the last allele associated with the gene of interest
-                                with open(allelefile, 'ab+') as supplemental:
+                                with open(allelefile, 'a+') as supplemental:
                                     for line in supplemental:
                                         if gene in line:
                                             allelelist.append(line)
@@ -614,13 +612,13 @@ class MLST(object):
                                 if not multiallele:
                                     multiallele.append("N")
                                     multipercent.append(0)
-                            if self.analysistype == 'rmlst':
-                                # For whatever reason, the rMLST profile scheme treat multiple allele hits as 'N's.
-                                multiallele = multiallele if len(multiallele) == 1 else ['N']
-                                if multipercent:
-                                    multipercent = multipercent if len(multiallele) == 1 else [0, 0]
-                                else:
-                                    multipercent = [0]
+                            # if self.analysistype == 'rmlst':
+                            #     # For whatever reason, the rMLST profile scheme treat multiple allele hits as 'N's.
+                            #     multiallele = multiallele if len(multiallele) == 1 else ['N']
+                            #     if multipercent:
+                            #         multipercent = multipercent if len(multiallele) == 1 else [0, 0]
+                            #     else:
+                            #         multipercent = [0]
                             # Populate self.bestdict with genome, gene, alleles joined with a space (this was made like
                             # this because allele is a list generated by the .iteritems() above
                             self.bestdict[genome][gene][" ".join(str(allele)
@@ -801,7 +799,7 @@ class MLST(object):
             # Only perform the next loop if :newprofile exists
             if newprofile:
                 # Open the profile file to append
-                with open(sample[self.analysistype].supplementalprofile, 'ab') as appendfile:
+                with open(sample[self.analysistype].supplementalprofile, 'a') as appendfile:
                     # Append the new profile to the end of the profile file
                     appendfile.write('{}\n'.format(newprofile))
                 # Re-run profiler with the updated files
@@ -1062,6 +1060,7 @@ class MLST(object):
                            'evalue', 'bit_score', 'subject_length', 'alignment_length',
                            'query_start', 'query_end', 'query_sequence', 'subject_start', 'subject_end']
         self.cpus = int(multiprocessing.cpu_count())
+        self.fnull = open(os.devnull, 'wb')  # define /dev/null
         # Declare queues, and dictionaries
         self.dqueue = Queue(maxsize=self.cpus)
         self.blastqueue = Queue(maxsize=self.cpus)
@@ -1187,12 +1186,13 @@ def getrmlsthelper(referencefilepath, update, start):
     analysistype = 'rMLST'
     # Folders are named based on the download date e.g 2016-04-26
     # Find all folders (with the trailing / in the glob search) and remove the trailing /
-    lastfolder = sorted(glob('{}{}/2*/'.format(referencefilepath, analysistype)))[-1].rstrip('/')
+    lastfolder = sorted(glob('{}{}/*/'.format(referencefilepath, analysistype)))[-1].rstrip('/')
+    # lastfolder = os.path.join(referencefilepath, analysistype)
     delta, foldersize, d1 = schemedate(lastfolder)
     # Extract the path of the current script from the full path + file name
     homepath = os.path.split(os.path.abspath(__file__))[0]
     # Set the path/name of the folder to contain the new alleles and profile
-    newfolder = '{}{}/{}'.format(referencefilepath, analysistype, d1)
+    newfolder = os.path.join(referencefilepath, analysistype, str(d1))
     # System call
     rmlstupdatecall = 'cd {} && perl {}/rest_auth.pl -a {}/secret.txt'.format(newfolder, homepath, homepath)
     if update:
@@ -1304,6 +1304,7 @@ def getmlsthelper(referencefilepath, start, organism, update):
                 newfolder = organismpath
         # Return the name/path of the allele-containing folder
         return newfolder
+
 
 if __name__ == '__main__':
     class Parser(object):

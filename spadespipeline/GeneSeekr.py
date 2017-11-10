@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
-from Bio.Application import ApplicationError
-import time
-import os
-from collections import defaultdict
-from csv import DictReader
-from glob import glob
-from threading import Thread
-import threading
-from Bio.Blast.Applications import NcbiblastnCommandline
-from Bio import SeqIO
-from Bio.Seq import Seq
-from Bio.Alphabet import IUPAC
 from accessoryFunctions.accessoryFunctions import printtime, run_subprocess, write_to_logfile, make_path, \
     combinetargets, MetadataObject, GenObject, make_dict
+from Bio.Blast.Applications import NcbiblastnCommandline
+from Bio.Application import ApplicationError
+from Bio.Alphabet import IUPAC
+from Bio.Seq import Seq
+from Bio import SeqIO
+from collections import defaultdict
+from threading import Thread
+from csv import DictReader
+from glob import glob
+import threading
+import time
+import os
 
 __author__ = 'adamkoziol'
 
@@ -853,6 +853,7 @@ def sequencenames(contigsfile):
         sequences.append(record.id)
     return sequences
 
+
 if __name__ == '__main__':
 
     class Parser(object):
@@ -952,6 +953,7 @@ if __name__ == '__main__':
             self.targets = list()
             self.combinedtargets = str()
             self.samples = list()
+            self.logfile = os.path.join(self.sequencepath, 'log.txt')
             if self.resfinder:
                 self.analysistype = 'resfinder'
             elif self.virulencefinder:
@@ -1053,20 +1055,6 @@ class PipelineInit(object):
         self.chas = list()
         self.align = False
         self.unique = unique
-
-        # self.resfinder = False
         # self.virulencefinder = False
         # Get the alleles and profile into the metadata
         self.strainer()
-
-'''
--s
-/nas0/bio_requests/8801/sequences
--t
-/nas0/Adam/assemblypipeline/resfinder
--r
-/nas0/bio_requests/8801/reports
--a
--u
--R
-'''
