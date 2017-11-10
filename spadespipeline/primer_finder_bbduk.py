@@ -1,21 +1,22 @@
 #!/usr/bin/env python 3
-from Bio.Blast.Applications import NcbiblastnCommandline
+from accessoryFunctions.accessoryFunctions import filer, GenObject, printtime, make_path, MetadataObject
 import spadespipeline.metadataprinter as metadataprinter
-from csv import DictReader
-from accessoryFunctions.accessoryFunctions import printtime, MetadataObject, GenObject, filer, make_path
-import os
-import errno
-from itertools import product
-from glob import glob
-from subprocess import call
-from threading import Thread
+from Bio.Blast.Applications import NcbiblastnCommandline
 from Bio import SeqIO
 from Bio import Seq
+from argparse import ArgumentParser
+from itertools import product
+from threading import Thread
+from subprocess import call
+from csv import DictReader
+from queue import Queue
+import multiprocessing
+from glob import glob
 import itertools
 import operator
-import multiprocessing
-from queue import Queue
-from argparse import ArgumentParser
+import errno
+import time
+import os
 __author__ = 'adamkoziol, duceppemo'
 
 
@@ -52,8 +53,8 @@ class PrimerFinder(object):
         self.blastnthreads()
         printtime('Parsing BLAST results', self.start)
         self.parseblast()
-        printtime('Extracting amplicons', self.start)
-        self.amplicons()
+        printtime('Clearing amplicon files from previous iterations', self.start)
+        self.ampliconclear()
         printtime('Creating reports', self.start)
         self.reporter()
         metadataprinter.MetadataPrinter(self)
@@ -313,7 +314,7 @@ class PrimerFinder(object):
         while True:
             sample = self.queue.get()
             if not os.path.isfile(sample[self.analysistype].assemblyfile):
-                #
+                # Create and run the sequence call as required
                 call(sample[self.analysistype].spadescommand, shell=True, stdout=self.devnull, stderr=self.devnull)
                 if not os.path.isfile(sample[self.analysistype].assemblyfile):
                     sample[self.analysistype].assemblyfile = 'NA'
@@ -440,8 +441,8 @@ class PrimerFinder(object):
                 for contig, genes in sample[self.analysistype].contigs.items():
                     # Split off the primer details (e.g. vtx2a-R3_1 -> vtx2a-R) from the blast results dictionary in
                     # order to create a searchable list of primers
-                    reformatted = ['-'.join([x.split('-')[0], x.split('-')[1][0]])
-                                   for x in sample[self.analysistype].blastresults[contig]]
+                    reformatted = {'-'.join([x.split('-')[0], x.split('-')[1][0]])
+                                   for x in sample[self.analysistype].blastresults[contig]}
                     # Iterate through the list of genes to check if primers are present
                     for gene in genes:
                         # Add -F and -R to the gene, and ensure that both options are in the reformatted list of genes
@@ -484,6 +485,8 @@ class PrimerFinder(object):
                     try:
                         # Extract the primers corresponding to the contig
                         for primers in sample[self.analysistype].hits[row['query_id']]:
+                            # Extract the name of the contig
+                            contig = row['query_id']
                             # Iterate through the forward and reverse primers
                             for primer in primers:
                                 # If the primer is present in the current row, then this is the row of interest
@@ -493,10 +496,10 @@ class PrimerFinder(object):
                                     # Populate a dictionary for storing the genes present - will be used in creating
                                     # the report
                                     try:
-                                        sample[self.analysistype].genespresent[row['query_id']].add(gene)
+                                        sample[self.analysistype].genespresent[contig].add(gene)
                                     except KeyError:
-                                        sample[self.analysistype].genespresent[row['query_id']] = set()
-                                        sample[self.analysistype].genespresent[row['query_id']].add(gene)
+                                        sample[self.analysistype].genespresent[contig] = set()
+                                        sample[self.analysistype].genespresent[contig].add(gene)
                                     # Populate the range of the hit - the forward primer will have a -F an the name
                                     if '-F' in primer:
                                         # Determine if the sequence is the reverse complement - based on the fact that
@@ -510,67 +513,48 @@ class PrimerFinder(object):
                                             data = min(int(row['query_start']), int(row['query_end']))
                                         # Add the appropriately calculated value to the range dictionary
                                         try:
-                                            sample[self.analysistype].range[gene].add(data)
+                                            sample[self.analysistype].range[contig][gene].add(data)
                                         except KeyError:
-                                            sample[self.analysistype].range[gene] = set()
-                                            sample[self.analysistype].range[gene].add(data)
+                                            try:
+                                                sample[self.analysistype].range[contig][gene] = set()
+                                                sample[self.analysistype].range[contig][gene].add(data)
+                                            except KeyError:
+                                                sample[self.analysistype].range[contig] = dict()
+                                                sample[self.analysistype].range[contig][gene] = set()
+                                                sample[self.analysistype].range[contig][gene].add(data)
+
                                     # Similar to the forward primer, except reverse the min() and max()
                                     elif '-R' in primer:
                                         if int(row['subject_start']) < int(row['subject_end']):
                                             data = min(int(row['query_start']), int(row['query_end']))
                                         else:
                                             data = max(int(row['query_start']), int(row['query_end']))
+                                        # Add the appropriately calculated value to the range dictionary
                                         try:
-                                            sample[self.analysistype].range[gene].add(data)
+                                            sample[self.analysistype].range[contig][gene].add(data)
                                         except KeyError:
-                                            sample[self.analysistype].range[gene] = set()
-                                            sample[self.analysistype].range[gene].add(data)
+                                            try:
+                                                sample[self.analysistype].range[contig][gene] = set()
+                                                sample[self.analysistype].range[contig][gene].add(data)
+                                            except KeyError:
+                                                sample[self.analysistype].range[contig] = dict()
+                                                sample[self.analysistype].range[contig][gene] = set()
+                                                sample[self.analysistype].range[contig][gene].add(data)
                     except KeyError:
                         pass
 
-    def amplicons(self):
+    def ampliconclear(self):
         """
-        Extract the amplicon sequence from the contigs file, and create a FASTA formatted file
+        Clear previously created amplicon files to prepare for the appending of data to fresh files
         """
         for sample in self.metadata:
             # Set the name of the amplicon FASTA file
             sample[self.analysistype].ampliconfile = os.path.join(
                 sample[self.analysistype].outputdir, '{}_amplicons.fa'.format(sample.name))
-            # Open the file
-            with open(sample[self.analysistype].ampliconfile, 'w') as ampliconfile:
-                try:
-                    # Load the records from the assembly into the dictionary
-                    for record in SeqIO.parse(sample[self.analysistype].assemblyfile, 'fasta'):
-                        try:
-                            # Get the forward and reverse primer names from the dictionary
-                            for primerpair in sample[self.analysistype].hits[record.id]:
-                                if primerpair:
-                                    # Extract the name of the gene from the primer name
-                                    genename = primerpair[0].split('-')[0]
-                                    # Sort the range calculated above
-                                    start = sorted(sample[self.analysistype].range[genename])[0]
-                                    end = sorted(sample[self.analysistype].range[genename])[1]
-                                    # Slice the gene sequence from the sequence record - remember to subtract one to
-                                    # allow for zero-based indexing
-                                    genesequence = str(record.seq)[int(start) - 1:int(end)]
-                                    # Set the record.id to be the sample name, the contig name,
-                                    # the range, and the primers
-                                    record.id = '{}_{}_{}_{}'\
-                                        .format(sample.name,
-                                                record.id,
-                                                '_'.join(str(x) for x in sorted(sample[self.analysistype]
-                                                                                .range[genename])),
-                                                '_'.join(primerpair))
-                                    # Clear the record.description
-                                    record.description = ''
-                                    # Create a seq record from the sliced genome sequence
-                                    record.seq = Seq.Seq(genesequence)
-                                    # Write the amplicon to file
-                                    SeqIO.write(record, ampliconfile, 'fasta')
-                        except KeyError:
-                            pass
-                except FileNotFoundError:
-                    pass
+            try:
+                os.remove(sample[self.analysistype].ampliconfile)
+            except IOError:
+                pass
 
     def reporter(self):
         """
@@ -629,8 +613,10 @@ class PrimerFinder(object):
                                         reversemismatches = entry[1]
 
                                 # Make a variable to prevent writing out this long attribute name multiple times
-                                ntrange = list(sample[self.analysistype].range[gene])
+                                ntrange = list(sample[self.analysistype].range[contig][gene])
                                 sample[self.analysistype].ntrange[gene] = ntrange
+                                # Extract the amplicons from the sequence file
+                                self.ampliconfile(sample, contig, sorted(ntrange), forward, reverse)
                                 # This first gene for a sample gets the sample name printed
                                 if not multiple:
                                     data += '{},'.format(sample.name)
@@ -680,9 +666,54 @@ class PrimerFinder(object):
         except IOError:
             pass
 
+    def ampliconfile(self, sample, contig, ampliconrange, fprimer, rprimer):
+        """
+        Extracts amplicon sequence from contig file
+        :param sample: sample metadata object
+        :param contig: name of the contig hit by primers
+        :param ampliconrange: range of the amplicon within the contig
+        :param fprimer: name of the forward primer
+        :param rprimer: name of the reverse primer
+        """
+        # Open the file
+        with open(sample[self.analysistype].ampliconfile, 'a') as ampliconfile:
+            try:
+                # Load the records from the assembly into the dictionary
+                for record in SeqIO.parse(sample[self.analysistype].assemblyfile, 'fasta'):
+                    if record.id == contig:
+                        try:
+                            # Extract the name of the gene from the primer name
+                            genename = fprimer[0].split('-')[0]
+                            try:
+                                # Sort the range calculated above
+                                start = ampliconrange[0]
+                                end = ampliconrange[1]
+                                # Slice the gene sequence from the sequence record - remember to subtract one to
+                                # allow for zero-based indexing
+                                genesequence = str(record.seq)[int(start) - 1:int(end)]
+                                # Set the record.id to be the sample name, the contig name,
+                                # the range, and the primers
+                                record.id = '{}_{}_{}_{}' \
+                                    .format(sample.name,
+                                            record.id,
+                                            '_'.join(str(x) for x in sorted(sample[self.analysistype]
+                                                                            .range[record.id][genename])),
+                                            '_'.join(['_'.join(fprimer), '_'.join(rprimer)]))
+                                # Clear the record.description
+                                record.description = ''
+                                # Create a seq record from the sliced genome sequence
+                                record.seq = Seq.Seq(genesequence)
+                                # Write the amplicon to file
+                                SeqIO.write(record, ampliconfile, 'fasta')
+                            except IndexError:
+                                pass
+                        except KeyError:
+                            pass
+            except FileNotFoundError:
+                pass
+
     def __init__(self, args, analysistype, filetype='fastq'):
         self.path = os.path.join(args.path)
-        self.analysistype = analysistype
         try:
             self.sequencepath = os.path.join(args.sequencepath)
         except AttributeError:
@@ -691,6 +722,10 @@ class PrimerFinder(object):
             self.start = args.start
         except AttributeError:
             self.start = args.starttime
+        try:
+            self.analysistype = args.analysistype
+        except AttributeError:
+            self.analysistype = analysistype
         try:
             self.primerfile = args.primerfile
             self.formattedprimers = os.path.join(self.path, 'formattedprimers.fa')
@@ -711,6 +746,7 @@ class PrimerFinder(object):
         except (AttributeError, TypeError):
             self.cpus = multiprocessing.cpu_count()
         self.threads = int()
+        self.formattedprimers = os.path.join(self.path, 'formattedprimers.fa')
         self.faidict = dict()
         self.filetype = filetype
         # Use a long kmer for SPAdes assembly
@@ -741,8 +777,6 @@ class PrimerFinder(object):
 
 
 if __name__ == '__main__':
-    import time
-    # Argument parser for user-inputted values, and a nifty help menu
     parser = ArgumentParser(description='Perform in silico PCR using bbduk and SPAdes')
     parser.add_argument('path',
                         help='Specify input directory')
@@ -772,11 +806,14 @@ if __name__ == '__main__':
     # Get the arguments into an object
     arguments = parser.parse_args()
     arguments.pipeline = False
+
     # Define the start time
     arguments.start = time.time()
 
     # Run the script
-    PrimerFinder(arguments, 'ePCR')
+    finder = PrimerFinder(arguments, 'ePCR')
+    # Run the script
+    finder.main()
 
     # Print a bold, green exit statement
     print('\033[92m' + '\033[1m' + "\nElapsed Time: %0.2f seconds" % (time.time() - arguments.start) + '\033[0m')
