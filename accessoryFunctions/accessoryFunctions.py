@@ -59,7 +59,7 @@ def download_file(address, output_name, hour_start=18, hour_end=6, day_start=5, 
             returncode = subprocess.call(cmd, shell=True, stdout=out, stderr=out)
 
 
-def write_to_logfile(out, err, logfile, samplelog, sampleerr, analysislog, analysiserr):
+def write_to_logfile(out, err, logfile, samplelog=None, sampleerr=None, analysislog=None, analysiserr=None):
     """
     Writes out and err (both should be strings) to logfile.
     """
