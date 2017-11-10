@@ -35,7 +35,7 @@ def bbmap(reference, forward_in, out_bam, reverse_in='NA', **kwargs):
     else:
         cmd = 'bbmap.sh ref={} in={} in2={} out={} nodisk{}'.format(reference, forward_in, reverse_in, out_bam, options)
     out, err = accessoryfunctions.run_subprocess(cmd)
-    return out, err
+    return out, err, cmd
 
 
 def bbduk_trim(forward_in, forward_out, reverse_in='NA', reverse_out='NA', **kwargs):
@@ -81,7 +81,7 @@ def bbduk_trim(forward_in, forward_out, reverse_in='NA', reverse_out='NA', **kwa
                                                                                  forward_out, reverse_out,
                                                                                  bbduk_dir, options)
     out, err = accessoryfunctions.run_subprocess(cmd)
-    return out, err
+    return out, err, cmd
 
 
 def tadpole(forward_in, forward_out, reverse_in='NA', reverse_out='NA', mode='correct', **kwargs):
@@ -114,8 +114,12 @@ def tadpole(forward_in, forward_out, reverse_in='NA', reverse_out='NA', mode='co
         cmd = 'tadpole.sh in1={} in2={} out1={} out2={} mode={} {}'.format(forward_in, reverse_in,
                                                                            forward_out, reverse_out,
                                                                            mode, options)
-    out, err = accessoryfunctions.run_subprocess(cmd)
-    return out, err
+    if not os.path.isfile(forward_out):
+        out, err = accessoryfunctions.run_subprocess(cmd)
+    else:
+        out = str()
+        err = str()
+    return out, err, cmd
 
 
 def bbnorm(forward_in, forward_out, reverse_in='NA', reverse_out='NA', **kwargs):
@@ -148,7 +152,7 @@ def bbnorm(forward_in, forward_out, reverse_in='NA', reverse_out='NA', **kwargs)
                                                                   forward_out, reverse_out,
                                                                   options)
     out, err = accessoryfunctions.run_subprocess(cmd)
-    return out, err
+    return out, err, cmd
 
 
 def bbmerge(forward_in, merged_reads, reverse_in='NA', **kwargs):
@@ -169,7 +173,7 @@ def bbmerge(forward_in, merged_reads, reverse_in='NA', **kwargs):
     else:
         cmd = 'bbmerge.sh in={} in2={} out={} {}'.format(forward_in, reverse_in, merged_reads, options)
     out, err = accessoryfunctions.run_subprocess(cmd)
-    return out, err
+    return out, err, cmd
 
 
 def bbduk_bait(reference, forward_in, forward_out, reverse_in='NA', reverse_out='NA', **kwargs):
@@ -203,7 +207,7 @@ def bbduk_bait(reference, forward_in, forward_out, reverse_in='NA', reverse_out=
                                                                        forward_out, reverse_out,
                                                                        reference, options)
     out, err = accessoryfunctions.run_subprocess(cmd)
-    return out, err
+    return out, err, cmd
 
 
 def bbduk_filter(reference, forward_in, forward_out, reverse_in='NA', reverse_out='NA', **kwargs):
@@ -237,7 +241,7 @@ def bbduk_filter(reference, forward_in, forward_out, reverse_in='NA', reverse_ou
                                                                      forward_out, reverse_out,
                                                                      reference, options)
     out, err = accessoryfunctions.run_subprocess(cmd)
-    return out, err
+    return out, err, cmd
 
 
 def dedupe(input_file, output_file, **kwargs):
@@ -251,7 +255,7 @@ def dedupe(input_file, output_file, **kwargs):
     options = kwargs_to_string(kwargs)
     cmd = 'dedupe.sh in={} out={}{}'.format(input_file, output_file, options)
     out, err = accessoryfunctions.run_subprocess(cmd)
-    return out, err
+    return out, err, cmd
 
 
 def seal(reference, forward_in, output_file, reverse_in='NA', **kwargs):
@@ -273,7 +277,7 @@ def seal(reference, forward_in, output_file, reverse_in='NA', **kwargs):
     else:
         cmd = 'seal.sh ref={} in={} in2={} rpkm={} nodisk{}'.format(reference, forward_in, reverse_in, output_file, options)
     out, err = accessoryfunctions.run_subprocess(cmd)
-    return out, err
+    return out, err, cmd
 
 
 def kmercountexact(forward_in, reverse_in='NA', **kwargs):
@@ -294,7 +298,7 @@ def kmercountexact(forward_in, reverse_in='NA', **kwargs):
     else:
         cmd = 'kmercountexact.sh in={} in2={} {}'.format(forward_in, reverse_in, options)
     out, err = accessoryfunctions.run_subprocess(cmd)
-    return out, err
+    return out, err, cmd
 
 
 def genome_size(peaks_file, haploid=True):
