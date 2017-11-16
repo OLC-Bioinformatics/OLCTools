@@ -230,6 +230,8 @@ class CreateFastq(object):
             sample.general.outputdirectory = outputdir
             sample.general.bestassemblyfile = True
             sample.general.trimmedcorrectedfastqfiles = sample.general.fastqfiles
+            sample.general.logout = os.path.join(sample.general.outputdirectory, 'logout')
+            sample.general.logerr = os.path.join(sample.general.outputdirectory, 'logerr')
             sample.commands = GenObject()
 
     def __init__(self, inputobject):
