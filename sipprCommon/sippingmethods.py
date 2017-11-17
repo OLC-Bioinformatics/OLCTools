@@ -691,7 +691,7 @@ class Sippr(object):
                 pass
 
     # noinspection PyDefaultArgument
-    def __init__(self, inputobject, cutoff=0.98):
+    def __init__(self, inputobject, cutoff=0.98, averagedepth=10):
         self.path = inputobject.path
         self.sequencepath = inputobject.sequencepath
         self.targetpath = inputobject.targetpath
@@ -711,7 +711,7 @@ class Sippr(object):
         try:
             self.averagedepth = inputobject.averagedepth
         except AttributeError:
-            self.averagedepth = 10
+            self.averagedepth = averagedepth
         self.baitfile = str()
         self.hashfile = str()
         self.hashcall = str()
