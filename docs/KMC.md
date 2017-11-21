@@ -46,7 +46,7 @@ This command will create a database (`results`) that contains kmers that are pre
 
 ```python
 from biotools import kmc
-out, err = kmc.intersect(database_1, database_2, results)
+out, err = kmc.subtract(database_1, database_2, results)
 ```
 
 This command will create a database (`results`) that contains kmers that are present in `database_1` but not in `database_2`, 
