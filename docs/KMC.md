@@ -41,3 +41,13 @@ out, err = kmc.intersect(database_1, database_2, results)
 
 This command will create a database (`results`) that contains kmers that are present in both `database_1` and `database_2`, where both these databases were created using `kmc.kmc`. The `results` database can then be dumped using `kmc.dump` in order to inspect it.
 
+
+### KMC Subtract
+
+```python
+from biotools import kmc
+out, err = kmc.intersect(database_1, database_2, results)
+```
+
+This command will create a database (`results`) that contains kmers that are present in `database_1` but not in `database_2`, 
+where both these databases were created using `kmc.kmc`. The `results` database can then be dumped using `kmc.dump` in order to inspect it.
