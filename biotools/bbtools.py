@@ -359,3 +359,36 @@ def genome_size(peaks_file, haploid=True):
             if '#genome_size' in line:
                 size = int(line.split()[1])
     return size
+
+
+def subsample_reads(forward_in, forward_out, num_bases, returncmd=False, reverse_in='NA', reverse_out='NA',
+                    **kwargs):
+    options = kwargs_to_string(kwargs)
+    if os.path.isfile(forward_in.replace('R1', 'R2')) and reverse_in == 'NA' and 'R1' in forward_in:
+        reverse_in = forward_in.replace('R1', 'R2')
+        if reverse_out == 'NA':
+            if 'R1' in forward_out:
+                reverse_out = forward_out.replace('R1', 'R2')
+            else:
+                raise ValueError('If you do not specify reverse_out, forward_out must contain R1.\n\n')
+        cmd = 'reformat.sh in1={} in2={} out1={} out2={} samplebasestarget={} {}'.format(forward_in, reverse_in,
+                                                                                         forward_out, reverse_out,
+                                                                                         str(num_bases), options)
+    elif reverse_in == 'NA':
+        cmd = 'reformat.sh in={} out={} samplebasestarget={} {}'.format(forward_in, forward_out,
+                                                                       str(num_bases), options)
+    else:
+        if reverse_out == 'NA':
+            raise ValueError('Reverse output reads must be specified.')
+        cmd = 'reformat.sh in1={} in2={} out1={} out2={} samplebasestarget={} {}'.format(forward_in, reverse_in,
+                                                                                         forward_out, reverse_out,
+                                                                                         str(num_bases), options)
+    if not os.path.isfile(forward_out):
+        out, err = accessoryfunctions.run_subprocess(cmd)
+    else:
+        out = str()
+        err = str()
+    if returncmd:
+        return out, err, cmd
+    else:
+        return out, err

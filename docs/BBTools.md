@@ -83,6 +83,14 @@ out, err = bbtools.bbnorm(forward_in, forward_out, returncmd=False, reverse_in='
 BBNorm will do read normalization to ensure that read depths don't get to be too ridiculous, which can cause issues for _de novo_ assemblies. The default kmer depth that BBNorm targets is 100, which can 
 be changed using target='depth'.
 
+### Subsample_Reads
+
+```python
+from biotools import bbtools
+out, err = bbtools.subsample_reads(forward_in, forward_out, num_bases, returncmd=False, reverse_in='NA', reverse_out='NA')
+```
+
+This command will subsample your reads to the number of bases specified with the `num_bases` parameter. 
 
 ### Tadpole
 
