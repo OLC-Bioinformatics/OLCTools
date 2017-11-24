@@ -36,6 +36,14 @@ def count(forward_in, reverse_in='NA', kmer_size=31, count_file='mer_counts.jf',
         cmd = 'jellyfish count -m {} -C -s {} -o {} {} {}'.format(str(kmer_size), hash_size, count_file,
                                                                   options, forward_in)
     else:
+        if forward_in.endswith('.gz'):
+            forward_in = accessoryfunctions.uncompress_gzip(forward_in)
+            create_uncompressed = True
+            to_remove.append(forward_in)
+        if reverse_in.endswith('.gz'):
+            reverse_in = accessoryfunctions.uncompress_gzip(reverse_in)
+            create_uncompressed = True
+            to_remove.append(reverse_in)
         cmd = 'jellyfish count -m {} -C -s {} -o {} {} -F 2 {} {}'.format(str(kmer_size), hash_size, count_file,
                                                                           options, forward_in, reverse_in)
     out, err = accessoryfunctions.run_subprocess(cmd)
