@@ -80,12 +80,13 @@ class CreateFastq(object):
                   'SampleSheet: {}'
                   .format(number, samplecount, samples, self.miseqpath, self.miseqfolder,
                           self.fastqdestination, os.path.join(self.fastqdestination, 'SampleSheet_modified.csv')),
-                  self.start)
+                  self.start,
+                  output=self.portallog)
         # Count the number of completed cycles in the run of interest
         cycles = glob(os.path.join(self.miseqpath, self.miseqfolder, 'Data', 'Intensities', 'BaseCalls', 'L001', 'C*'))
         while len(cycles) < self.readsneeded:
             printtime('Currently at {} cycles. Waiting until the MiSeq reaches cycle {}'.format(len(cycles),
-                      self.readsneeded), self.start)
+                      self.readsneeded), self.start, output=self.portallog)
             sleep(300)
             cycles = glob(os.path.join(self.miseqpath, self.miseqfolder,
                                        'Data', 'Intensities', 'BaseCalls', 'L001', 'C*'))
@@ -104,7 +105,7 @@ class CreateFastq(object):
         fnull = open(os.devnull, 'wb')
         if not os.path.isdir(os.path.join(self.fastqdestination, 'Project_{}'.format(self.projectname))):
             # Call configureBclToFastq.pl
-            printtime('Running bcl2fastq', self.start)
+            printtime('Running bcl2fastq', self.start, output=self.portallog)
             # Run the commands
             call(bclcall, shell=True, stdout=fnull, stderr=fnull)
             call(nohupcall, shell=True, stdout=fnull, stderr=fnull)
@@ -250,6 +251,10 @@ class CreateFastq(object):
         self.readsneeded = 0
         self.commit = inputobject.commit
         self.copy = inputobject.copy
+        try:
+            self.portallog = inputobject.portallog
+        except AttributeError:
+            self.portallog = ''
         if inputobject.miseqpath:
             self.miseqpath = os.path.join(inputobject.miseqpath, '')
         else:

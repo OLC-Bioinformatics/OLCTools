@@ -21,7 +21,9 @@ __author__ = 'adamkoziol'
 
 class Sippr(object):
     def targets(self):
-        printtime('Performing analysis with {} targets folder'.format(self.analysistype), self.start)
+        printtime('Performing analysis with {} targets folder'.format(self.analysistype),
+                  self.start,
+                  output=self.portallog)
         if self.pipeline:
             for sample in self.runmetadata:
                 setattr(sample, self.analysistype, GenObject())
@@ -37,17 +39,26 @@ class Sippr(object):
                     # There is a relatively strict databasing scheme necessary for the custom targets. Eventually,
                     # there will be a helper script to combine individual files into a properly formatted combined file
                     try:
-                        sample[self.analysistype].baitfile = glob('{}*.fasta'
-                                                                  .format(sample[self.analysistype].targetpath))[0]
+                        sample[self.analysistype].baitfile = glob(os.path.join(sample[self.analysistype].targetpath,
+                                                                               '*.fasta'))[0]
                     # If the fasta file is missing, raise a custom error
-                    except IndexError as e:
-                        # noinspection PyPropertyAccess
-                        e.args = ['Cannot find the combined fasta file in {}. Please note that the file must have a '
-                                  '.fasta extension'.format(sample[self.analysistype].targetpath)]
-                        if os.path.isdir(sample[self.analysistype].targetpath):
-                            raise
-                        else:
-                            sample[self.analysistype].runanalysis = False
+                    except IndexError:
+                        # Combine any .tfa files in the directory into a combined targets .fasta file
+                        tfafiles = glob(os.path.join(sample[self.analysistype].targetpath, '*.tfa'))
+                        if tfafiles:
+                            combinetargets(tfafiles, sample[self.analysistype].targetpath)
+                        try:
+                            self.baitfile = glob(os.path.join(sample[self.analysistype].targetpath, '*.fasta'))[0]
+                        except IndexError as e:
+                            # noinspection PyPropertyAccess
+                            e.args = [
+                                'Cannot find the combined fasta file in {}. Please note that the file must have a '
+                                '.fasta extension'.format(sample[self.analysistype].targetpath)]
+                            if os.path.isdir(sample[self.analysistype].targetpath):
+                                raise
+                            else:
+                                sample[self.analysistype].runanalysis = False
+
                 else:
                     sample[self.analysistype].runanalysis = False
             for sample in self.runmetadata:
@@ -99,7 +110,9 @@ class Sippr(object):
         """
         Use bbduk to perform baiting
         """
-        printtime('Performing kmer baiting of fastq files with {} targets'.format(self.analysistype), self.start)
+        printtime('Performing kmer baiting of fastq files with {} targets'.format(self.analysistype),
+                  self.start,
+                  output=self.portallog)
         for sample in self.runmetadata:
             if sample.general.bestassemblyfile != 'NA' and sample[self.analysistype].runanalysis:
                 # Create the folder (if necessary)
@@ -140,7 +153,7 @@ class Sippr(object):
         Use the freshly-baited FASTQ files to bait out sequence from the original target files. This will reduce the
         number of possibly targets against which the baited reads must be aligned
         """
-        printtime('Performing reverse kmer baiting of targets with fastq files', self.start)
+        printtime('Performing reverse kmer baiting of targets with fastq files', self.start, output=self.portallog)
         for sample in self.runmetadata:
             if sample.general.bestassemblyfile != 'NA' and sample[self.analysistype].runanalysis:
                 outfile = os.path.join(sample[self.analysistype].outputdir, 'baitedtargets.fa')
@@ -173,7 +186,7 @@ class Sippr(object):
         Subsampling of reads to 20X coverage of rMLST genes (roughly).
         To be called after rMLST extraction and read trimming, in that order.
         """
-        printtime('Subsampling {} reads'.format(self.analysistype), self.start)
+        printtime('Subsampling {} reads'.format(self.analysistype), self.start, output=self.portallog)
         for sample in self.runmetadata:
             # Create the name of the subsampled read file
             sample[self.analysistype].subsampledreads = os.path.join(
@@ -200,7 +213,7 @@ class Sippr(object):
             sample[self.analysistype].baitedfastq = sample[self.analysistype].subsampledreads
 
     def mapping(self):
-        printtime('Performing reference mapping', self.start)
+        printtime('Performing reference mapping', self.start, output=self.portallog)
         for i in range(len(self.runmetadata)):
             # Send the threads to
             threads = Thread(target=self.map, args=())
@@ -309,7 +322,7 @@ class Sippr(object):
             self.mapqueue.task_done()
 
     def indexing(self):
-        printtime('Indexing sorted bam files', self.start)
+        printtime('Indexing sorted bam files', self.start, output=self.portallog)
         for i in range(len(self.runmetadata)):
             # Send the threads to
             threads = Thread(target=self.index, args=())
@@ -346,7 +359,7 @@ class Sippr(object):
             self.indexqueue.task_done()
 
     def parsing(self):
-        printtime('Parsing sorted bam files', self.start)
+        printtime('Parsing sorted bam files', self.start, output=self.portallog)
         for i in range(len(self.runmetadata)):
             # Send the threads to
             threads = Thread(target=self.reduce, args=())
@@ -505,7 +518,7 @@ class Sippr(object):
         """
         Parse the dictionaries of the sorted bam files extracted using pysam
         """
-        printtime('Parsing BAM', self.start)
+        printtime('Parsing BAM', self.start, output=self.portallog)
         for sample in self.runmetadata:
             # Initialise dictionaries to store parsed data
             matchdict = dict()
@@ -705,6 +718,10 @@ class Sippr(object):
         self.homepath = inputobject.homepath
         self.taxonomy = inputobject.taxonomy
         self.logfile = inputobject.logfile
+        try:
+            self.portallog = inputobject.portallog
+        except AttributeError:
+            self.portallog = ''
         self.cutoff = cutoff
         self.builddict = dict()
         self.bowtiebuildextension = '.bt2'

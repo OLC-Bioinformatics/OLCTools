@@ -145,7 +145,7 @@ def make_dict():
     return defaultdict(make_dict)
 
 
-def printtime(string, start, option=None):
+def printtime(string, start, option=None, output=None):
     """Prints a string with colour options with the elapsed time
     # Reset
     Color_Off='\033[0m'       # Text Reset
@@ -222,13 +222,19 @@ def printtime(string, start, option=None):
     :param string: a string to be printed
     :param start: integer of the starting time
     :param option: Additional option for the text style
+    :param output: name and path of the logfile to store the message
     """
     # If not option is provided, default to bold high-intensity white
     if not option:
         option = '\033[1;97m'
     # Add the string formatting option to the message. Reset the format back to normal at the end with \033[0m
     print('{} [Elapsed Time: {:.2f} seconds] {} \033[0m'.format(option, time.time() - start, string))
-
+    if output:
+        try:
+            with open(output, 'a') as log:
+                log.write('[Elapsed Time: {:.2f} seconds] {}\n'.format(time.time() - start, string))
+        except FileNotFoundError:
+            pass
 
 
 class Dotter(object):
