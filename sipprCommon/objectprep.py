@@ -49,6 +49,10 @@ class Objectprep(object):
         self.homepath = inputobject.homepath
         self.commit = inputobject.commit
         self.copy = inputobject.copy
+        try:
+            self.portallog = inputobject.portallog
+        except AttributeError:
+            self.portallog = ''
         self.samples = MetadataObject()
         self.forward = str()
         self.reverse = str()

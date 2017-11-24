@@ -58,4 +58,8 @@ class ObjectCreation(object):
     def __init__(self, inputobject):
         self.samples = list()
         self.path = inputobject.sequencepath
+        try:
+            self.portallog = inputobject.portallog
+        except AttributeError:
+            self.portallog = ''
         self.createobject()
