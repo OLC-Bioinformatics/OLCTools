@@ -98,6 +98,8 @@
                 
                     <li><a class="toctree-l4" href="#bbnorm">BBNorm</a></li>
                 
+                    <li><a class="toctree-l4" href="#subsample_reads">Subsample_Reads</a></li>
+                
                     <li><a class="toctree-l4" href="#tadpole">Tadpole</a></li>
                 
             
@@ -229,6 +231,12 @@ out, err = bbtools.bbnorm(forward_in, forward_out, returncmd=False, reverse_in='
 
 <p>BBNorm will do read normalization to ensure that read depths don't get to be too ridiculous, which can cause issues for <em>de novo</em> assemblies. The default kmer depth that BBNorm targets is 100, which can 
 be changed using target='depth'.</p>
+<h3 id="subsample_reads">Subsample_Reads</h3>
+<pre><code class="python">from biotools import bbtools
+out, err = bbtools.subsample_reads(forward_in, forward_out, num_bases, returncmd=False, reverse_in='NA', reverse_out='NA')
+</code></pre>
+
+<p>This command will subsample your reads to the number of bases specified with the <code>num_bases</code> parameter. </p>
 <h3 id="tadpole">Tadpole</h3>
 <pre><code class="python">from biotools import bbtools
 out, err = bbtools.tadpole(forward_in, forward_out, returncmd=False, reverse_in='NA', reverse_out='NA', mode='correct')
