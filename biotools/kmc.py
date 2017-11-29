@@ -87,7 +87,7 @@ def subtract(database_1, database_2, results, exclude_below=1):
     :param results: Result database, containing reads in both database 1 and 2.
     :return: Stdout and stderr from kmc.
     """
-    cmd = 'kmc_tools kmers_subtract {} {} -ci {} {}'.format(database_1, database_2, str(exclude_below), results)
+    cmd = 'kmc_tools kmers_subtract {} {} -ci{} {}'.format(database_1, database_2, str(exclude_below), results)
     out, err = accessoryfunctions.run_subprocess(cmd)
     return out, err
 
