@@ -201,11 +201,12 @@ out, err = kmc.union(database_1, database_2, results)
 <p>This command will create a database (<code>results</code>) that contains all kmers that are present in either <code>database_1</code> or <code>database_2</code>, where both these databases were created using <code>kmc.kmc</code>. The <code>results</code> database can then be dumped using <code>kmc.dump</code> in order to inspect it.</p>
 <h3 id="kmc-subtract">KMC Subtract</h3>
 <pre><code class="python">from biotools import kmc
-out, err = kmc.subtract(database_1, database_2, results)
+out, err = kmc.subtract(database_1, database_2, results, exclude_below=1)
 </code></pre>
 
 <p>This command will create a database (<code>results</code>) that contains kmers that are present in <code>database_1</code> but not in <code>database_2</code>, 
 where both these databases were created using <code>kmc.kmc</code>. The <code>results</code> database can then be dumped using <code>kmc.dump</code> in order to inspect it.</p>
+<p>By default, all kmers in database_2 will be subtracted from database_1. This can be changed with the exclude_below argument. Setting it to 3, for example, will only subtract kmers that have counts of 3 or more - kmers with counts of 1 or 2 will not be subtracted.</p>
               
             </div>
           </div>
