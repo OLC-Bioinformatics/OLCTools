@@ -56,8 +56,10 @@ This command will create a database (`results`) that contains all kmers that are
 
 ```python
 from biotools import kmc
-out, err = kmc.subtract(database_1, database_2, results)
+out, err = kmc.subtract(database_1, database_2, results, exclude_below=1)
 ```
 
 This command will create a database (`results`) that contains kmers that are present in `database_1` but not in `database_2`, 
 where both these databases were created using `kmc.kmc`. The `results` database can then be dumped using `kmc.dump` in order to inspect it.
+
+By default, all kmers in database\_2 will be subtracted from database\_1. This can be changed with the exclude\_below argument. Setting it to 3, for example, will only subtract kmers that have counts of 3 or more - kmers with counts of 1 or 2 will not be subtracted.
