@@ -72,8 +72,7 @@ class CreateFastq(object):
         # Handle plurality appropriately
         samples = 'samples' if samplecount > 1 else 'sample'
         number = 'are' if samplecount > 1 else 'is'
-        printtime('There {} {} {} in this run. '
-                  'Running fastq creating module with the following parameters:\n'
+        printtime('There {} {} {} in this run.\n'
                   'MiSeqPath: {},\n'
                   'MiSeqFolder: {},\n'
                   'Fastq destination: {},\n'
@@ -95,11 +94,18 @@ class CreateFastq(object):
         # can be populated with run-specific values and moved to the appropriate folder
         if not os.path.isfile(os.path.join(self.miseqfolder, 'Data', 'Intensities', 'BaseCalls', 'config.xml')):
             self.configfilepopulator()
-        # Define the bcl2fastq system call
-        bclcall = "configureBclToFastq.pl --input-dir {}Data/Intensities/BaseCalls " \
-                  "--output-dir {} --force --sample-sheet {}/SampleSheet_modified.csv " \
-                  "--mismatches 1 --no-eamss --fastq-cluster-count 0 --compression none --use-bases-mask {}"\
-            .format(self.miseqfolder, self.fastqdestination, self.fastqdestination, basemask)
+        if self.debug:
+            # Define the bcl2fastq system call for the unit test
+            bclcall = "configureBclToFastq.pl --input-dir {}Data/Intensities/BaseCalls " \
+                      "--output-dir {} --force --sample-sheet {}/SampleSheet_modified.csv " \
+                      "--mismatches 0 --no-eamss --fastq-cluster-count 0 --compression none --use-bases-mask {} " \
+                      "--ignore-missing-stats --ignore-missing-bcl --ignore-missing-control --tiles s_1_1101"\
+                .format(self.miseqfolder, self.fastqdestination, self.fastqdestination, basemask)
+        else:
+            bclcall = "configureBclToFastq.pl --input-dir {}Data/Intensities/BaseCalls " \
+                      "--output-dir {} --force --sample-sheet {}/SampleSheet_modified.csv " \
+                      "--mismatches 1 --no-eamss --fastq-cluster-count 0 --compression none --use-bases-mask {}"\
+                .format(self.miseqfolder, self.fastqdestination, self.fastqdestination, basemask)
         # Define the nohup system call
         nohupcall = "cd {} && {}".format(self.fastqdestination, nohup)
         fnull = open(os.devnull, 'wb')
@@ -123,8 +129,8 @@ class CreateFastq(object):
         """Populates an unpopulated config.xml file with run-specific values and creates
         the file in the appropriate location"""
         # Set the number of cycles for each read and index using the number of reads specified in the sample sheet
-        self.forwardlength = self.metadata.header.forwardlength
-        self.reverselength = self.metadata.header.reverselength
+        self.forwardlength = int(self.metadata.header.forwardlength)
+        self.reverselength = int(self.metadata.header.reverselength)
         # Create a list of lists containing [cycle start, cycle end, and :runid] for each of forward reads, index 1
         # index 2, and reverse reads
         cycles = [[1, self.forwardlength, self.runid],
@@ -135,7 +141,8 @@ class CreateFastq(object):
         parameters = {'RunFolder': self.runid, 'RunFolderDate': self.metadata.date.replace("-", ""),
                       'RunFolderId': self.metadata.runnumber, 'RunFlowcellId': self.metadata.flowcell}
         # Load the xml file using element tree
-        config = ElementTree.parse(os.path.join(self.homepath, 'config.xml'))
+        config = ElementTree.parse(os.path.join(self.miseqpath, self.miseqfolder, 'Data', 'Intensities', 'BaseCalls',
+                                                'config.xml'))
         # Get the root of the tree
         configroot = config.getroot()
         # The run node is the only child node of the root
@@ -248,6 +255,10 @@ class CreateFastq(object):
         self.numreads = inputobject.numreads
         self.forwardlength = inputobject.forwardlength
         self.reverselength = inputobject.reverselength if self.numreads > 1 else '0'
+        try:
+            self.debug = inputobject.debug
+        except AttributeError:
+            self.debug = False
         self.readsneeded = 0
         self.commit = inputobject.commit
         self.copy = inputobject.copy

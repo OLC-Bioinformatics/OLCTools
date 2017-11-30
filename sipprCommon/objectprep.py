@@ -50,6 +50,10 @@ class Objectprep(object):
         self.commit = inputobject.commit
         self.copy = inputobject.copy
         try:
+            self.debug = inputobject.debug
+        except AttributeError:
+            self.debug = False
+        try:
             self.portallog = inputobject.portallog
         except AttributeError:
             self.portallog = ''

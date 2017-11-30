@@ -1,26 +1,54 @@
 #!/usr/bin/env python
-from glob import glob
-import os
-from threading import Thread
+from accessoryFunctions.accessoryFunctions import combinetargets, printtime, GenObject, make_path, logstr, \
+    write_to_logfile, run_subprocess
+from accessoryFunctions.metadataprinter import MetadataPrinter
+from sipprCommon.bowtie import Bowtie2CommandLine, Bowtie2BuildCommandLine
+import sipprCommon.editsamheaders
 from Bio.Sequencing.Applications import SamtoolsFaidxCommandline, SamtoolsIndexCommandline, \
     SamtoolsSortCommandline, SamtoolsViewCommandline
 from Bio.Application import ApplicationError
-from accessoryFunctions.accessoryFunctions import combinetargets, printtime, GenObject, make_path, logstr, \
-    write_to_logfile, run_subprocess
-import sipprCommon.editsamheaders
-from accessoryFunctions.metadataprinter import MetadataPrinter
-from sipprCommon.bowtie import Bowtie2CommandLine, Bowtie2BuildCommandLine
-from io import StringIO
-import pysam
 from Bio import SeqIO
-from queue import Queue
 from collections import Counter
+from threading import Thread
+from io import StringIO
+from queue import Queue
+from glob import glob
 import numpy
+import pysam
+import os
+
 __author__ = 'adamkoziol'
 
 
 class Sippr(object):
+
+    def main(self):
+        """
+        Run the methods in the correct order for pipelines
+        """
+        # Find the target files
+        self.targets()
+        # Use bbduk to bait the FASTQ reads matching the target sequences
+        self.bait()
+        # If desired, use bbduk to bait the target sequences with the previously baited FASTQ files
+        if self.revbait:
+            self.reversebait()
+        # Run the bowtie2 read mapping module
+        self.mapping()
+        # Use samtools to index the sorted bam file
+        self.indexing()
+        # Parse the results
+        self.parsing()
+        # Clear out the large attributes that will difficult to handle objects
+        self.clear()
+        # Filter out any sequences with cigar features such as internal soft-clipping from the results
+        self.clipper()
+
     def targets(self):
+        """
+        Search the targets folder for FASTA files, create the multi-FASTA file of all targets if necessary, and
+        populate objects
+        """
         printtime('Performing analysis with {} targets folder'.format(self.analysistype),
                   self.start,
                   output=self.portallog)
@@ -103,8 +131,6 @@ class Sippr(object):
                 sample[self.analysistype].baitedfastq = \
                     os.path.join(sample[self.analysistype].outputdir,
                                  '{}_targetMatches.fastq.gz'.format(self.analysistype))
-        # Bait
-        self.bait()
 
     def bait(self):
         """
@@ -143,10 +169,6 @@ class Sippr(object):
                                      err,
                                      self.logfile, sample.general.logout, sample.general.logerr,
                                      sample[self.analysistype].logout, sample[self.analysistype].logerr)
-        if self.revbait:
-            self.reversebait()
-        else:
-            self.mapping()
 
     def reversebait(self):
         """
@@ -178,8 +200,6 @@ class Sippr(object):
                                      sample[self.analysistype].logout, sample[self.analysistype].logerr)
                 # Set the baitfile to use in the mapping steps as the newly created outfile
                 sample[self.analysistype].baitfile = outfile
-        # Run the read mapping module
-        self.mapping()
 
     def subsample_reads(self):
         """
@@ -286,8 +306,6 @@ class Sippr(object):
                         pass
                 self.mapqueue.put((sample, bowtie2build, bowtie2align, samindex))
         self.mapqueue.join()
-        # Use samtools to index the sorted bam file
-        self.indexing()
 
     def map(self):
         while True:
@@ -337,8 +355,6 @@ class Sippr(object):
                 sample[self.analysistype].bamindex = str(bamindex)
                 self.indexqueue.put((sample, bamindex))
         self.indexqueue.join()
-        # Parse the results
-        self.parsing()
 
     def index(self):
         while True:
@@ -641,8 +657,6 @@ class Sippr(object):
                         sample[self.analysistype].mincoverage.update({allele: mindict[allele]})
                         sample[self.analysistype] \
                             .standarddev.update({allele: '{:.2f}'.format(numpy.std(deviationdict[allele], ddof=1))})
-        # Clear out the large attributes that will difficult to handle objects
-        self.clear()
 
     def clear(self):
         """
@@ -654,8 +668,6 @@ class Sippr(object):
                 delattr(sample[self.analysistype], 'sequence')
             except KeyError:
                 pass
-        # Filter out any sequences with cigar features such as internal soft-clipping from the results
-        self.clipper()
 
     def clipper(self):
         """
@@ -755,7 +767,7 @@ class Sippr(object):
         self.revbait = True
         self.record_dict = dict()
         # Run the analyses
-        self.targets()
+        self.main()
         # Print the metadata
         printer = MetadataPrinter(self)
         printer.printmetadata()
