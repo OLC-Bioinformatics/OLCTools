@@ -62,4 +62,8 @@ class ObjectCreation(object):
             self.portallog = inputobject.portallog
         except AttributeError:
             self.portallog = ''
+        try:
+            self.debug = inputobject.debug
+        except AttributeError:
+            self.debug = False
         self.createobject()

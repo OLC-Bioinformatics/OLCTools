@@ -2,7 +2,8 @@
 from glob import glob
 import sipprCommon.runMetadata as runMetadata
 from sipprCommon.offhours import Offhours
-from accessoryFunctions.accessoryFunctions import make_path, printtime, GenObject
+from accessoryFunctions.accessoryFunctions import make_path, printtime, GenObject, run_subprocess, write_to_logfile
+import multiprocessing
 import os
 # Import ElementTree - try first to import the faster C version, if that doesn't
 # work, try to import the regular version
@@ -29,28 +30,41 @@ class CreateFastq(object):
         # Initialise variables for storing index information
         index = ''
         indexlength = int()
-        # bcl2fastq requires an older version of the sample sheet, this recreates the required version
-        # Create the new sample sheet
-        with open(os.path.join(self.fastqdestination, 'SampleSheet_modified.csv'), "w") as modifiedsamplesheet:
-            # Write the required headings to the file
-            modifiedsamplesheet.write(
-                "FCID,Lane,SampleID,SampleRef,Index,Description,Control,Recipe,Operator,SampleProject\n")
-            for strain in self.samples:
-                # Create a combined index of index1-index2
-                try:
-                    strain.run.modifiedindex = '{}-{}'.format(strain.run.index, strain.run.index2)
-                    indexlength = 16
-                    index = 'I8,I8'
-                except KeyError:
-                    strain.run.modifiedindex = strain.run.index
-                    indexlength = 6
-                    index = 'I6'
-                # The list of items to print to each line of the modified sample sheet
-                printlist = [self.flowcell, '1', strain.name, str(strain.run.SampleNumber), strain.run.modifiedindex,
-                             strain.run.Description, 'N', 'NA',
-                             strain.run.InvestigatorName, self.projectname]
-                modifiedsamplesheet.write('{}\n'.format(",".join(printlist)))
-                samplecount += 1
+        # A list of all projects supplied in the Sample_Project field in the SampleSheet.csv - these will be replaced
+        projectlist = list()
+        for strain in self.samples:
+            projectlist.append(strain.run.SampleProject)
+            samplecount += 1
+            # Create a combined index of index1-index2
+            try:
+                strain.run.modifiedindex = '{}-{}'.format(strain.run.index, strain.run.index2)
+                indexlength = 16
+                index = 'I8,I8'
+            except KeyError:
+                strain.run.modifiedindex = strain.run.index
+                indexlength = 6
+                index = 'I6'
+        # Create a new sample sheet using self.project name instead of the provided Sample_Project. This ensures
+        # that all the FASTQ files are stored in the same output folder
+        projectsamplesheet = os.path.join(self.fastqdestination, 'SampleSheet_modified.csv')
+        with open(projectsamplesheet, "w") as modifiedsamplesheet:
+            # Use the 'original' sample sheet as the template for the new sheet
+            with open(self.customsamplesheet) as samplesheet:
+                # Iterate through the template sheet, and write lines until the header for the data portion of the sheet
+                for line in samplesheet:
+                    modifiedsamplesheet.write(line)
+                    if 'Sample_ID' in line:
+                        for subline in samplesheet:
+                            # Split the line on commas
+                            data = subline.split(',')
+                            updateddata = list()
+                            # Find the Sample_Project value, and update it to be self.projectname
+                            for value in data:
+                                if value in projectlist:
+                                    value = self.projectname
+                                updateddata.append(value)
+                            # Write the updated string to the new sheet
+                            modifiedsamplesheet.write(','.join(updateddata))
         # Set :forward/reverse length to :header.forward/reverse length if the argument is not provided, or it's 'full',
         # otherwise  use the supplied argument
         self.forwardlength = self.metadata.header.forwardlength if self.forwardlength.lower()\
@@ -63,23 +77,19 @@ class CreateFastq(object):
         if self.reverselength != '0':
             self.readsneeded = int(self.forwardlength) + int(self.reverselength) + indexlength
             basemask = "Y{}n*,{},Y{}n*".format(self.forwardlength, index, self.reverselength)
-            nohup = "nohup make -j 16 > nohup.out"
         else:
-            #  + 1
             self.readsneeded = int(self.forwardlength) + indexlength
             basemask = "Y{}n*,{},n*".format(self.forwardlength, index)
-            nohup = "nohup make -j 16 r1 > nohup.out"
         # Handle plurality appropriately
-        samples = 'samples' if samplecount > 1 else 'sample'
-        number = 'are' if samplecount > 1 else 'is'
-        printtime('There {} {} {} in this run. '
-                  'Running fastq creating module with the following parameters:\n'
+        samples = 'samples' if samplecount != 1 else 'sample'
+        number = 'are' if samplecount != 1 else 'is'
+        printtime('There {} {} {} in this run.\n'
                   'MiSeqPath: {},\n'
                   'MiSeqFolder: {},\n'
                   'Fastq destination: {},\n'
                   'SampleSheet: {}'
                   .format(number, samplecount, samples, self.miseqpath, self.miseqfolder,
-                          self.fastqdestination, os.path.join(self.fastqdestination, 'SampleSheet_modified.csv')),
+                          self.fastqdestination, projectsamplesheet),
                   self.start,
                   output=self.portallog)
         # Count the number of completed cycles in the run of interest
@@ -95,24 +105,42 @@ class CreateFastq(object):
         # can be populated with run-specific values and moved to the appropriate folder
         if not os.path.isfile(os.path.join(self.miseqfolder, 'Data', 'Intensities', 'BaseCalls', 'config.xml')):
             self.configfilepopulator()
-        # Define the bcl2fastq system call
-        bclcall = "configureBclToFastq.pl --input-dir {}Data/Intensities/BaseCalls " \
-                  "--output-dir {} --force --sample-sheet {}/SampleSheet_modified.csv " \
-                  "--mismatches 1 --no-eamss --fastq-cluster-count 0 --compression none --use-bases-mask {}"\
-            .format(self.miseqfolder, self.fastqdestination, self.fastqdestination, basemask)
-        # Define the nohup system call
-        nohupcall = "cd {} && {}".format(self.fastqdestination, nohup)
-        fnull = open(os.devnull, 'wb')
-        if not os.path.isdir(os.path.join(self.fastqdestination, 'Project_{}'.format(self.projectname))):
+        if self.debug:
+            # Define the bcl2fastq system call for the unit test
+            bclcall = "bcl2fastq --input-dir {basecalls} " \
+                      "--output-dir {outdir} --sample-sheet {samplesheet} " \
+                      "--barcode-mismatches 0 -r 4 -p {cpus} -w 4 -R {runfolder} --use-bases-mask {mask} " \
+                      "--tiles s_1_1101 --minimum-trimmed-read-length 1" \
+                .format(basecalls=os.path.join(self.miseqfolder, 'Data', 'Intensities', 'BaseCalls'),
+                        outdir=self.fastqdestination,
+                        samplesheet=projectsamplesheet,
+                        cpus=self.cpus,
+                        runfolder=self.miseqfolder,
+                        mask=basemask)
+        else:
+            bclcall = "bcl2fastq --input-dir {basecalls} " \
+                      "--output-dir {outdir} --sample-sheet {samplesheet} " \
+                      "--barcode-mismatches 1 -r 4 -p {cpus} -w 4 -R {runfolder} --use-bases-mask {mask}"\
+                .format(basecalls=os.path.join(self.miseqfolder, 'Data', 'Intensities', 'BaseCalls'),
+                        outdir=self.fastqdestination,
+                        samplesheet=projectsamplesheet,
+                        cpus=self.cpus,
+                        runfolder=self.miseqfolder,
+                        mask=basemask)
+        if not os.path.isdir(self.projectpath):
             # Call configureBclToFastq.pl
             printtime('Running bcl2fastq', self.start, output=self.portallog)
-            # Run the commands
-            call(bclcall, shell=True, stdout=fnull, stderr=fnull)
-            call(nohupcall, shell=True, stdout=fnull, stderr=fnull)
+            # Run the command
+            out, err = run_subprocess(bclcall)
+            write_to_logfile(bclcall,
+                             bclcall,
+                             self.logfile)
+            write_to_logfile(out,
+                             err,
+                             self.logfile)
         # Populate the metadata
         for sample in self.metadata.samples:
             sample.commands = GenObject()
-            sample.commands.nohup = nohupcall
             sample.commands.bcl = bclcall
             sample.run.forwardlength = self.forwardlength
             sample.run.reverselength = self.reverselength
@@ -123,8 +151,8 @@ class CreateFastq(object):
         """Populates an unpopulated config.xml file with run-specific values and creates
         the file in the appropriate location"""
         # Set the number of cycles for each read and index using the number of reads specified in the sample sheet
-        self.forwardlength = self.metadata.header.forwardlength
-        self.reverselength = self.metadata.header.reverselength
+        self.forwardlength = int(self.metadata.header.forwardlength)
+        self.reverselength = int(self.metadata.header.reverselength)
         # Create a list of lists containing [cycle start, cycle end, and :runid] for each of forward reads, index 1
         # index 2, and reverse reads
         cycles = [[1, self.forwardlength, self.runid],
@@ -135,7 +163,8 @@ class CreateFastq(object):
         parameters = {'RunFolder': self.runid, 'RunFolderDate': self.metadata.date.replace("-", ""),
                       'RunFolderId': self.metadata.runnumber, 'RunFlowcellId': self.metadata.flowcell}
         # Load the xml file using element tree
-        config = ElementTree.parse(os.path.join(self.homepath, 'config.xml'))
+        config = ElementTree.parse(os.path.join(self.miseqpath, self.miseqfolder, 'Data', 'Intensities', 'BaseCalls',
+                                                'config.xml'))
         # Get the root of the tree
         configroot = config.getroot()
         # The run node is the only child node of the root
@@ -179,34 +208,23 @@ class CreateFastq(object):
 
     def fastqmover(self):
         """Links .fastq files created above to :sequencepath"""
-        from re import sub
         import errno
-        # Create the project path variable
-        self.projectpath = os.path.join(self.fastqdestination, "Project_{}".format(self.projectname))
         # Create the sequence path if necessary
         make_path(self.sequencepath)
         # Iterate through all the sample names
         for sample in self.metadata.samples:
             # Make directory variables
             outputdir = os.path.join(self.sequencepath, sample.name)
-            sampledir = os.path.join(self.projectpath, 'Sample_{}'.format(sample.name))
             # Glob all the .gz files in the subfolders - projectpath/Sample_:sample.name/*.gz
-            for fastq in sorted(glob(os.path.join(sampledir, '*.gz'))):
+            for fastq in sorted(glob(os.path.join(self.projectpath, '*.gz'))):
                 fastqname = os.path.basename(fastq)
-                # Set the name of the destination file renamed with the sample number.
-                # 2015-SEQ-1283_GGACTCCT-GCGTAAGA_L001_R1_001.fastq.gz is renamed:
-                # 2015-SEQ-1283_S1_L001_R1_001.fastq.gz
-                outputfile = os.path.join(self.sequencepath,
-                                          os.path.basename(
-                                              sub(
-                                                  sample.run.modifiedindex,
-                                                  'S{}'.format(sample.run.SampleNumber),
-                                                  fastq)))
+                # Set the name of the destination file
+                outputfile = os.path.join(self.sequencepath, fastqname)
                 if not self.copy:
                     # Try/except loop link .gz files to self.path
                     try:
                         # Symlink fastq file to the seq path
-                        relativepath = os.path.relpath(sampledir, self.sequencepath)
+                        relativepath = os.path.relpath(self.projectpath, self.sequencepath)
                         os.symlink(
                             os.path.join(relativepath, fastqname),
                             os.path.join(outputfile)
@@ -244,10 +262,19 @@ class CreateFastq(object):
         self.homepath = inputobject.homepath
         self.miseqout = str()
         self.projectname = 'fastqCreation'
-        self.projectpath = str()
+        self.projectpath = os.path.join(self.fastqdestination, self.projectname)
         self.numreads = inputobject.numreads
         self.forwardlength = inputobject.forwardlength
         self.reverselength = inputobject.reverselength if self.numreads > 1 else '0'
+        self.cpus = multiprocessing.cpu_count()
+        try:
+            self.logfile = inputobject.logfile
+        except AttributeError:
+            self.logfile = os.path.join(self.path, 'log')
+        try:
+            self.debug = inputobject.debug
+        except AttributeError:
+            self.debug = False
         self.readsneeded = 0
         self.commit = inputobject.commit
         self.copy = inputobject.copy
