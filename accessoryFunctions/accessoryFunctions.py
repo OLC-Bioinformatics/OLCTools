@@ -9,14 +9,46 @@ from subprocess import Popen, PIPE, STDOUT
 from collections import defaultdict
 import subprocess
 import datetime
+import shutil
 import errno
 import shlex
 import time
+import glob
 import os
 import re
 import sys
 
 __author__ = 'adamkoziol', 'andrewlow'
+
+
+def dependency_check(dependency):
+    """
+    Checks a program to see if it's installed (or at least, checks whether or not some sort of executable
+    for it is on your path).
+    :param dependency: Name of program you want to check, as a string.
+    :return: True if depedency is present, False if it isn't.
+    """
+    check = shutil.which(dependency)
+    if not check:
+        return False
+    else:
+        return True
+
+
+def find_paired_reads(fastq_directory, forward_id='_R1', reverse_id='_R2'):
+    """
+    Looks at a directory to try to find paired fastq files. Should be able to find anything fastq.
+    :param fastq_directory: Complete path to directory containing fastq files.
+    :param forward_id: Identifier for forward reads. Default R1.
+    :param reverse_id: Identifier for reverse reads. Default R2.
+    :return: List containing pairs of fastq files, in format [[forward_1, reverse_1], [forward_2, reverse_2]], etc.
+    """
+    pair_list = list()
+    fastq_files = glob.glob(fastq_directory + '/*.f*q*')
+    for name in fastq_files:
+        if forward_id in name and os.path.isfile(name.replace(forward_id, reverse_id)):
+            pair_list.append([name, name.replace(forward_id, reverse_id)])
+    return pair_list
 
 
 def download_file(address, output_name, hour_start=18, hour_end=6, day_start=5, day_end=6, timeout=600):
