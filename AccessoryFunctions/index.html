@@ -75,6 +75,10 @@
                 
                     <li><a class="toctree-l4" href="#print-time">Print Time</a></li>
                 
+                    <li><a class="toctree-l4" href="#dependency-check">Dependency Check</a></li>
+                
+                    <li><a class="toctree-l4" href="#find-paired-reads">Find Paired Reads</a></li>
+                
             
             </ul>
         
@@ -182,6 +186,21 @@ accessoryFunctions.printtime(string, start)
 </code></pre>
 
 <p>Prints out elapsed time since <code>start</code>, followed by the text contained in <code>string</code>. Prints it out in bold, so it looks good! </p>
+<h3 id="dependency-check">Dependency Check</h3>
+<pre><code class="python">from accessoryFunctions import accessoryFunctions
+present = accessoryFunctions.dependency_check(dependency)
+</code></pre>
+
+<p>Not sure if a program required in your script is installed and on the $PATH? Use this method to check for you - it will return <code>True</code> if the program is present, and <code>False</code> if it isn't.
+A good way to warn users of your scripts that not everything needed is installed. </p>
+<p>NOTE: Doesn't check the version of the program, so don't rely on it for that. </p>
+<h3 id="find-paired-reads">Find Paired Reads</h3>
+<pre><code class="python">from accessoryFunctions import accessoryFunctions
+pairs = accessoryFunctions.find_paired_reads(directory, forward_id='_R1', reverse_id='_R2')
+</code></pre>
+
+<p>This method will look into the directory specified with the <code>directory</code> argument and return a list of files that appear to be read pairs. Default forward and reverse identifiers are '_R1' and '_R2', respectively, but these can be changed with the <code>forward_id</code> and <code>reverse_id</code> keyword arguments.</p>
+<p>The return will be a nested list with the following format: [[forward_1, reverse_1], [forward_2, reverse_2]], and so on.</p>
               
             </div>
           </div>
