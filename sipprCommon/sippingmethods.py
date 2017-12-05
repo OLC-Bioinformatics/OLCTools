@@ -132,9 +132,10 @@ class Sippr(object):
                     os.path.join(sample[self.analysistype].outputdir,
                                  '{}_targetMatches.fastq.gz'.format(self.analysistype))
 
-    def bait(self):
+    def bait(self, k='27'):
         """
         Use bbduk to perform baiting
+        :param k: keyword argument for length of kmers to use in the analyses
         """
         printtime('Performing kmer baiting of fastq files with {} targets'.format(self.analysistype),
                   self.start,
@@ -146,18 +147,22 @@ class Sippr(object):
                 # Make the system call
                 if len(sample.general.fastqfiles) == 2:
                     # Create the command to run the baiting - paired inputs and a single, zipped output
-                    sample[self.analysistype].bbdukcmd = 'bbduk.sh ref={} in1={} in2={} threads={} outm={}' \
-                        .format(sample[self.analysistype].baitfile,
-                                sample.general.trimmedcorrectedfastqfiles[0],
-                                sample.general.trimmedcorrectedfastqfiles[1],
-                                str(self.cpus),
-                                sample[self.analysistype].baitedfastq)
+                    sample[self.analysistype].bbdukcmd = \
+                        'bbduk.sh ref={ref} in1={in1} in2={in2} k={kmer} threads={cpus} outm={outm}' \
+                        .format(ref=sample[self.analysistype].baitfile,
+                                in1=sample.general.trimmedcorrectedfastqfiles[0],
+                                in2=sample.general.trimmedcorrectedfastqfiles[1],
+                                kmer=k,
+                                cpus=str(self.cpus),
+                                outm=sample[self.analysistype].baitedfastq)
                 else:
-                    sample[self.analysistype].bbdukcmd = 'bbduk.sh ref={} in={} threads={} outm={}' \
-                        .format(sample[self.analysistype].baitfile,
-                                sample.general.trimmedcorrectedfastqfiles[0],
-                                str(self.cpus),
-                                sample[self.analysistype].baitedfastq)
+                    sample[self.analysistype].bbdukcmd = \
+                        'bbduk.sh ref={ref} in={in1} k={kmer} threads={cpus} outm={outm}' \
+                        .format(ref=sample[self.analysistype].baitfile,
+                                in1=sample.general.trimmedcorrectedfastqfiles[0],
+                                kmer=k,
+                                cpus=str(self.cpus),
+                                outm=sample[self.analysistype].baitedfastq)
                 # Run the system call (if necessary)
                 if not os.path.isfile(sample[self.analysistype].baitedfastq):
                     out, err = run_subprocess(sample[self.analysistype].bbdukcmd)
@@ -188,7 +193,6 @@ class Sippr(object):
                             outfile)
                 # Run the system call (if necessary)
                 if not os.path.isfile(outfile):
-                    # call(sample[self.analysistype].revbbdukcmd, shell=True, stdout=self.devnull, stderr=self.devnull)
                     out, err = run_subprocess(sample[self.analysistype].revbbdukcmd)
                     write_to_logfile(sample[self.analysistype].bbdukcmd,
                                      sample[self.analysistype].bbdukcmd,
