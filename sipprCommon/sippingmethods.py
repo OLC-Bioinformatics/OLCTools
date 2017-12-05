@@ -150,13 +150,13 @@ class Sippr(object):
                         .format(sample[self.analysistype].baitfile,
                                 sample.general.trimmedcorrectedfastqfiles[0],
                                 sample.general.trimmedcorrectedfastqfiles[1],
-                                str(self.threads),
+                                str(self.cpus),
                                 sample[self.analysistype].baitedfastq)
                 else:
                     sample[self.analysistype].bbdukcmd = 'bbduk.sh ref={} in={} threads={} outm={}' \
                         .format(sample[self.analysistype].baitfile,
                                 sample.general.trimmedcorrectedfastqfiles[0],
-                                str(self.threads),
+                                str(self.cpus),
                                 sample[self.analysistype].baitedfastq)
                 # Run the system call (if necessary)
                 if not os.path.isfile(sample[self.analysistype].baitedfastq):
@@ -183,7 +183,7 @@ class Sippr(object):
                     'bbduk.sh ref={} in={} threads={} mincovfraction={} maskmiddle=f outm={}'\
                     .format(sample[self.analysistype].baitedfastq,
                             sample[self.analysistype].baitfile,
-                            str(self.threads),
+                            str(self.cpus),
                             self.cutoff,
                             outfile)
                 # Run the system call (if necessary)
