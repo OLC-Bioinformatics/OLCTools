@@ -10,6 +10,7 @@ install:
   - export PATH=$PATH:$PWD/bbmap/
   - wget https://github.com/refresh-bio/KMC/releases/download/v3.0.0/KMC3.linux.tar.gz && tar xf KMC3.linux.tar.gz
   - export PATH=$PATH:$PWD
+  - wget https://github.com/marbl/Mash/releases/download/v2.0/mash-Linux64-v2.0.tar && tar xf mash-Linux64-v2.0.tar && export PATH=$PATH:$PWD/mash-Linux64-v2.0
   - pip install -e .
 branches:
   only:
