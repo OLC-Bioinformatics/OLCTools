@@ -172,7 +172,8 @@ In addition to being able to count kmers, version 3.0 has some neat extra utilit
 <li>The kmc executables must be accessible from your $PATH for these wrappers to function.</li>
 <li>Any extra options you want to specify for KMC commands can be specified using <code>parameter='argument'</code>.</li>
 <li>Wrappers will return STDOUT and STDERR.</li>
-<li>All wrappers will automatically look for reverse reads if they're present, so you can be lazy and only specify your forward reads if the reads are paired. For this to work, forward reads and reverse reads must be in the same folder and follow Illumina's R1/R2 naming convention. If you have paired reads that don't follow these assumptions, use the keyword argument <code>reverse_in='path/to/paired_reads'</code>.</li>
+<li>All wrappers will automatically look for reverse reads if they're present, so you can be lazy and only specify your forward reads if the reads are paired. For this to work, forward reads and reverse reads must be in the same folder and follow Illumina's _R1/_R2 naming convention. If you have paired reads that don't follow these assumptions, use the keyword argument <code>reverse_in='path/to/paired_reads'</code>.</li>
+<li>Wrappers can also have the command string returned. To do this, add the argument <code>returncmd=True</code>. This will cause the command string to be returned as the third return value.</li>
 </ul>
 <h3 id="kmc-count-kmers">KMC (Count Kmers)</h3>
 <pre><code class="python">from biotools import kmc
