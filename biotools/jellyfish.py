@@ -4,11 +4,12 @@ from biotools import accessoryfunctions
 # get it implemented and come back to it.
 
 
-def count(forward_in, reverse_in='NA', kmer_size=31, count_file='mer_counts.jf', hash_size='100M', options=''):
+def count(forward_in, reverse_in='NA', kmer_size=31, count_file='mer_counts.jf', hash_size='100M', options='',
+          returncmd=False):
     """
     Runs jellyfish count to kmerize reads to a desired kmer size.
     :param forward_in: Forward input reads or fasta file. Can be uncompressed or gzip compressed.
-    :param reverse_in: Reverse input reads. Found automatically if in same folder as forward and R1/R2 naming convention
+    :param reverse_in: Reverse input reads. Found automatically if in same folder as forward and _R1/_R2 naming convention
     used.
     :param kmer_size: Kmer size to get jellyfish to use. Default 31.
     :param count_file: File to have jellyfish output mer counts to. Default mer_counts.jf
@@ -20,8 +21,8 @@ def count(forward_in, reverse_in='NA', kmer_size=31, count_file='mer_counts.jf',
     """
     create_uncompressed = False
     to_remove = list()
-    if os.path.isfile(forward_in.replace('R1', 'R2')) and reverse_in == 'NA':
-        reverse_in = forward_in.replace('R1', 'R2')
+    if os.path.isfile(forward_in.replace('_R1', '_R2')) and reverse_in == 'NA':
+        reverse_in = forward_in.replace('_R1', '_R2')
         if forward_in.endswith('.gz'):
             forward_in = accessoryfunctions.uncompress_gzip(forward_in)
             create_uncompressed = True
@@ -50,7 +51,10 @@ def count(forward_in, reverse_in='NA', kmer_size=31, count_file='mer_counts.jf',
     if create_uncompressed:
         for item in to_remove:
             os.remove(item)
-    return out, err
+    if returncmd:
+        return out, err, cmd
+    else:
+        return out, err
 
 
 def dump(mer_file, output_file='counts.fasta', options=''):

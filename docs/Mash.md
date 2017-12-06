@@ -10,6 +10,7 @@ NOTES:
 - Any number of arguments for sequence files can be passed to `mash.dist`, `mash.sketch`, and `mash.screen`. Unix wildcards (*, ?) can be part of these arguments.
 - The default setting for all wrappers is to only use one thread. This can be changed with the `threads` keyword argument. For example, to use 8 threads, set `threads=8`.
 - Any other parameters you want to change for Mash are also possible to change, using the same parameter='argument' format.
+- Wrappers can also have the command string returned. To do this, add the argument `returncmd=True`. This will cause the command string to be returned as the third return value.
 
 The following wrappers for Mash have been written:
 

@@ -1,0 +1,19 @@
+language: python
+python:
+  - '3.5'
+cache: pip
+
+install:
+  - pip install -r requirements.txt
+  - wget https://sourceforge.net/projects/bbmap/files/BBMap_37.68.tar.gz
+  - tar xf BBMap_37.68.tar.gz
+  - export PATH=$PATH:$PWD/bbmap/
+  - wget https://github.com/refresh-bio/KMC/releases/download/v3.0.0/KMC3.linux.tar.gz && tar xf KMC3.linux.tar.gz
+  - export PATH=$PATH:$PWD
+  - pip install -e .
+branches:
+  only:
+    - master
+
+script:
+  - pytest tests/

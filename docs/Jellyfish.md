@@ -8,7 +8,7 @@ NOTES:
 - The jellyfish executable must be accessible from your $PATH for these wrappers to function.
 - Any options you want to specify for Jellyfish commands that are not implemented as keyword arguments should be entered as options='', where the options string contains the options exactly as they would be specified on the command line.
 - Wrappers will return STDOUT and STDERR.
-- All wrappers will automatically look for reverse reads if they're present, so you can be lazy and only specify your forward reads if the reads are paired. For this to work, forward reads and reverse reads must be in the same folder and follow Illumina's R1/R2 naming convention. If you have paired reads that don't follow these assumptions, use the keyword argument `reverse_in='path/to/paired_reads'`.
+- All wrappers will automatically look for reverse reads if they're present, so you can be lazy and only specify your forward reads if the reads are paired. For this to work, forward reads and reverse reads must be in the same folder and follow Illumina's \_R1/\_R2 naming convention. If you have paired reads that don't follow these assumptions, use the keyword argument `reverse_in='path/to/paired_reads'`.
 
 ### Jellyfish Count
 

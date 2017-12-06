@@ -9,7 +9,8 @@ NOTES:
 - The kmc executables must be accessible from your $PATH for these wrappers to function.
 - Any extra options you want to specify for KMC commands can be specified using `parameter='argument'`.
 - Wrappers will return STDOUT and STDERR.
-- All wrappers will automatically look for reverse reads if they're present, so you can be lazy and only specify your forward reads if the reads are paired. For this to work, forward reads and reverse reads must be in the same folder and follow Illumina's R1/R2 naming convention. If you have paired reads that don't follow these assumptions, use the keyword argument `reverse_in='path/to/paired_reads'`.
+- All wrappers will automatically look for reverse reads if they're present, so you can be lazy and only specify your forward reads if the reads are paired. For this to work, forward reads and reverse reads must be in the same folder and follow Illumina's \_R1/\_R2 naming convention. If you have paired reads that don't follow these assumptions, use the keyword argument `reverse_in='path/to/paired_reads'`.
+- Wrappers can also have the command string returned. To do this, add the argument `returncmd=True`. This will cause the command string to be returned as the third return value.
 
 ### KMC (Count Kmers)
 
