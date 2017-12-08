@@ -170,7 +170,11 @@ def bbnorm(forward_in, forward_out, returncmd=False, reverse_in='NA', reverse_ou
         cmd = 'bbnorm.sh in1={} in2={} out1={} out2={} {}'.format(forward_in, reverse_in,
                                                                   forward_out, reverse_out,
                                                                   options)
-    out, err = accessoryfunctions.run_subprocess(cmd)
+    if not os.path.isfile(forward_out):
+        out, err = accessoryfunctions.run_subprocess(cmd)
+    else:
+        out = str()
+        err = str()
     if returncmd:
         return out, err, cmd
     else:
@@ -195,7 +199,11 @@ def bbmerge(forward_in, merged_reads, returncmd=False, reverse_in='NA', **kwargs
         cmd = 'bbmerge.sh in={} out={} {}'.format(forward_in, merged_reads, options)
     else:
         cmd = 'bbmerge.sh in={} in2={} out={} {}'.format(forward_in, reverse_in, merged_reads, options)
-    out, err = accessoryfunctions.run_subprocess(cmd)
+    if not os.path.isfile(merged_reads):
+        out, err = accessoryfunctions.run_subprocess(cmd)
+    else:
+        out = str()
+        err = str()
     if returncmd:
         return out, err, cmd
     else:

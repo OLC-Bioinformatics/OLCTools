@@ -1,8 +1,9 @@
 #!/usr/bin/env python
-from subprocess import call
+from accessoryFunctions.accessoryFunctions import GenObject, make_path, printtime, run_subprocess, write_to_logfile
 from threading import Thread
 import threading
-from accessoryFunctions.accessoryFunctions import *
+import os
+import re
 
 __author__ = 'adamkoziol'
 
@@ -96,7 +97,6 @@ class Mash(object):
             self.mashqueue.task_done()
 
     def parse(self):
-        import re
         printtime('Determining closest refseq genome', self.starttime)
         for sample in self.metadata:
             if sample.general.bestassemblyfile != 'NA':
