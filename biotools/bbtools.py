@@ -57,9 +57,7 @@ def bbduk_trim(forward_in, forward_out, reverse_in='NA', reverse_out='NA', retur
     options = kwargs_to_string(kwargs)
     cmd = 'which bbduk.sh'
     try:
-        bbduk_dir = subprocess.check_output(cmd.split()).decode('utf-8')
-        bbduk_dir = os.path.split(bbduk_dir)[:-1]
-        bbduk_dir = bbduk_dir[0]
+        subprocess.check_output(cmd.split()).decode('utf-8')
     except subprocess.CalledProcessError:
         print('ERROR: Could not find bbduk. Plase check that the bbtools package is installed and on your $PATH.\n\n')
         raise FileNotFoundError
@@ -70,21 +68,29 @@ def bbduk_trim(forward_in, forward_out, reverse_in='NA', reverse_out='NA', retur
                 reverse_out = forward_out.replace('R1', 'R2')
             else:
                 raise ValueError('If you do not specify reverse_out, forward_out must contain R1.\n\n')
-        cmd = 'bbduk.sh in1={} in2={} out1={} out2={} qtrim=w trimq=20 k=25 minlength=50 forcetrimleft=15' \
-              ' ref={}/resources/adapters.fa overwrite hdist=1 tpe tbo{}'.format(forward_in, reverse_in,
-                                                                                 forward_out, reverse_out,
-                                                                                 bbduk_dir, options)
+        cmd = 'bbduk.sh in1={f_in} in2={r_in} out1={f_out} out2={r_out} qtrim=w trimq=20 k=25 minlength=50 ' \
+              'forcetrimleft=15 ref=adapters overwrite hdist=1 tpe tbo{optn}'\
+            .format(f_in=forward_in,
+                    r_in=reverse_in,
+                    f_out=forward_out,
+                    r_out=reverse_out,
+                    optn=options)
     elif reverse_in == 'NA':
-        cmd = 'bbduk.sh in={} out={} qtrim=w trimq=20 k=25 minlength=50 forcetrimleft=15' \
-              ' ref={}/resources/adapters.fa overwrite hdist=1 tpe tbo{}'.format(forward_in, forward_out,
-                                                                                 bbduk_dir, options)
+        cmd = 'bbduk.sh in={f_in} out={f_out} qtrim=w trimq=20 k=25 minlength=50 forcetrimleft=15' \
+              ' ref=adapters overwrite hdist=1 tpe tbo{optn}'\
+            .format(f_in=forward_in,
+                    f_out=forward_out,
+                    optn=options)
     else:
         if reverse_out == 'NA':
             raise ValueError('Reverse output reads must be specified.')
-        cmd = 'bbduk.sh in1={} in2={} out1={} out2={} qtrim=w trimq=20 k=25 minlength=50 forcetrimleft=15' \
-              ' ref={}/resources/adapters.fa overwrite hdist=1 tpe tbo{}'.format(forward_in, reverse_in,
-                                                                                 forward_out, reverse_out,
-                                                                                 bbduk_dir, options)
+        cmd = 'bbduk.sh in1={f_in} in2={r_in} out1={f_out} out2={r_out} qtrim=w trimq=20 k=25 minlength=50 ' \
+              'forcetrimleft=15 ref=adapters overwrite hdist=1 tpe tbo{optn}'\
+            .format(f_in=forward_in,
+                    r_in=reverse_in,
+                    f_out=forward_out,
+                    r_out=reverse_out,
+                    optn=options)
     out, err = accessoryfunctions.run_subprocess(cmd)
     if returncmd:
         return out, err, cmd

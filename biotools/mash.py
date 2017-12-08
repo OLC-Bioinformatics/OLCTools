@@ -73,12 +73,13 @@ def dist(*args, output_file='distances.tab', threads=1, **kwargs):
     return out, err
 
 
-def screen(*args, output_file='screen.tab', threads=1, **kwargs):
+def screen(*args, output_file='screen.tab', threads=1, returncmd=False, **kwargs):
     """
     Wrapper for mash screen. Requires mash v2.0 or higher.
     :param args: Files you want to screen. First argument must be a sketch.
     :param output_file: Output to write containment info to.
     :param threads: Number of threads to run mash on.
+    :param returncmd: If set to true, function will return the cmd string passed to subprocess as a third value.
     :param kwargs: Other arguments, in parameter='argument' format. If parameter is just a switch, do parameter=''
     :return: stdout and stderr from mash screen
     """
@@ -88,7 +89,10 @@ def screen(*args, output_file='screen.tab', threads=1, **kwargs):
         cmd += arg + ' '
     cmd += ' -p {} {} > {}'.format(str(threads), options, output_file)
     out, err = accessoryfunctions.run_subprocess(cmd)
-    return out, err
+    if returncmd:
+        return out, err, cmd
+    else:
+        return out, err
 
 
 def read_mash_output(result_file):

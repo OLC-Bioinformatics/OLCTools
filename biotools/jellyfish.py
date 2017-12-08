@@ -4,7 +4,7 @@ from biotools import accessoryfunctions
 # get it implemented and come back to it.
 
 
-def count(forward_in, reverse_in='NA', kmer_size=31, count_file='mer_counts.jf', hash_size='100M', options=''):
+def count(forward_in, reverse_in='NA', kmer_size=31, count_file='mer_counts.jf', hash_size='100M', options='', returncmd=False):
     """
     Runs jellyfish count to kmerize reads to a desired kmer size.
     :param forward_in: Forward input reads or fasta file. Can be uncompressed or gzip compressed.
@@ -16,6 +16,7 @@ def count(forward_in, reverse_in='NA', kmer_size=31, count_file='mer_counts.jf',
     adjust to be larger automatically if needed.
     :param options: Other options to pass to jellyfish. Input should be a string, with options typed as they would be
     on the command line.
+    :param returncmd: If set to true, function will return the cmd string passed to subprocess as a third value.
     :return: Stdout and stderr from calling jellyfish.
     """
     create_uncompressed = False
@@ -50,18 +51,25 @@ def count(forward_in, reverse_in='NA', kmer_size=31, count_file='mer_counts.jf',
     if create_uncompressed:
         for item in to_remove:
             os.remove(item)
-    return out, err
+    if returncmd:
+        return out, err, cmd
+    else:
+        return out, err
 
 
-def dump(mer_file, output_file='counts.fasta', options=''):
+def dump(mer_file, output_file='counts.fasta', options='', returncmd=False):
     """
     Dumps output from jellyfish count into a human-readable format.
     :param mer_file: Output from jellyfish count.
     :param output_file: Where to store output. Default counts.fasta
     :param options: Other options to pass to jellyfish. Input should be a string, with options typed as they would be
     on the command line.
+    :param returncmd: If set to true, function will return the cmd string passed to subprocess as a third value.
     :return: Stdout and stderr from calling jellyfish.
     """
     cmd = 'jellyfish dump {} -o {} {}'.format(mer_file, output_file, options)
     out, err = accessoryfunctions.run_subprocess(cmd)
-    return out, err
+    if returncmd:
+        return out, err, cmd
+    else:
+        return out, err
