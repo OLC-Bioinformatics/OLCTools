@@ -1,3 +1,5 @@
+[![Build status](https://travis-ci.org/lowandrew/OLCTools.svg?master)](https://travis-ci.org/lowandrew)
+
 # OLC Tools
 
 

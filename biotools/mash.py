@@ -35,13 +35,14 @@ def kwargs_to_string(kwargs):
     return outstr
 
 
-def sketch(*args, output_sketch='sketch.msh', threads=1, **kwargs):
+def sketch(*args, output_sketch='sketch.msh', threads=1, returncmd=False, **kwargs):
     """
     Wrapper for mash sketch.
     :param args: Files you want to sketch. Any number can be passed in, file patterns (i.e. *fasta) can be used.
     :param output_sketch: Output file for your sketch. Default sketch.msh.
     :param threads: Number of threads to run analysis on.
     :param kwargs: Other arguments, in parameter='argument' format. If parameter is just a switch, do parameter=''
+    :param returncmd: If true, will return the command used to call mash as well as out and err.
     :return: stdout and stderr from mash sketch
     """
     options = kwargs_to_string(kwargs)
@@ -52,25 +53,34 @@ def sketch(*args, output_sketch='sketch.msh', threads=1, **kwargs):
         cmd += arg + ' '
     cmd += '-o {} -p {} {}'.format(output_sketch, str(threads), options)
     out, err = accessoryfunctions.run_subprocess(cmd)
-    return out, err
+    if returncmd:
+        return out, err, cmd
+    else:
+        return out, err
 
 
-def dist(*args, output_file='distances.tab', threads=1, **kwargs):
+def dist(*args, output_file='distances.tab', threads=1, returncmd=False, **kwargs):
     """
     Wrapper for mash dist.
     :param args: Files you want to find distances between. Can be
     :param output_file: Output file to write your distances to. Default distances.tab
     :param threads: Number of threads to run mash on.
     :param kwargs: Other arguments, in parameter='argument' format. If parameter is just a switch, do parameter=''
+    :param returncmd: If true, will return the command used to call mash as well as out and err.
     :return: stdout and stderr from mash dist
     """
     options = kwargs_to_string(kwargs)
+    if len(args) == 0:
+        raise ValueError('At least one file to sketch must be specified. You specified 0 files.')
     cmd = 'mash dist '
     for arg in args:
         cmd += arg + ' '
     cmd += ' -p {} {} > {}'.format(str(threads), options, output_file)
     out, err = accessoryfunctions.run_subprocess(cmd)
-    return out, err
+    if returncmd:
+        return out, err, cmd
+    else:
+        return out, err
 
 
 def screen(*args, output_file='screen.tab', threads=1, returncmd=False, **kwargs):
