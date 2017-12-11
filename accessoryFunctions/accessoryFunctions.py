@@ -168,8 +168,7 @@ def make_path(inpath):
     # Except os errors
     except OSError as exception:
         # If the os error is anything but directory exists, then raise
-        if exception.errno != errno.EEXIST:
-            raise
+        raise
 
 
 def make_dict():

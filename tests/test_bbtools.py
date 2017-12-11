@@ -84,6 +84,17 @@ def test_bbduk_filter_exception():
                                              returncmd=True)
 
 
-# Would have a test for bbnorm here, but it seems to like to use 50GB of memory, which will cause some
-# major issues with Travis-CI. Will leave it out.
+def test_bbmerge_call():
+    out, err, cmd = bbtools.bbmerge(forward_in='tests/dummy_fastq/test_R1.fastq',
+                                    merged_reads='tests/merged.fastq', returncmd=True)
+    assert cmd == 'bbmerge.sh in=tests/dummy_fastq/test_R1.fastq in2=tests/dummy_fastq/test_R2.fastq ' \
+                  'out=tests/merged.fastq '
+    os.remove('tests/merged.fastq')
 
+
+def test_bbmerge_with_kwargs():
+    out, err, cmd = bbtools.bbmerge(forward_in='tests/dummy_fastq/test_R1.fastq',
+                                    merged_reads='tests/merged.fastq', returncmd=True, threads=1)
+    assert cmd == 'bbmerge.sh in=tests/dummy_fastq/test_R1.fastq in2=tests/dummy_fastq/test_R2.fastq ' \
+                  'out=tests/merged.fastq  threads=1'
+    os.remove('tests/merged.fastq')
