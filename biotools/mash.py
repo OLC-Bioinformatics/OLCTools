@@ -89,7 +89,7 @@ def screen(*args, output_file='screen.tab', threads=1, returncmd=False, **kwargs
     :param args: Files you want to screen. First argument must be a sketch.
     :param output_file: Output to write containment info to.
     :param threads: Number of threads to run mash on.
-    :param returncmd: If true, will return the command used to call mash as well as out and err.
+    :param returncmd: If set to true, function will return the cmd string passed to subprocess as a third value.
     :param kwargs: Other arguments, in parameter='argument' format. If parameter is just a switch, do parameter=''
     :return: stdout and stderr from mash screen
     """

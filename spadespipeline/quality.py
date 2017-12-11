@@ -171,24 +171,24 @@ class Quality(object):
                     if len(fastqfiles) == 2:
                         if int(sample.run.forwardlength) > 75 and int(sample.run.reverselength) > 75:
                             bbdukcall = "bbduk.sh -Xmx1g in1={} in2={} out1={} out2={} qtrim=w trimq=20 " \
-                                "k=25 minlength=50 forcetrimleft=15 ref={}/resources/adapters.fa hdist=1 " \
+                                "k=25 minlength=50 forcetrimleft=15 ref=adapters hdist=1 " \
                                         "tpe tbo" \
                                 .format(fastqfiles[0], fastqfiles[1], cleanforward, cleanreverse, self.bbduklocation)
                         else:
                             bbdukcall = "bbduk.sh -Xmx1g in1={} out1={} qtrim=w trimq=20 k=25 " \
-                                        "minlength=50 forcetrimleft=15 ref={}/resources/adapters.fa hdist=1" \
-                                .format(fastqfiles[1], cleanreverse, self.bbduklocation)
+                                        "minlength=50 forcetrimleft=15 ref=adapters hdist=1" \
+                                .format(fastqfiles[1], cleanreverse)
                     elif len(fastqfiles) == 1:
                         bbdukcall = "bbduk.sh -Xmx1g in={} out={} qtrim=w trimq=20 k=25 " \
-                            "minlength=50 forcetrimleft=15 ref={}/resources/adapters.fa hdist=1" \
-                            .format(fastqfiles[0], cleanforward, self.bbduklocation)
+                            "minlength=50 forcetrimleft=15 ref=adapters hdist=1" \
+                            .format(fastqfiles[0], cleanforward)
                     else:
                         bbdukcall = ""
                 # Allows for exclusion of the reverse reads if desired
                 else:
                     bbdukcall = "bbduk.sh -Xmx1g in={} out={} qtrim=w trimq=20 k=25 " \
-                                "minlength=50 forcetrimleft=15 ref={}/resources/adapters.fa hdist=1" \
-                        .format(fastqfiles[0], cleanforward, self.bbduklocation)
+                                "minlength=50 forcetrimleft=15 ref=adapters hdist=1" \
+                        .format(fastqfiles[0], cleanforward)
                     # There is a check to ensure that the trimmed reverse file is created. This will change the file
                     # being looked for to the forward file
                     cleanreverse = cleanforward

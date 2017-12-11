@@ -50,9 +50,9 @@ class CLARK(object):
 
     def clean_sequences(self):
         """Removes reads/contigs that contain plasmids, and masks phage sequences."""
-        printtime('Removing plasmid and masking phage', self.start)
-        plasmid_db = '/mnt/nas/Adam/assemblypipeline/plasmidfinder/plasmid_database.fa'
-        phage_db = '/mnt/nas/Adam/assemblypipeline/prophages/combinedtargets.tfa'
+        printtime('Removing plasmids and masking phages', self.start)
+        plasmid_db = os.path.join(self.reffilepath, 'plasmidfinder', 'plasmid_database.fa')
+        phage_db = os.path.join(self.reffilepath, 'prophages', 'combinedtargets.tfa')
         for sample in self.runmetadata.samples:
             plasmid_removal = 'bbduk.sh ref={} in={} out={} overwrite'\
                 .format(plasmid_db, sample.general.combined, sample.general.combined.replace('.f', '_noplasmid.f'))
@@ -285,6 +285,11 @@ class CLARK(object):
         self.datapath = ''
         self.reportpath = os.path.join(self.path, 'reports')
         self.clean_seqs = args.clean_seqs
+        if self.clean_seqs:
+            try:
+                self.reffilepath = args.reffilepath
+            except AttributeError:
+                self.clean_seqs = False
         # If run as part of the assembly pipeline, a few modifications are necessary to ensure that the metadata objects
         # and variables play nice
         try:
@@ -323,11 +328,12 @@ class CLARK(object):
                         sample[clarkextension].abundance = sample.general.abundance
                         sample[clarkextension].classification = sample.general.classification
                         sample[clarkextension].combined = sample.general.combined
-                        # Remove the combined .fastq files
-                        try:
-                            os.remove(sample.general.combined)
-                        except OSError:
-                            pass
+                        if self.extension == 'fastq':
+                            # Remove the combined .fastq files
+                            try:
+                                os.remove(sample.general.combined)
+                            except OSError:
+                                pass
                         # Remove all the attributes from .general
                         map(lambda x: delattr(sample.general, x), ['abundance', 'classification', 'combined'])
                         # Remove the text files lists of files and reports created by CLARK
@@ -422,13 +428,16 @@ class PipelineInit(object):
         # args.databasepath = os.path.join(inputobject.reffilepath, 'clark')
         args.databasepath = '{}clark'.format(inputobject.reffilepath)
         make_path(args.databasepath)
-        args.clarkpath = os.path.dirname(which('estimate_abundance.sh'))
+        args.clarkpath = os.path.dirname(which('CLARK'))
+        args.clarkpath += '/../opt/clark/'
         args.cutoff = 0.005
         args.database = 'bacteria'
         args.rank = 'species'
         args.filter = False
         args.threads = inputobject.cpus
         args.runmetadata = inputobject.runmetadata
+        args.clean_seqs = False
+        args.reffilepath = inputobject.reffilepath
         if analysis == 'pipeline':
             # Run CLARK on both .fastq and .fasta files
             for extension in ['fastq', 'fasta']:
