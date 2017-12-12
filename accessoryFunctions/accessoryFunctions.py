@@ -162,13 +162,8 @@ def make_path(inpath):
     does what is indicated by the URL
     :param inpath: string of the supplied path
     """
-    try:
-        # os.makedirs makes parental folders as required
+    if not os.path.isdir(inpath):
         os.makedirs(inpath)
-    # Except os errors
-    except OSError as exception:
-        # If the os error is anything but directory exists, then raise
-        raise
 
 
 def make_dict():
