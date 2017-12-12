@@ -1,6 +1,8 @@
 #!/usr/bin/env python
-from accessoryFunctions.accessoryFunctions import *
+from accessoryFunctions.accessoryFunctions import filer, GenObject, make_path, MetadataObject, printtime
 from glob import glob
+import errno
+import os
 __author__ = 'adamkoziol'
 
 
@@ -9,18 +11,18 @@ class ObjectCreation(object):
     def createobject(self):
         printtime('Finding sequence files', self.start)
         # Find all the .fastq files in the sequence path
-        filelist = glob('{}*.fastq*'.format(self.sequencepath))
+        filelist = glob(os.path.join(self.sequencepath, '*.fastq*'))
         if filelist:
-            self.extension = '.fastq'
+            self.extension = 'fastq'
             self.filehandler(filelist)
         else:
-            filelist = glob('{}*.fa*'.format(self.sequencepath))
-            self.extension = '.fasta'
+            filelist = glob(os.path.join(self.sequencepath, '*.fa*'))
+            self.extension = 'fasta'
             self.filehandler(filelist)
 
     def filehandler(self, filelist):
         # Extract the base name of the globbed name + path provided
-        if self.extension == '.fastq':
+        if self.extension == 'fastq':
             names = map(lambda x: os.path.split(x)[1], filer(filelist))
         else:
             names = map(lambda x: os.path.split(x)[1].split('.')[0], filelist)
@@ -48,13 +50,13 @@ class ObjectCreation(object):
             metadata.general = GenObject()
             metadata.commands = GenObject()
             # Populate the .fastqfiles category of :self.metadata
-            metadata.general.fastqfiles = [fastq for fastq in glob('{}/{}*{}*'.format(outputdir, name, self.extension))
-                                           if 'trimmed' not in fastq]
+            metadata.general.fastqfiles = [fastq for fastq in glob(os.path.join(
+                outputdir, '{}*{}*'.format(name, self.extension))) if 'trimmed' not in fastq]
             # Add the output directory to the metadata
             metadata.general.outputdirectory = outputdir
             metadata.general.bestassemblyfile = metadata.general.fastqfiles[0]
             # Find the data files corresponding to the sample
-            datafiles = glob('{}{}*.csv'.format(self.datapath, metadata.name))
+            datafiles = glob(os.path.join(self.datapath, '{}*.csv'.format(metadata.name)))
             # Assign attributes to the files depending on whether they are abundance files or not
             for datafile in datafiles:
                 if 'abundance' in datafile:
