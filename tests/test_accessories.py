@@ -1,4 +1,5 @@
 import shutil
+import glob
 import os
 import pytest
 from accessoryFunctions.accessoryFunctions import *
@@ -39,5 +40,16 @@ def test_make_path_nested():
 
 
 def test_filer_fastq():
-    filelist = ['tests/dummy_fastq/test_R1.fastq', 'tests/dummy_fastq/test_R2.fastq']
-    assert filer(filelist) == {'tests/dummy_fastq/test'}
+    filelist = ['tests/dummy_fastq/test_R1.fastq', 'tests/dummy_fastq/test_R2.fastq',
+                'tests/dummy_fastq/test2_S1_L001_R1_001.fastq.gz', 'tests/dummy_fastq/test2_S1_L001_R2_001.fastq.gz',
+                'tests/dummy_fastq/test3_S55_L001_R1_001.fastq.gz', 'tests/dummy_fastq/test4_1.fastq',
+                'tests/dummy_fastq/test4_2.fastq']
+    assert filer(filelist) == {'tests/dummy_fastq/test', 'tests/dummy_fastq/test2',
+                               'tests/dummy_fastq/test3', 'tests/dummy_fastq/test4'}
+
+
+def test_combine_fastqs():  # TODO: Actually inspect contents of created file.
+    combinetargets(glob.glob('tests/dummy_fastq/*fasta'), 'tests')
+    assert os.path.isfile('tests/combinedtargets.fasta')
+    os.remove('tests/combinedtargets.fasta')
+
