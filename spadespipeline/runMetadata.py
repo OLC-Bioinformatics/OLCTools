@@ -128,7 +128,7 @@ class Metadata(object):
                     strainindex = int(straindata[0]) - 1
                     # Set run to the .run object of self.samples[index]
                     run = self.samples[strainindex].run
-                    # An assertion that compares the sample computer above to the previously entered sample name
+                    # An assertion that compares the sample computed above to the previously entered sample name
                     # to ensure that the samples are the same
                     assert self.samples[strainindex].name == samplename, \
                         "Sample name does not match object name {0!r:s}".format(straindata[1])
