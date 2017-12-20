@@ -19,6 +19,12 @@ class Reporter(object):
             if sample.general.bestassemblyfile != 'NA':
                 # Add the value of the appropriate attribute to the results string
                 data += GenObject.returnattr(sample, 'name')
+                # SampleName
+                data += GenObject.returnattr(sample.run, 'SampleName')
+                # Genus
+                data += GenObject.returnattr(sample.sixteens_full, 'genus')
+                # Species
+                data += GenObject.returnattr(sample.sixteens_full, 'species')
                 # SequencingDate
                 data += GenObject.returnattr(sample.run, 'Date')
                 # Analyst
@@ -46,14 +52,14 @@ class Reporter(object):
                 # MASH_NumMatchingHashes
                 data += GenObject.returnattr(sample.mash, 'nummatches')
                 # 16S_result
-                data += GenObject.returnattr(sample.sixteens_full, 'genus')
+                data += GenObject.returnattr(sample.sixteens_full, 'sixteens_match')
                 # rMLST_Result
                 data += GenObject.returnattr(sample.rmlst, 'sequencetype') if sample.rmlst.matches == 53 else '-,'
                 # MLST_Result
                 try:
                     data += GenObject.returnattr(sample.mlst, 'sequencetype') if sample.mlst.matches == 7 else '-,'
                 except KeyError:
-                    data += '-'
+                    data += '-,'
                 # MLST_gene_X_alleles
                 try:
                     for allele in sorted(sample.mlst.results):
@@ -61,8 +67,6 @@ class Reporter(object):
                     # If there are fewer than seven matching alleles, add a - for each missing result
                     if len(sample.mlst.results) < 7:
                         data += (7 - len(sample.mlst.results)) * '-,'
-                    if not sample.mlst.results:
-                        data += '-,-,-,-,-,-,-,'
                 except KeyError:
                     data += '-,-,-,-,-,-,-,'
                 # CoreGenesPresent
@@ -133,6 +137,12 @@ class Reporter(object):
                 data += GenObject.returnattr(sample.run, 'forwardlength')
                 # LengthReverseRead
                 data += GenObject.returnattr(sample.run, 'reverselength')
+                # OtherNames
+                data += GenObject.returnattr(sample.run, 'Description')
+                # Flowcell
+                data += GenObject.returnattr(sample.run, 'flowcell')
+                # MachineName
+                data += GenObject.returnattr(sample.run, 'instrument')
                 # PipelineVersion
                 data += self.commit + ','
                 # AssemblyDate
@@ -200,14 +210,7 @@ class Reporter(object):
                 row += ','.join([value for key, value in data.items()])
             else:
                 if not row:
-                    data = ['SampleName', 'N50', 'NumContigs', 'TotalLength', 'MeanInsertSize', 'AverageCoverageDepth',
-                            'ReferenceGenome', 'RefGenomeAlleleMatches', '16sPhylogeny', 'rMLSTsequenceType',
-                            'MLSTsequencetype', 'MLSTmatches', 'coreGenome', 'Serotype', 'geneSeekrProfile',
-                            'vtyperProfile', 'percentGC', 'TotalPredictedGenes', 'predictedgenesover3000bp',
-                            'predictedgenesover1000bp', 'predictedgenesover500bp', 'predictedgenesunder500bp',
-                            'SequencingDate', 'Investigator', 'TotalClustersinRun', 'NumberofClustersPF',
-                            'PercentOfClusters', 'LengthofForwardRead', 'LengthofReverseRead', 'Project',
-                            'PipelineVersion']
+                    data = self.headers
                     row += ','.join(data)
                 row += '\n{}'.format(sample.name)
         cleanrow = row.replace('NA', '-')
@@ -337,7 +340,7 @@ class Reporter(object):
         self.reportpath = inputobject.reportpath
         self.starttime = inputobject.starttime
         # 'rMLST_ReferenceGenome', 'rMLST_NumMatchingAlleles',
-        self.headers = ['SeqID', 'SequencingDate', 'Analyst', 'SamplePurity', 'N50', 'NumContigs', 'TotalLength',
+        self.headers = ['SeqID', 'SampleName', 'Genus', 'Species', 'SequencingDate', 'Analyst', 'SamplePurity', 'N50', 'NumContigs', 'TotalLength',
                         'MeanInsertSize', 'InsertSizeSTD', 'AverageCoverageDepth', 'CoverageDepthSTD', 'PercentGC',
                         'MASH_ReferenceGenome', 'MASH_NumMatchingHashes', '16S_result', 'rMLST_Result', 'MLST_Result',
                         'MLST_gene_1_allele', 'MLST_gene_2_allele', 'MLST_gene_3_allele', 'MLST_gene_4_allele',
@@ -346,7 +349,7 @@ class Reporter(object):
                         'SISTR_h1', 'SISTR_h2', 'SISTR_serovar', 'GeneSeekr_Profile', 'Vtyper_Profile', 'AMR_Profile',
                         'Plasmid_MLST_Result', 'TotalPredictedGenes', 'PredictedGenesOver3000bp',
                         'PredictedGenesOver1000bp', 'PredictedGenesOver500bp', "PredictedGenesUnder500bp",
-                        'NumClustersPF', 'LengthForwardRead', 'LengthReverseRead', 'PipelineVersion', 'AssemblyDate']
+                        'NumClustersPF', 'LengthForwardRead', 'LengthReverseRead', 'OtherNames', 'Flowcell', 'MachineName', 'PipelineVersion', 'AssemblyDate']
         self.reporter()
         self.legacy_reporter()
         # Create a database to store all the metadata
