@@ -219,10 +219,20 @@ class Resistance(GeneSippr):
                 if line.startswith('#'):
                     continue
                 # Split the line on colons e.g. QnrB53:Quinolone resistance: has three variables after the split:
-                # gene(QnrB53), resistance(Quinolone resistance), and _(\n)
-                gene, resistance, _ = line.split(':')
+                # gene(QnrB53), resistance(Quinolone resistance), and _(\n) (unless there is an alternate name)
+                gene, resistance, alternate = line.split(':')
                 # Set up the resistance dictionary
                 genedict[gene] = resistance
+                # strA:Aminoglycoside resistance:Alternate name; aph(3'')-Ib - yields gene:resistance of aph(3'')-Ib
+                # Aminoglycoside resistance
+                if 'Alternate name' in line:
+                    try:
+                        altgene = alternate.split(';')[1].rstrip().lstrip()
+
+                    except IndexError:
+                        # blaGES-8:Beta-lactam resistance:Alternate name IBC-2
+                        altgene = alternate.split()[-1].rstrip()
+                    genedict[altgene] = resistance
         # Find unique gene names with the highest percent identity
         for sample in self.runmetadata.samples:
             try:
@@ -247,41 +257,50 @@ class Resistance(GeneSippr):
         # Create the path in which the reports are stored
         make_path(self.reportpath)
         # Initialise strings to store the results
-        header = 'Strain,Resistance,Gene,Allele,Accession,PercentIdentity,Length,FoldCoverage\n'
-        data = str()
+        data = 'Strain,Resistance,Gene,Allele,Accession,PercentIdentity,Length,FoldCoverage\n'
         with open(os.path.join(self.reportpath, self.analysistype + '.csv'), 'w') as report:
             for sample in self.runmetadata.samples:
                 data += sample.name + ','
-                try:
-                    if sample[self.analysistype].results:
-                        # Create an attribute to store the string for the eventual pipeline report
-                        sample[self.analysistype].pipelineresults = list()
-                        # If there are multiple results for a sample, don't write the name in each line of the report
-                        multiple = False
-                        for name, identity in sample[self.analysistype].results.items():
+                if sample[self.analysistype].results:
+                    # Create an attribute to store the string for the eventual pipeline report
+                    sample[self.analysistype].pipelineresults = list()
+                    # If there are multiple results for a sample, don't write the name in each line of the report
+                    multiple = False
+                    for name, identity in sorted(sample[self.analysistype].results.items()):
+                        # Allow for an additional part to the gene name aph(3'')_Ib_5_AF321551 yields aph(3'')-Ib
+                        if '_I' in name:
+                            pregene, postgene, allele, accession = name.split('_')
+                            genename = '{pre}-{post}'.format(pre=pregene,
+                                                             post=postgene)
+                            gname = pregene
+                        else:
                             # Split the name on '_'s: ARR-2_1_HQ141279; gene: ARR-2, allele: 1, accession: HQ141279
                             try:
                                 genename, allele, accession = name.split('_')
+                                gname = genename
                             # Some names have a slightly different naming scheme:
                             # tet(44)_1_NZ_ABDU01000081; gene: tet(44), allele: 1, accession: NZ_ABDU01000081
                             except ValueError:
                                 genename, allele, preaccession, postaccession = name.split('_')
                                 accession = '{preaccess}_{postaccess}'.format(preaccess=preaccession,
                                                                               postaccess=postaccession)
-                            # Retrieve the best identity for each gene
-                            percentid = sample[self.analysistype].uniquegenes[genename]
-                            # If the percent identity of the current gene matches the best percent identity, add it to
-                            # the report - there can be multiple occurrences of genes e.g.
-                            # sul1,1,AY224185,100.00,840 and sul1,2,CP002151,100.00,927 are both included because they
-                            # have the same 100% percent identity
-                            if float(identity) == percentid:
+                                gname = genename
+                        # Retrieve the best identity for each gene
+                        percentid = sample[self.analysistype].uniquegenes[gname]
+                        # If the percent identity of the current gene matches the best percent identity, add it to
+                        # the report - there can be multiple occurrences of genes e.g.
+                        # sul1,1,AY224185,100.00,840 and sul1,2,CP002151,100.00,927 are both included because they
+                        # have the same 100% percent identity
+                        if float(identity) == percentid:
+                            try:
+                                res = genedict[genename]
                                 # Treat the initial vs subsequent results for each sample slightly differently - instead
                                 # of including the sample name, use an empty cell instead
                                 if multiple:
                                     data += ','
                                 # Populate the results
                                 data += '{},{},{},{},{},{},{}\n'.format(
-                                    genedict[genename],
+                                    res,
                                     genename,
                                     allele,
                                     accession,
@@ -291,15 +310,14 @@ class Resistance(GeneSippr):
                                 sample[self.analysistype].pipelineresults.append(
                                     '{rgene} ({pid}%) {rclass}'.format(rgene=genename,
                                                                        pid=identity,
-                                                                       rclass=genedict[genename])
+                                                                       rclass=res)
                                 )
                                 multiple = True
-                    else:
-                        data += '\n'
-                except KeyError:
+                            except KeyError:
+                                pass
+                else:
                     data += '\n'
             # Write the strings to the file
-            report.write(header)
             report.write(data)
 
 
