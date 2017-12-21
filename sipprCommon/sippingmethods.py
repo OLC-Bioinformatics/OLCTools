@@ -510,10 +510,11 @@ class Sippr(object):
                     # between the two clipped reads, the sequence data would look good, but only because of this
                     # undesired clipping. Add the internal soft clip feature to the dictionary
                     elif cigartype == 4:  # soft clipping
-                        # Determine if a soft clip is internal by ensuring the refpos isn't 0, or within 10 bases of
-                        # the total length of the reference sequence
-                        if int(record.reference_start) != 0 and int(record.reference_end) <= \
-                                        len(str(self.record_dict[sample.name][record.reference_name].seq)) - 10:
+                        record_length = float(len(str(self.record_dict[sample.name][record.reference_name].seq)))
+                        record_length_ninety = record_length * 0.95
+                        # Determine if a soft clip is internal
+                        if float(record.reference_start) >= (record_length - record_length_ninety) \
+                                and float(record.reference_end) <= record_length_ninety:
                             try:
                                 sample[self.analysistype].features[contig][refpos].append('internal soft clip')
                             except KeyError:
