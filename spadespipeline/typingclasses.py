@@ -211,6 +211,8 @@ class Resistance(GeneSippr):
         """
         # Create a set of all the gene names without alleles or accessions e.g. sul1_18_AY260546 becomes sul1
         genedict = dict()
+        altgenedict = dict()
+        revaltgenedict = dict()
         # Load the notes file to a dictionary
         notefile = os.path.join(self.targetpath, 'notes.txt')
         with open(notefile, 'r') as notes:
@@ -228,11 +230,13 @@ class Resistance(GeneSippr):
                 if 'Alternate name' in line:
                     try:
                         altgene = alternate.split(';')[1].rstrip().lstrip()
-
                     except IndexError:
                         # blaGES-8:Beta-lactam resistance:Alternate name IBC-2
                         altgene = alternate.split()[-1].rstrip()
+                    # Populate the dictionaries
                     genedict[altgene] = resistance
+                    altgenedict[gene] = altgene
+                    revaltgenedict[altgene] = gene
         # Find unique gene names with the highest percent identity
         for sample in self.runmetadata.samples:
             try:
@@ -293,6 +297,19 @@ class Resistance(GeneSippr):
                         # have the same 100% percent identity
                         if float(identity) == percentid:
                             try:
+                                # If the gene name is present in the altgenedict dictionary, adjust the string to output
+                                # to include the alternate name in parentheses e.g. strA (aph(3'')-Ib
+                                try:
+                                    finalgene = '{namegene} ({genealt})'.format(namegene=genename,
+                                                                                genealt=altgenedict[genename])
+                                except KeyError:
+                                    # Similar to above except with revaltdict
+                                    try:
+                                        finalgene = '{namegene} ({genealt})'.format(namegene=revaltgenedict[genename],
+                                                                                    genealt=genename)
+                                    except KeyError:
+                                        finalgene = genename
+                                # Extract the resistance from the genedict dictionary
                                 res = genedict[genename]
                                 # Treat the initial vs subsequent results for each sample slightly differently - instead
                                 # of including the sample name, use an empty cell instead
@@ -301,14 +318,14 @@ class Resistance(GeneSippr):
                                 # Populate the results
                                 data += '{},{},{},{},{},{},{}\n'.format(
                                     res,
-                                    genename,
+                                    finalgene,
                                     allele,
                                     accession,
                                     identity,
                                     len(sample[self.analysistype].sequences[name]),
                                     sample[self.analysistype].avgdepth[name])
                                 sample[self.analysistype].pipelineresults.append(
-                                    '{rgene} ({pid}%) {rclass}'.format(rgene=genename,
+                                    '{rgene} ({pid}%) {rclass}'.format(rgene=finalgene,
                                                                        pid=identity,
                                                                        rclass=res)
                                 )
