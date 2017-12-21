@@ -514,7 +514,7 @@ class Sippr(object):
                         record_length_ninety = record_length * 0.95
                         # Determine if a soft clip is internal
                         if float(record.reference_start) >= (record_length - record_length_ninety) \
-                                and float(record.reference_end) >= record_length_ninety:
+                                and float(record.reference_end) <= record_length_ninety:
                             try:
                                 sample[self.analysistype].features[contig][refpos].append('internal soft clip')
                             except KeyError:
