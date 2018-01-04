@@ -125,7 +125,11 @@ class GeneSeekr(object):
         # Make blast databases for MLST files (if necessary)
         for targetdir in self.targetfolders:
             # List comprehension to remove any previously created database files from list
-            self.targetfiles = glob('{}/*.tfa'.format(targetdir))
+            self.targetfiles = glob(os.path.join(targetdir, '*.tfa'))
+            try:
+                _ = self.targetfiles[0]
+            except IndexError:
+                self.targetfiles = glob(os.path.join(targetdir, '*.fasta'))
             for targetfile in self.targetfiles:
                 # Read the sequences from the target file to a dictionary
                 self.records[targetfile] = SeqIO.to_dict(SeqIO.parse(targetfile, 'fasta'))
