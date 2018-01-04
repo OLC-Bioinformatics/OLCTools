@@ -642,30 +642,26 @@ class Sippr(object):
                 # If the length of the match is greater or equal to the length of the gene/allele (multiplied by the
                 # cutoff value) as determined using faidx indexing, then proceed
                 if matchdict[allele] >= sample[self.analysistype].faidict[allele] * self.cutoff:
-                    try:
-                        # Calculate the average depth by dividing the total number of reads observed by the
-                        # length of the gene
-                        averagedepth = float(depthdict[allele]) / float(matchdict[allele])
-                        percentidentity = float(matchdict[allele]) / float(sample[self.analysistype].faidict[allele]) * 100
-                        # Only report a positive result if this average depth is greater than the desired average depth
-                        # and if the percent identity is greater or equal to the cutoff
-                        if averagedepth > self.averagedepth and percentidentity >= float(self.cutoff * 100):
-                            # Populate resultsdict with the gene/allele name, the percent identity, and the average depth
-                            sample[self.analysistype].results.update({allele: '{:.2f}'.format(percentidentity)})
-                            sample[self.analysistype].avgdepth.update({allele: '{:.2f}'.format(averagedepth)})
-                            # Add the results to dictionaries
-                            sample[self.analysistype].resultssnp.update({allele: len(snplocationsdict[allele])})
-                            sample[self.analysistype].snplocations.update({allele: snplocationsdict[allele]})
-                            sample[self.analysistype].resultsgap.update({allele: len(gaplocationsdict[allele])})
-                            sample[self.analysistype].gaplocations.update({allele: gaplocationsdict[allele]})
-                            sample[self.analysistype].sequences.update({allele: seqdict[allele]})
-                            sample[self.analysistype].maxcoverage.update({allele: maxdict[allele]})
-                            sample[self.analysistype].mincoverage.update({allele: mindict[allele]})
-                            sample[self.analysistype] \
-                                .standarddev.update({allele: '{:.2f}'.format(numpy.std(deviationdict[allele], ddof=1))})
-                    except ZeroDivisionError:
-                        print(sample.name, allele, matchdict[allele], sample[self.analysistype].faidict[allele], self.cutoff)
-                        quit()
+                    # Calculate the average depth by dividing the total number of reads observed by the
+                    # length of the gene
+                    averagedepth = float(depthdict[allele]) / float(matchdict[allele])
+                    percentidentity = float(matchdict[allele]) / float(sample[self.analysistype].faidict[allele]) * 100
+                    # Only report a positive result if this average depth is greater than the desired average depth
+                    # and if the percent identity is greater or equal to the cutoff
+                    if averagedepth > self.averagedepth and percentidentity >= float(self.cutoff * 100):
+                        # Populate resultsdict with the gene/allele name, the percent identity, and the average depth
+                        sample[self.analysistype].results.update({allele: '{:.2f}'.format(percentidentity)})
+                        sample[self.analysistype].avgdepth.update({allele: '{:.2f}'.format(averagedepth)})
+                        # Add the results to dictionaries
+                        sample[self.analysistype].resultssnp.update({allele: len(snplocationsdict[allele])})
+                        sample[self.analysistype].snplocations.update({allele: snplocationsdict[allele]})
+                        sample[self.analysistype].resultsgap.update({allele: len(gaplocationsdict[allele])})
+                        sample[self.analysistype].gaplocations.update({allele: gaplocationsdict[allele]})
+                        sample[self.analysistype].sequences.update({allele: seqdict[allele]})
+                        sample[self.analysistype].maxcoverage.update({allele: maxdict[allele]})
+                        sample[self.analysistype].mincoverage.update({allele: mindict[allele]})
+                        sample[self.analysistype] \
+                            .standarddev.update({allele: '{:.2f}'.format(numpy.std(deviationdict[allele], ddof=1))})
 
     def clear(self):
         """
