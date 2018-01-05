@@ -44,7 +44,7 @@ def find_paired_reads(fastq_directory, forward_id='_R1', reverse_id='_R2'):
     :return: List containing pairs of fastq files, in format [[forward_1, reverse_1], [forward_2, reverse_2]], etc.
     """
     pair_list = list()
-    fastq_files = glob.glob(os.path.join(fastq_directory, '/*.f*q*'))
+    fastq_files = glob.glob(os.path.join(fastq_directory, '*.f*q*'))
     for name in fastq_files:
         if forward_id in name and os.path.isfile(name.replace(forward_id, reverse_id)):
             pair_list.append([name, name.replace(forward_id, reverse_id)])
@@ -60,7 +60,7 @@ def find_unpaired_reads(fastq_directory, forward_id='_R1', reverse_id='_R2'):
     :return: List of paths to unpaired files.
     """
     unpaired_list = list()
-    fastq_files = glob.glob(os.path.join(fastq_directory, '/*.f*q*'))
+    fastq_files = glob.glob(os.path.join(fastq_directory, '*.f*q*'))
     for name in fastq_files:
         if forward_id not in name and reverse_id not in name:
             unpaired_list.append(name)
