@@ -163,7 +163,10 @@ def make_path(inpath):
     :param inpath: string of the supplied path
     """
     if not os.path.isdir(inpath):
-        os.makedirs(inpath)
+        try:
+            os.makedirs(inpath)
+        except FileExistsError:
+            pass
 
 
 def make_dict():

@@ -425,8 +425,8 @@ class PipelineInit(object):
         args = MetadataObject()
         args.path = inputobject.path
         args.sequencepath = inputobject.path
-        # args.databasepath = os.path.join(inputobject.reffilepath, 'clark')
-        args.databasepath = '{}clark'.format(inputobject.reffilepath)
+        args.databasepath = os.path.join(inputobject.reffilepath, 'clark')
+        # args.databasepath = '{}clark'.format(inputobject.reffilepath)
         make_path(args.databasepath)
         args.clarkpath = os.path.dirname(which('CLARK'))
         args.clarkpath += '/../opt/clark/'

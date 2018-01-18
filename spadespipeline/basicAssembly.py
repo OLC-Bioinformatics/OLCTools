@@ -1,8 +1,8 @@
 #!/usr/bin/env python
-import subprocess
-from glob import glob
-from spadespipeline import metadataReader
 from accessoryFunctions.accessoryFunctions import filer, MetadataObject, GenObject, make_path
+from spadespipeline import metadataReader
+from glob import glob
+import subprocess
 import errno
 import os
 
@@ -13,7 +13,7 @@ class Basic(object):
 
     def basic(self):
         # Grab any .fastq files in the path
-        fastqfiles = glob('{}*.fastq*'.format(self.path))
+        fastqfiles = glob(os.path.join(self.path, '*.fastq*'))
         # Extract the base name of the globbed name + path provided
         fastqnames = map(lambda x: os.path.split(x)[1], filer(fastqfiles))
         # Iterate through the names of the fastq files
@@ -22,11 +22,11 @@ class Basic(object):
             metadata = MetadataObject()
             metadata.name = fastqname
             # Set the destination folder
-            outputdir = '{}{}'.format(self.path, fastqname)
+            outputdir = os.path.join(self.path, fastqname)
             # Make the destination folder
             make_path(outputdir)
             # Get the fastq files specific to the fastqname
-            specificfastq = glob('{}{}*.fastq*'.format(self.path, fastqname))
+            specificfastq = glob(os.path.join(self.path, '{}*.fastq*'.format(fastqname)))
             # Link the files to the output folder
             try:
                 # Link the .gz files to :self.path/:filename
@@ -42,7 +42,7 @@ class Basic(object):
             metadata.run = GenObject()
             # Populate the .fastqfiles category of :self.metadata
             metadata.general.fastqfiles = [fastq for fastq in sorted(
-                glob('{}/{}*.fastq*'.format(outputdir, metadata.name))) if 'trimmed' not in fastq and
+                glob(os.path.join(outputdir, '{}*.fastq*'.format(metadata.name)))) if 'trimmed' not in fastq and
                                            'normalised' not in fastq and 'corrected' not in fastq and
                                            'paired' not in fastq and 'unpaired' not in fastq]
             # Add the output directory to the metadata
@@ -62,7 +62,6 @@ class Basic(object):
     def readlength(self):
         """Calculates the read length of the fastq files. Short reads will not be able to be assembled properly with the
         default parameters used for spades."""
-        from accessoryFunctions.accessoryFunctions import GenObject
         # Iterate through the samples
         for sample in self.samples:
             sample.run.Date = 'NA'

@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 from accessoryFunctions.accessoryFunctions import printtime, make_path, run_subprocess, write_to_logfile, GenObject
 from threading import Thread
+from queue import Queue
 import threading
 import os
 __author__ = 'adamkoziol'
@@ -75,7 +76,6 @@ class Quast(object):
         sample.quast.kmers = self.kmers
 
     def __init__(self, inputobject):
-        from queue import Queue
         self.metadata = inputobject.runmetadata.samples
         self.kmers = inputobject.kmers
         self.start = inputobject.starttime
