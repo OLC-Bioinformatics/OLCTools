@@ -1,7 +1,7 @@
 name: cowbat
 channels:
-- biobuilds
 - dranew
+- biobuilds
 - adamkoziol
 - conda-forge
 - defaults
@@ -36,9 +36,10 @@ dependencies:
 - certifi=2017.11.5=py35_0
 - cffi=1.11.2=py35_0
 - chardet=3.0.4=py35_0
+- click=6.7=py_1
 - clyent=1.2.2=py35_0
 - cryptography=2.1.4=py35_0
-- curl=7.54.1=0
+- curl=7.52.1=0
 - cython=0.27.3=py35_0
 - dbus=1.10.22=0
 - decorator=4.1.2=py35_0
@@ -78,8 +79,8 @@ dependencies:
 - nettle=3.3=0
 - numpy=1.14.0=py35_blas_openblas_200
 - openblas=0.2.20=7
-- openjdk=8.0.144=zulu8.23.0.3_1
 - openssl=1.0.2n=0
+- pandas=0.22.0=py35_0
 - pango=1.40.4=0
 - pcre=8.39=0
 - perl=5.22.0.1=0
@@ -115,6 +116,8 @@ dependencies:
 - libgfortran=3.0.0=1
 - libstdcxx-ng=7.2.0=h7a57d05_2
 - mkl=2018.0.1=h19d6760_4
+- openjdk=8.0.121=1
+- pycurl=7.43.0=py35_2
 - bcl2fastq=2.19.0=1
 - boost_lib=1.54.0=1
 - pip:
