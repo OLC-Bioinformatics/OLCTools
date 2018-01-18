@@ -26,7 +26,8 @@ class Compress(object):
                     if re.search(".fastq$", item) or re.search(".fastq.gz$", item) or re.search(".bam$", item) \
                             or re.search(".bt2$", item) or re.search(".tab$", item) or re.search("^before", item) \
                             or re.search("^baitedtargets", item) or re.search("_combined.csv$", item) \
-                            or re.search("^scaffolds", item) or re.search(".fastg$", item) or re.search(".gfa$", item):
+                            or re.search("^scaffolds", item) or re.search(".fastg$", item) or re.search(".gfa$", item) \
+                            or re.search(".bai$", item):
                         # Keep the baitedtargets.fa files
                         if item != 'baitedtargets.fa':
                             # Remove the unnecessary files
