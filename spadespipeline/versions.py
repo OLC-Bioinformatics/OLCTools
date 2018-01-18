@@ -54,7 +54,6 @@ class Versions(object):
                 self.qualimap = line.split()[1]
         self.mash = get_version(['mash']).decode('utf-8').split('\n')[1].split()[2]
         self.prodigal = get_version(['prodigal', '-v']).decode('utf-8').split('\n')[1].split()[1]
-        self.quast = get_version(['quast.py']).decode('utf-8').split('\n')[1].split()[1]
         self.bbmap = get_version(['bbversion.sh']).decode('utf-8')
         self.fastqc = get_version(['fastqc', '--version']).decode('utf-8').split('\n')[0].split()[1]
         # Uncomment this once you figure ou where this file is stored.
