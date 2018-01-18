@@ -18,6 +18,10 @@ def test_paired_read_find():
                                                        'tests/dummy_fastq/test_R2.fastq']]
 
 
+def test_unpaired_read_find():
+    assert find_unpaired_reads('tests/dummy_fastq') == ['tests/dummy_fastq/single.fastq']
+
+
 def test_paired_read_notfound():
     assert find_paired_reads('tests/dummy_fasta') == []
 
