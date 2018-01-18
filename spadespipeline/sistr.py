@@ -17,12 +17,12 @@ class Sistr(object):
         """Perform sistr analyses on Salmonella"""
         printtime('Performing sistr analyses', self.start)
         for sample in self.metadata:
+            # Create the analysis-type specific attribute
+            setattr(sample, self.analysistype, GenObject())
             if sample.general.bestassemblyfile != 'NA':
                 try:
                     # Only process strains that have been determined to be Salmonella
                     if sample.general.referencegenus == 'Salmonella':
-                        # Create the analysis-type specific attribute
-                        setattr(sample, self.analysistype, GenObject())
                         # Set and create the path of the directory to store the strain-specific reports
                         sample[self.analysistype].reportdir = os.path.join(sample.general.outputdirectory,
                                                                            self.analysistype)
@@ -47,8 +47,6 @@ class Sistr(object):
                                              sample[self.analysistype].logout, sample[self.analysistype].logerr)
                             write_to_logfile(out, err, self.logfile, sample.general.logout, sample.general.logerr,
                                              sample[self.analysistype].logout, sample[self.analysistype].logerr)
-                        # Read in the output .json file into the metadata
-                        sample[self.analysistype].jsondata = json.load(open(sample[self.analysistype].jsonoutput, 'r'))
                         self.queue.task_done()
                 except (ValueError, KeyError):
                     pass
@@ -65,6 +63,8 @@ class Sistr(object):
                 # Each strain is a fresh row
                 row = ''
                 try:
+                    # Read in the output .json file into the metadata
+                    sample[self.analysistype].jsondata = json.load(open(sample[self.analysistype].jsonoutput, 'r'))
                     # Set the name of the report.
                     # Note that this is a tab-separated file, as there can be commas in the results
                     sample[self.analysistype].report = os.path.join(sample[self.analysistype].reportdir,

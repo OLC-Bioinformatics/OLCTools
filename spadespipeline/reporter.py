@@ -32,11 +32,11 @@ class Reporter(object):
                 # SamplePurity
                 data += GenObject.returnattr(sample.confinder, 'contam_status')
                 # N50
-                data += GenObject.returnattr(sample.quast, 'N50')
+                data += GenObject.returnattr(sample.quality_features, 'n50')
                 # NumContigs
                 data += GenObject.returnattr(sample.mapping, 'Contigs')
                 # TotalLength
-                data += GenObject.returnattr(sample.quast, 'TotalLength')
+                data += GenObject.returnattr(sample.quality_features, 'genome_length')
                 # MeanInsertSize
                 data += GenObject.returnattr(sample.mapping, 'MeanInsertSize')
                 # InsertSizeSTD
@@ -170,7 +170,7 @@ class Reporter(object):
             if sample.general.bestassemblyfile != 'NA':
                 data = OrderedDict([
                     ('SampleName', sample.name),
-                    ('N50', sample.quast.N50),
+                    ('N50', str(sample.quality_features.n50)),
                     ('NumContigs', sample.mapping.Contigs),
                     ('TotalLength', sample.mapping.Bases.split('bp')[0]),
                     ('MeanInsertSize', sample.mapping.MeanInsertSize),

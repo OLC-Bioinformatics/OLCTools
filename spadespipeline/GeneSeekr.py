@@ -182,21 +182,17 @@ class GeneSeekr(object):
             # Run the BioPython BLASTn module with the genome as query, fasta(target gene) as db.
             # Do not re-perform the BLAST search each time
             make_path(sample[self.analysistype].reportdir)
+            sample[self.analysistype].report = os.path.join(
+                sample[self.analysistype].reportdir, '{}.csv'.format(genome))
             try:
-                sample[self.analysistype].report = \
-                    glob('{}{}*rawresults*'.format(sample[self.analysistype].reportdir, genome))[0]
                 size = os.path.getsize(sample[self.analysistype].report)
                 # If a report was created, but no results entered - program crashed, or no sequences passed thresholds,
                 # remove the report, and run the blast analyses again
                 if size == 0:
                     os.remove(sample[self.analysistype].report)
-                    sample[self.analysistype].report = \
-                        '{}{}_rawresults_{:}.csv'.format(sample[self.analysistype].reportdir, genome,
-                                                         time.strftime("%Y.%m.%d.%H.%M.%S"))
-            except IndexError:
-                sample[self.analysistype].report \
-                    = '{}{}_rawresults_{:}.csv'.format(sample[self.analysistype].reportdir, genome,
-                                                       time.strftime("%Y.%m.%d.%H.%M.%S"))
+            except FileNotFoundError:
+                pass
+            # Split the extension from the file path
             db = os.path.splitext(target)[0]
             # BLAST command line call. Note the mildly restrictive evalue, and the high number of alignments.
             # Due to the fact that all the targets are combined into one database, this is to ensure that all potential
@@ -366,7 +362,7 @@ class GeneSeekr(object):
         import xlsxwriter
         # Create a workbook to store the report. Using xlsxwriter rather than a simple csv format, as I want to be
         # able to have appropriately sized, multi-line cells
-        workbook = xlsxwriter.Workbook('{}/{}.xlsx'.format(self.reportpath, self.analysistype))
+        workbook = xlsxwriter.Workbook(os.path.join(self.reportpath, '{}.xlsx'.format(self.analysistype)))
         # New worksheet to store the data
         worksheet = workbook.add_worksheet()
         # Add a bold format for header cells. Using a monotype font size 10
@@ -484,6 +480,9 @@ class GeneSeekr(object):
         sample[self.analysistype].ntalign = dict()
         sample[self.analysistype].aaalign = dict()
         sample[self.analysistype].aaidentity = dict()
+        # Remove any gaps incorporated into the sequence
+        sample[self.analysistype].targetsequence[target] = \
+            sample[self.analysistype].targetsequence[target].replace('-', '')
         # In order to properly translate the nucleotide sequence, BioPython requests that the sequence is a multiple of
         # three - not partial codons. Trim the sequence accordingly
         remainder = 0 - len(sample[self.analysistype].targetsequence[target]) % 3
@@ -1003,23 +1002,23 @@ class PipelineInit(object):
                     # Allow Shigella to use the same targets as Escherichia
                     genus = sample.general.referencegenus if sample.general.referencegenus != 'Shigella' \
                         else 'Escherichia'
-                    targetpath = '{}{}/{}'.format(self.referencefilepath, self.analysistype, genus)
+                    targetpath = os.path.join(self.referencefilepath, self.analysistype, genus)
                 else:
-                    targetpath = '{}{}/'.format(self.referencefilepath, self.analysistype)
-                targets = glob('{}/*.fa*'.format(targetpath))
-                targetcheck = glob('{}/*.*fa*'.format(targetpath))
+                    targetpath = os.path.join(self.referencefilepath, self.analysistype)
+                targets = glob(os.path.join(targetpath, '*.fa*'))
+                targetcheck = glob(os.path.join(targetpath, '*.*fa*'))
                 if targetcheck:
                     try:
-                        combinedtargets = glob('{}/*.tfa'.format(targetpath))[0]
+                        combinedtargets = glob(os.path.join(targetpath, '*.tfa'))[0]
                     except IndexError:
                         combinetargets(targets, targetpath)
-                        combinedtargets = glob('{}/*.tfa'.format(targetpath))[0]
+                        combinedtargets = glob(os.path.join(targetpath, '*.tfa'))[0]
                     sample[self.analysistype].targets = targets
                     sample[self.analysistype].combinedtargets = combinedtargets
                     sample[self.analysistype].targetpath = targetpath
                     sample[self.analysistype].targetnames = sequencenames(combinedtargets)
-                    sample[self.analysistype].reportdir = '{}/{}/'.format(sample.general.outputdirectory,
-                                                                          self.analysistype)
+                    sample[self.analysistype].reportdir = os.path.join(sample.general.outputdirectory,
+                                                                       self.analysistype)
                 else:
                     # Set the metadata file appropriately
                     sample[self.analysistype].targets = 'NA'

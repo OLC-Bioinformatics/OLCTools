@@ -1,178 +1,18 @@
 #!/usr/bin/env python 3
-from accessoryFunctions.accessoryFunctions import combinetargets, filer, GenObject, MetadataObject, printtime, \
-    make_path, write_to_logfile
+from accessoryFunctions.accessoryFunctions import combinetargets, GenObject, MetadataObject, printtime, make_path
+from accessoryFunctions.metadataprinter import MetadataPrinter
 from spadespipeline.GeneSeekr import GeneSeekr
+from sipprCommon.objectprep import Objectprep
+from sipprCommon.sippingmethods import Sippr
 from genesippr.genesippr import GeneSippr
-import confindr.confindr as confinder
-from biotools import bbtools
 from Bio.Alphabet import IUPAC
 from Bio.Seq import Seq
 from Bio import SeqIO
 from csv import DictReader
 from glob import glob
-import pandas
-import shutil
 import os
 
 __author__ = 'adamkoziol'
-
-
-class Quality(object):
-
-    def contamination_finder(self):
-        """
-        Helper function to get confindr integrated into the assembly pipeline
-        """
-        printtime('Calculating contamination in reads', self.start)
-        report = os.path.join(self.path, 'confinder', 'confindr_report.csv')
-        if not os.path.isfile(report):
-            # Create an object to store attributes to pass to confinder
-            args = MetadataObject
-            args.input_directory = self.path
-            args.output_name = os.path.join(self.path, 'confinder')
-            args.databases = os.path.join(self.reffilepath, 'ConFindr', 'databases')
-            args.forward_id = '_R1'
-            args.reverse_id = '_R2'
-            args.threads = self.cpus
-            args.kmer_size = 31
-            args.number_subsamples = 5
-            args.subsample_depth = 20
-            args.kmer_cutoff = 2
-            try:
-                shutil.rmtree(args.output_name)
-            except IOError:
-                pass
-            # Create a detector object
-            confinder.run_mashsippr(args.input_directory,
-                                    args.output_name,
-                                    args.databases)
-            # Open the output report file.
-            with open(os.path.join(report), 'w') as f:
-                f.write('Sample,Genus,NumContamSNVs,NumUniqueKmers,CrossContamination,ContamStatus\n')
-            paired_reads = confinder.find_paired_reads(args.input_directory,
-                                                       forward_id=args.forward_id,
-                                                       reverse_id=args.reverse_id)
-            # Perform contamination detection on each set of paired reads
-            for pair in paired_reads:
-                sample_name = os.path.basename(list(filer(pair))[0])
-                printtime('Beginning analysis of sample {}...\n'.format(sample_name), self.start, '\033[1;34m')
-                genus = confinder.read_mashsippr_output(os.path.join(args.output_name, 'reports', 'mash.csv'),
-                                                        sample_name)
-                confinder.find_contamination(pair, args, genus)
-            printtime('Contamination detection complete!', self.start)
-        # Load the confindr report into a dictionary using pandas
-        # https://stackoverflow.com/questions/33620982/reading-csv-file-as-dictionary-using-pandas
-        confindr_results = pandas.read_csv(report, index_col=0).T.to_dict()
-        # Find the results for each of the samples
-        for sample in self.metadata:
-            # Create a GenObject to store the results
-            sample.confinder = GenObject()
-            # Iterate through the dictionary to find the outputs for each sample
-            for line in confindr_results:
-                # If the current line corresponds to the sample of interest
-                if sample.name in line:
-                    # Set the values using the appropriate keys as the attributes
-                    sample.confinder.genus = confindr_results[line]['Genus']
-                    sample.confinder.num_contaminated_snvs = confindr_results[line]['NumContamSNVs']
-                    sample.confinder.unique_kmers = confindr_results[line]['NumUniqueKmers']
-                    sample.confinder.cross_contamination = confindr_results[line]['CrossContamination']
-                    sample.confinder.contam_status = confindr_results[line]['ContamStatus']
-                    if sample.confinder.contam_status is True:
-                        sample.confinder.contam_status = 'Contaminated'
-                    elif sample.confinder.contam_status is False:
-                        sample.confinder.contam_status = 'Clean'
-
-    def estimate_genome_size(self):
-        """
-        Use kmercountexact from the bbmap suite of tools to estimate the size of the genome
-        """
-        printtime('Estimating genome size using kmercountexact', self.start)
-        for sample in self.metadata:
-            # Initialise the name of the output file
-            sample[self.analysistype].peaksfile = os.path.join(sample[self.analysistype].outputdir, 'peaks.txt')
-            # Run the kmer counting command
-            out, err, cmd = bbtools.kmercountexact(forward_in=sorted(sample.general.fastqfiles)[0],
-                                                   peaks=sample[self.analysistype].peaksfile,
-                                                   returncmd=True,
-                                                   threads=self.cpus)
-            # Set the command in the object
-            sample[self.analysistype].kmercountexactcmd = cmd
-            # Extract the genome size from the peaks file
-            sample[self.analysistype].genomesize = bbtools.genome_size(sample[self.analysistype].peaksfile)
-            write_to_logfile(out, err, self.logfile, sample.general.logout, sample.general.logerr, None, None)
-
-    def error_correction(self):
-        """
-        Use tadpole from the bbmap suite of tools to perform error correction of the reads
-        """
-        printtime('Error correcting reads', self.start)
-        for sample in self.metadata:
-            sample.general.trimmedcorrectedfastqfiles = [fastq.split('.fastq.gz')[0] + '_trimmed_corrected.fastq.gz'
-                                                         for fastq in sorted(sample.general.fastqfiles)]
-            out, err, cmd = bbtools.tadpole(forward_in=sorted(sample.general.trimmedfastqfiles)[0],
-                                            forward_out=sample.general.trimmedcorrectedfastqfiles[0],
-                                            returncmd=True,
-                                            mode='correct',
-                                            threads=self.cpus)
-            # Set the command in the object
-            sample[self.analysistype].errorcorrectcmd = cmd
-            write_to_logfile(out, err, self.logfile, sample.general.logout, sample.general.logerr, None, None)
-
-    def normalise_reads(self):
-        """
-        Use bbnorm from the bbmap suite of tools to perform read normalisation
-        """
-        printtime('Normalising reads to a kmer depth of 100', self.start)
-        for sample in self.metadata:
-            # Set the name of the normalised read files
-            sample.general.normalisedreads = [fastq.split('.fastq.gz')[0] + '_normalised.fastq.gz'
-                                              for fastq in sorted(sample.general.fastqfiles)]
-            # Run the normalisation command
-            out, err, cmd = bbtools.bbnorm(forward_in=sorted(sample.general.trimmedcorrectedfastqfiles)[0],
-                                           forward_out=sample.general.normalisedreads[0],
-                                           returncmd=True,
-                                           threads=self.cpus)
-            sample[self.analysistype].normalisecmd = cmd
-            write_to_logfile(out, err, self.logfile, sample.general.logout, sample.general.logerr, None, None)
-
-    def merge_pairs(self):
-        """
-        Use bbmerge from the bbmap suite of tools to merge paired-end reads
-        """
-        printtime('Merging paired reads', self.start)
-        for sample in self.metadata:
-            # Can only merge paired-end
-            if len(sample.general.fastqfiles) == 2:
-                # Set the name of the merged, and unmerged files
-                sample.general.mergedreads = \
-                    os.path.join(sample.general.outputdirectory, '{}_paired.fastq.gz'.format(sample.name))
-                sample.general.unmergedforward = \
-                    os.path.join(sample.general.outputdirectory, '{}_unpaired_R1.fastq.gz'.format(sample.name))
-                sample.general.unmergedreverse = \
-                    os.path.join(sample.general.outputdirectory, '{}_unpaired_R2.fastq.gz'.format(sample.name))
-                # Run the merging command
-                out, err, cmd = bbtools.bbmerge(forward_in=sample.general.normalisedreads[0],
-                                                merged_reads=sample.general.mergedreads,
-                                                returncmd=True,
-                                                outu1=sample.general.unmergedforward,
-                                                outu2=sample.general.unmergedreverse,
-                                                threads=self.cpus)
-                sample[self.analysistype].bbmergecmd = cmd
-                write_to_logfile(out, err, self.logfile, sample.general.logout, sample.general.logerr, None, None)
-            else:
-                sample.general.mergedreads = sorted(sample.general.trimmedcorrectedfastqfiles)[0]
-
-    def __init__(self, inputobject):
-        self.metadata = inputobject.runmetadata.samples
-        self.start = inputobject.starttime
-        self.path = inputobject.path
-        self.analysistype = 'quality'
-        self.reffilepath = inputobject.reffilepath
-        self.cpus = inputobject.cpus
-        self.logfile = inputobject.logfile
-        # Initialise the quality attribute in the metadata object
-        for sample in self.metadata:
-            setattr(sample, self.analysistype, GenObject())
 
 
 class Plasmids(GeneSippr):
@@ -326,7 +166,57 @@ class ResistanceNotes(object):
         return finalgene, res
 
 
-class Resistance(GeneSippr):
+class ResSippingMethods(Sippr):
+
+    def main(self):
+        """
+        Run the methods in the correct order for pipelines
+        """
+        # Find the target files
+        self.targets()
+        # Use bbduk to bait the FASTQ reads matching the target sequences
+        self.bait(maskmiddle='t', k=11)
+        # If desired, use bbduk to bait the target sequences with the previously baited FASTQ files
+        if self.revbait:
+            self.reversebait(maskmiddle='t', k=11)
+        # Run the bowtie2 read mapping module
+        self.mapping()
+        # Use samtools to index the sorted bam file
+        self.indexing()
+        # Parse the results
+        self.parsing()
+        # Clear out the large attributes that will difficult to handle objects
+        self.clear()
+        # Filter out any sequences with cigar features such as internal soft-clipping from the results
+        self.clipper()
+
+
+class ResSippr(GeneSippr):
+
+    def runner(self):
+        """
+        Run the necessary methods in the correct order
+        """
+        printtime('Starting {} analysis pipeline'.format(self.analysistype), self.starttime)
+        if not self.pipeline:
+            general = None
+            for sample in self.runmetadata.samples:
+                general = getattr(sample, 'general')
+            if general is None:
+                # Create the objects to be used in the analyses
+                objects = Objectprep(self)
+                objects.objectprep()
+                self.runmetadata = objects.samples
+        # Run the analyses
+        ResSippingMethods(self, self.cutoff)
+        # Create the reports
+        self.reporter()
+        # Print the metadata
+        printer = MetadataPrinter(self)
+        printer.printmetadata()
+
+
+class Resistance(ResSippr):
 
     def reporter(self):
         """
@@ -444,6 +334,7 @@ class ResFinder(GeneSeekr):
                     sample[self.analysistype].targetnames = self.sequencenames(combinedtargets)
                     sample[self.analysistype].reportdir = os.path.join(sample.general.outputdirectory,
                                                                        self.analysistype)
+                    make_path(sample[self.analysistype].reportdir)
                 else:
                     # Set the metadata file appropriately
                     sample[self.analysistype].targets = 'NA'

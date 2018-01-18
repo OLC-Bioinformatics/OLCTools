@@ -132,9 +132,11 @@ class Sippr(object):
                     os.path.join(sample[self.analysistype].outputdir,
                                  '{}_targetMatches.fastq.gz'.format(self.analysistype))
 
-    def bait(self, k='27'):
+    def bait(self, maskmiddle='f', k='27'):
         """
         Use bbduk to perform baiting
+        :param maskmiddle: boolean argument treat the middle base of a kmer as a wildcard; increases sensitivity
+        in the presence of errors.
         :param k: keyword argument for length of kmers to use in the analyses
         """
         printtime('Performing kmer baiting of fastq files with {} targets'.format(self.analysistype),
@@ -148,19 +150,21 @@ class Sippr(object):
                 if len(sample.general.fastqfiles) == 2:
                     # Create the command to run the baiting - paired inputs and a single, zipped output
                     sample[self.analysistype].bbdukcmd = \
-                        'bbduk.sh ref={ref} in1={in1} in2={in2} k={kmer} threads={cpus} outm={outm}' \
+                        'bbduk.sh ref={ref} in1={in1} in2={in2} k={kmer} maskmiddle={mm} threads={cpus} outm={outm}' \
                         .format(ref=sample[self.analysistype].baitfile,
                                 in1=sample.general.trimmedcorrectedfastqfiles[0],
                                 in2=sample.general.trimmedcorrectedfastqfiles[1],
                                 kmer=k,
+                                mm=maskmiddle,
                                 cpus=str(self.cpus),
                                 outm=sample[self.analysistype].baitedfastq)
                 else:
                     sample[self.analysistype].bbdukcmd = \
-                        'bbduk.sh ref={ref} in={in1} k={kmer} threads={cpus} outm={outm}' \
+                        'bbduk.sh ref={ref} in={in1} k={kmer} maskmiddle={mm} threads={cpus} outm={outm}' \
                         .format(ref=sample[self.analysistype].baitfile,
                                 in1=sample.general.trimmedcorrectedfastqfiles[0],
                                 kmer=k,
+                                mm=maskmiddle,
                                 cpus=str(self.cpus),
                                 outm=sample[self.analysistype].baitedfastq)
                 # Run the system call (if necessary)
@@ -175,7 +179,7 @@ class Sippr(object):
                                      self.logfile, sample.general.logout, sample.general.logerr,
                                      sample[self.analysistype].logout, sample[self.analysistype].logerr)
 
-    def reversebait(self):
+    def reversebait(self, maskmiddle='f', k=27):
         """
         Use the freshly-baited FASTQ files to bait out sequence from the original target files. This will reduce the
         number of possibly targets against which the baited reads must be aligned
@@ -185,12 +189,15 @@ class Sippr(object):
             if sample.general.bestassemblyfile != 'NA' and sample[self.analysistype].runanalysis:
                 outfile = os.path.join(sample[self.analysistype].outputdir, 'baitedtargets.fa')
                 sample[self.analysistype].revbbdukcmd = \
-                    'bbduk.sh ref={} in={} threads={} mincovfraction={} maskmiddle=f outm={}'\
-                    .format(sample[self.analysistype].baitedfastq,
-                            sample[self.analysistype].baitfile,
-                            str(self.cpus),
-                            self.cutoff,
-                            outfile)
+                    'bbduk.sh ref={ref} in={in1} k={kmer} threads={cpus} mincovfraction={mcf} maskmiddle={mm} ' \
+                    'outm={outm}' \
+                    .format(ref=sample[self.analysistype].baitedfastq,
+                            in1=sample[self.analysistype].baitfile,
+                            kmer=k,
+                            cpus=str(self.cpus),
+                            mcf=self.cutoff,
+                            mm=maskmiddle,
+                            outm=outfile)
                 # Run the system call (if necessary)
                 if not os.path.isfile(outfile):
                     out, err = run_subprocess(sample[self.analysistype].revbbdukcmd)
@@ -683,7 +690,7 @@ class Sippr(object):
             replacementresults = dict()
             try:
                 # SixteenS analyses seem to fail if results are filtered out
-                if self.analysistype != 'sixteens_full':
+                if self.analysistype != 'sixteens_full' and self.analysistype != 'resfinder':
                     # Iterate through all the baited genes
                     for gene in sample[self.analysistype].faidict:
                         try:

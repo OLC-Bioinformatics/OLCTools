@@ -1,8 +1,7 @@
 #!/usr/bin/env python
-import os
 from accessoryFunctions.accessoryFunctions import MetadataObject, GenObject
 import copy
-from linecache import getline
+import os
 # Import ElementTree - try first to import the faster C version, if that doesn't
 # work, try to import the regular version
 try:
@@ -42,12 +41,12 @@ class Metadata(object):
         """Parses the sample sheet (SampleSheet.csv) to determine certain values
         important for the creation of the assembly report"""
         # Open the sample sheet
-        with open(self.samplesheet, "rb") as samplesheet:
+        with open(self.samplesheet, "r") as samplesheet:
             # Iterate through the sample sheet
             samples, prev, header = False, 0, []
             for count, line in enumerate(samplesheet):
                 # Remove new lines, and split on commas
-                line = line.decode('utf-8')  # Turn from bytes to string, since python3 is finicky.
+                # line = line.decode('utf-8')  # Turn from bytes to string, since python3 is finicky.
                 data = line.rstrip().split(",")
                 if any(data):
                     if "[Settings]" in line:
@@ -104,11 +103,11 @@ class Metadata(object):
         the copied tables from the Indexing QC tab of the run on Basespace"""
         # metadata = GenObject()
         # If the default file GenerateFASTQRunStatistics.xml is present, parse it
-        if os.path.isfile("{}GenerateFASTQRunStatistics.xml".format(self.path)):
+        if os.path.isfile(os.path.join(self.path, "GenerateFASTQRunStatistics.xml")):
             # Create a list of keys for which values are to be extracted
             datalist = ["SampleNumber", "SampleID", "SampleName", "NumberOfClustersPF"]
             # Load the file as an xml ElementTree object
-            runstatistics = ElementTree.ElementTree(file="{}GenerateFASTQRunStatistics.xml".format(self.path))
+            runstatistics = ElementTree.ElementTree(file=os.path.join("GenerateFASTQRunStatistics.xml"))
             # Iterate through all the elements in the object
             # .iterfind() allow for the matching and iterating though matches
             # This is stored as a float to allow subsequent calculations
@@ -141,41 +140,6 @@ class Metadata(object):
                     run.instrument = self.instrument
                 except IndexError:
                     pass
-        elif os.path.isfile("{}indexingQC.txt".format(self.path)):
-            # Grab the first element from the second line in the file
-            tclusterspf = float(getline("{}indexingQC.txt".format(self.path), 2).split("\t")[0])
-            # Open the file and extract the relevant data
-            with open("{}indexingQC.txt".format(self.path)) as indexqc:
-                # Iterate through the file
-                for line in indexqc:
-                    # Once "Index" is encountered, iterate through the rest of the file
-                    if "Index" in line:
-                        for subline in indexqc:
-                            straindata = [x.rstrip() for x in subline.rstrip().split("\t")]
-                            # Try and replicate the Illumina rules to create file names from "Sample_Name"
-                            samplename = samplenamer(straindata, 1)
-                            # Use the sample number -1 as the index in the list of objects created in parsesamplesheet
-                            strainindex = int(straindata[0]) - 1
-                            # Set run to the .run object of self.samples[index]
-                            run = self.samples[strainindex].run
-                            # An assertion that compares the sample computer above to the previously entered sample name
-                            # to ensure that the samples are the same
-                            assert self.samples[strainindex].name == samplename, \
-                                "Sample name {} does not match object name {}" \
-                                .format(self.samples[strainindex].name, samplename)
-                            # Extract and format the percent of reads (passing filter) associated with each sample
-                            # noinspection PyTypeChecker
-                            percentperstrain = float("{:.2f}".format(float(straindata[5])))
-                            # Calculate the number of reads passing filter associated with each sample:
-                            # percentage of reads per strain times the total reads passing filter divided by 100
-                            numberofclusterspf = int(percentperstrain * tclusterspf / 100)
-                            # Update the object with the variables
-                            run.SampleNumber = straindata[0]
-                            run.NumberofClustersPF = numberofclusterspf
-                            run.TotalClustersinRun = tclusterspf
-                            run.PercentOfClusters = percentperstrain
-                            run.flowcell = self.flowcell
-                            run.instrument = self.instrument
         else:
             strainindex = 0
             for i in range(len(self.samples)):
@@ -196,12 +160,12 @@ class Metadata(object):
         self.runinfo = passed.runinfo
         self.flowcell = "NA"
         self.instrument = "NA"
-        self.samples = []
-        self.ids = []
-        self.date = ""
+        self.samples = list()
+        self.ids = list()
+        self.date = str()
         self.totalreads = 0
-        self.runid = ""
-        self.runnumber = ""
+        self.runid = str()
+        self.runnumber = str()
         self.commit = passed.commit
 
         # Create and start to populate the header object
@@ -212,7 +176,7 @@ class Metadata(object):
             assert os.path.isfile(self.samplesheet), u'Could not find CustomSampleSheet as entered: {0!r:s}'\
                 .format(self.samplesheet)
         else:
-            self.samplesheet = "{}SampleSheet.csv".format(self.path)
+            self.samplesheet = os.path.join(self.path, "SampleSheet.csv")
         # Extract data from SampleSheet.csv
         self.parsesamplesheet()
 

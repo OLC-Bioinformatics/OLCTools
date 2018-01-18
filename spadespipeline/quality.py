@@ -1,12 +1,17 @@
 #!/usr/bin/env python
-import os
+from accessoryFunctions.accessoryFunctions import GenObject, MetadataObject, printtime, make_path, \
+    run_subprocess, write_to_logfile
+from confindr import confindr
+from biotools import bbtools
+from subprocess import Popen, PIPE
+from Bio.SeqUtils import GC
+from Bio import SeqIO
 from queue import Queue
 from glob import glob
 import threading
-from threading import Thread
-from accessoryFunctions.accessoryFunctions import printtime, make_path, run_subprocess, write_to_logfile
+import pandas
 import shutil
-from subprocess import Popen, PIPE
+import os
 __author__ = 'adamkoziol'
 
 
@@ -18,15 +23,15 @@ class Quality(object):
             if type(sample.general.fastqfiles) is list:
                 # Create and start threads for each fasta file in the list
                 # Send the threads to bbduker. :args is empty as I'm using
-                threads = Thread(target=self.fastqc, args=())
+                threads = threading.Thread(target=self.fastqc, args=())
                 # Set the daemon to true - something to do with thread management
                 threads.setDaemon(True)
                 # Start the threading
                 threads.start()
         # Iterate through strains with fastq files to set variables to add to the multithreading queue
         for sample in self.metadata:
-            fastqccall = ''
-            fastqcreads = ''
+            fastqccall = str()
+            fastqcreads = str()
             # Check to see if the fastq files exist
             if level == 'Trimmed':
                 # Set the appropriate method to read in the trimmed fastq files - if uncompressed, use cat, if
@@ -109,16 +114,15 @@ class Quality(object):
                 # Make the output directory
                 make_path(outputdir)
                 # Run the system calls
-                outstr = ''
-                errstr = ''
+                outstr = str()
+                errstr = str()
                 out, err = run_subprocess(systemcall)
                 outstr += out
                 errstr += err
                 out, err = run_subprocess(fastqcreads)
                 outstr += out
                 errstr += err
-                # call(systemcall, shell=True, stdout=self.devnull, stderr=self.devnull)
-                # call(fastqcreads, shell=True, stdout=self.devnull, stderr=self.devnull)
+                # Acquire thread lock, and write the logs to file
                 threadlock.acquire()
                 write_to_logfile(systemcall, systemcall, self.logfile, sample.general.logout, sample.general.logerr,
                                  None, None)
@@ -128,10 +132,10 @@ class Quality(object):
                 threadlock.release()
                 # Rename the outputs
                 try:
-                    shutil.move('{}/stdin_fastqc.html'.format(outputdir),
-                                '{}/{}_fastqc.html'.format(outputdir, sample.name))
-                    shutil.move('{}/stdin_fastqc.zip'.format(outputdir),
-                                '{}/{}_fastqc.zip'.format(outputdir, sample.name))
+                    shutil.move(os.path.join(outputdir, 'stdin_fastqc.html'),
+                                os.path.join(outputdir, '{}_fastqc.html'.format(sample.name)))
+                    shutil.move(os.path.join(outputdir, 'stdin_fastqc.zip'),
+                                os.path.join(outputdir, '{}_fastqc.zip'.format(sample.name)))
                 except IOError:
                     pass
             # Signal to qcqueue that job is done
@@ -146,7 +150,7 @@ class Quality(object):
             if type(sample.general.fastqfiles) is list:
                 # Create and start threads for each fasta file in the list
                 # Send the threads to bbduker. :args is empty as I'm using
-                threads = Thread(target=self.bbduker, args=())
+                threads = threading.Thread(target=self.bbduker, args=())
                 # Set the daemon to true - something to do with thread management
                 threads.setDaemon(True)
                 # Start the threading
@@ -161,8 +165,8 @@ class Quality(object):
                 # Define the output directory
                 outputdir = sample.general.outputdirectory
                 # Define the name of the trimmed fastq files
-                cleanforward = '{}/{}_R1_trimmed.fastq.gz'.format(outputdir, sample.name)
-                cleanreverse = '{}/{}_R2_trimmed.fastq.gz'.format(outputdir, sample.name)
+                cleanforward = os.path.join(outputdir, '{}_R1_trimmed.fastq.gz'.format(sample.name))
+                cleanreverse = os.path.join(outputdir, '{}_R2_trimmed.fastq.gz'.format(sample.name))
                 if self.numreads == 2:
                     # Separate system calls for paired and unpaired fastq files
                     # TODO minlen=number - incorporate read length
@@ -201,7 +205,6 @@ class Quality(object):
         self.trimqueue.join()
         # Add all the trimmed files to the metadata
         printtime('Fastq files trimmed', self.start)
-        self.fastqcthreader('Trimmed')
 
     def bbduker(self):
         """Run bbduk system calls"""
@@ -222,11 +225,147 @@ class Quality(object):
                 # Define the output directory
                 outputdir = sample.general.outputdirectory
                 # Add the trimmed fastq files to a list
-                trimmedfastqfiles = sorted(glob('{}/*trimmed.fastq.gz'.format(outputdir, sample.name)))
+                trimmedfastqfiles = sorted(glob(os.path.join(outputdir, '*trimmed.fastq.gz')))
                 # Populate the metadata if the files exist
                 sample.general.trimmedfastqfiles = trimmedfastqfiles if trimmedfastqfiles else 'NA'
             # Signal to trimqueue that job is done
             self.trimqueue.task_done()
+
+    def contamination_finder(self):
+        """
+        Helper function to get confindr integrated into the assembly pipeline
+        """
+        printtime('Calculating contamination in reads', self.start)
+        reportpath = os.path.join(self.path, 'confindr')
+        report = os.path.join(reportpath, 'confindr_report.csv')
+        if not os.path.isfile(report):
+            # Create an object to store attributes to pass to confinder
+            args = MetadataObject
+            args.input_directory = self.path
+            args.output_name = reportpath
+            args.databases = os.path.join(self.reffilepath, 'ConFindr', 'databases')
+            args.forward_id = '_R1'
+            args.reverse_id = '_R2'
+            args.threads = self.cpus
+            args.kmer_size = 31
+            args.number_subsamples = 5
+            args.subsample_depth = 20
+            args.kmer_cutoff = 2
+            try:
+                shutil.rmtree(args.output_name)
+            except IOError:
+                pass
+            make_path(reportpath)
+            # Open the output report file.
+            with open(os.path.join(report), 'w') as f:
+                f.write('Sample,Genus,NumContamSNVs,NumUniqueKmers,ContamStatus\n')
+            for sample in self.metadata:
+                confindr.find_contamination(sample.general.trimmedcorrectedfastqfiles, args)
+            printtime('Contamination detection complete!', self.start)
+        # Load the confindr report into a dictionary using pandas
+        # https://stackoverflow.com/questions/33620982/reading-csv-file-as-dictionary-using-pandas
+        confindr_results = pandas.read_csv(report, index_col=0).T.to_dict()
+        # Find the results for each of the samples
+        for sample in self.metadata:
+            # Create a GenObject to store the results
+            sample.confinder = GenObject()
+            # Iterate through the dictionary to find the outputs for each sample
+            for line in confindr_results:
+                # If the current line corresponds to the sample of interest
+                if sample.name in line:
+                    # Set the values using the appropriate keys as the attributes
+                    sample.confinder.genus = confindr_results[line]['Genus']
+                    sample.confinder.num_contaminated_snvs = confindr_results[line]['NumContamSNVs']
+                    sample.confinder.unique_kmers = confindr_results[line]['NumUniqueKmers']
+                    try:
+                        sample.confinder.cross_contamination = confindr_results[line]['CrossContamination']
+                    except KeyError:
+                        sample.confinder.cross_contamination = str()
+                    sample.confinder.contam_status = confindr_results[line]['ContamStatus']
+                    if sample.confinder.contam_status is True:
+                        sample.confinder.contam_status = 'Contaminated'
+                    elif sample.confinder.contam_status is False:
+                        sample.confinder.contam_status = 'Clean'
+
+    def estimate_genome_size(self):
+        """
+        Use kmercountexact from the bbmap suite of tools to estimate the size of the genome
+        """
+        printtime('Estimating genome size using kmercountexact', self.start)
+        for sample in self.metadata:
+            # Initialise the name of the output file
+            sample[self.analysistype].peaksfile = os.path.join(sample[self.analysistype].outputdir, 'peaks.txt')
+            # Run the kmer counting command
+            out, err, cmd = bbtools.kmercountexact(forward_in=sorted(sample.general.fastqfiles)[0],
+                                                   peaks=sample[self.analysistype].peaksfile,
+                                                   returncmd=True,
+                                                   threads=self.cpus)
+            # Set the command in the object
+            sample[self.analysistype].kmercountexactcmd = cmd
+            # Extract the genome size from the peaks file
+            sample[self.analysistype].genomesize = bbtools.genome_size(sample[self.analysistype].peaksfile)
+            write_to_logfile(out, err, self.logfile, sample.general.logout, sample.general.logerr, None, None)
+
+    def error_correction(self):
+        """
+        Use tadpole from the bbmap suite of tools to perform error correction of the reads
+        """
+        printtime('Error correcting reads', self.start)
+        for sample in self.metadata:
+            sample.general.trimmedcorrectedfastqfiles = [fastq.split('.fastq.gz')[0] + '_trimmed_corrected.fastq.gz'
+                                                         for fastq in sorted(sample.general.fastqfiles)]
+            out, err, cmd = bbtools.tadpole(forward_in=sorted(sample.general.trimmedfastqfiles)[0],
+                                            forward_out=sample.general.trimmedcorrectedfastqfiles[0],
+                                            returncmd=True,
+                                            mode='correct',
+                                            threads=self.cpus)
+            # Set the command in the object
+            sample[self.analysistype].errorcorrectcmd = cmd
+            write_to_logfile(out, err, self.logfile, sample.general.logout, sample.general.logerr, None, None)
+
+    def normalise_reads(self):
+        """
+        Use bbnorm from the bbmap suite of tools to perform read normalisation
+        """
+        printtime('Normalising reads to a kmer depth of 100', self.start)
+        for sample in self.metadata:
+            # Set the name of the normalised read files
+            sample.general.normalisedreads = [fastq.split('.fastq.gz')[0] + '_normalised.fastq.gz'
+                                              for fastq in sorted(sample.general.fastqfiles)]
+            # Run the normalisation command
+            out, err, cmd = bbtools.bbnorm(forward_in=sorted(sample.general.trimmedcorrectedfastqfiles)[0],
+                                           forward_out=sample.general.normalisedreads[0],
+                                           returncmd=True,
+                                           threads=self.cpus)
+            sample[self.analysistype].normalisecmd = cmd
+            write_to_logfile(out, err, self.logfile, sample.general.logout, sample.general.logerr, None, None)
+
+    def merge_pairs(self):
+        """
+        Use bbmerge from the bbmap suite of tools to merge paired-end reads
+        """
+        printtime('Merging paired reads', self.start)
+        for sample in self.metadata:
+            # Can only merge paired-end
+            if len(sample.general.fastqfiles) == 2:
+                # Set the name of the merged, and unmerged files
+                sample.general.mergedreads = \
+                    os.path.join(sample.general.outputdirectory, '{}_paired.fastq.gz'.format(sample.name))
+                sample.general.unmergedforward = \
+                    os.path.join(sample.general.outputdirectory, '{}_unpaired_R1.fastq.gz'.format(sample.name))
+                sample.general.unmergedreverse = \
+                    os.path.join(sample.general.outputdirectory, '{}_unpaired_R2.fastq.gz'.format(sample.name))
+                # Run the merging command
+                out, err, cmd = bbtools.bbmerge(forward_in=sample.general.normalisedreads[0],
+                                                merged_reads=sample.general.mergedreads,
+                                                returncmd=True,
+                                                outu1=sample.general.unmergedforward,
+                                                outu2=sample.general.unmergedreverse,
+                                                threads=self.cpus)
+                sample[self.analysistype].bbmergecmd = cmd
+                write_to_logfile(out, err, self.logfile, sample.general.logout, sample.general.logerr, None, None)
+            else:
+                sample.general.mergedreads = sorted(sample.general.trimmedcorrectedfastqfiles)[0]
 
     def __init__(self, inputobject):
         self.metadata = inputobject.runmetadata.samples
@@ -240,11 +379,123 @@ class Quality(object):
         self.trimqueue = Queue(maxsize=self.cpus)
         self.correctqueue = Queue(maxsize=self.cpus)
         self.start = inputobject.starttime
-        self.forwardlength = inputobject.forwardlength
-        self.reverselength = inputobject.reverselength
+        try:
+            self.forwardlength = inputobject.forwardlength
+            self.reverselength = inputobject.reverselength
+        except AttributeError:
+            self.forwardlength = 'full'
+            self.reverselength = 'full'
         self.numreads = inputobject.numreads
         self.logfile = inputobject.logfile
         # Find the location of the bbduk.sh script. This will be used in finding the adapter file
         self.bbduklocation = os.path.split(Popen('which bbduk.sh', shell=True, stdout=PIPE)
                                            .communicate()[0].rstrip())[0]
         self.bbduklocation = self.bbduklocation.decode('utf-8')
+        self.path = inputobject.path
+        self.analysistype = 'quality'
+        self.reffilepath = inputobject.reffilepath
+        # Initialise the quality attribute in the metadata object
+        for sample in self.metadata:
+            setattr(sample, self.analysistype, GenObject())
+
+
+class QualityFeatures(object):
+
+    def main(self):
+        """
+        Run all the methods required for pipeline outputs
+        """
+        self.fasta_records()
+        self.fasta_stats()
+        self.find_largest_contig()
+        self.find_genome_length()
+        self.find_num_contigs()
+        self.find_n50()
+        self.clear_attributes()
+
+    def fasta_records(self):
+        """
+        Use SeqIO to create dictionaries of all records for each FASTA file
+        """
+        for sample in self.metadata:
+            # Create the analysis-type specific attribute
+            setattr(sample, self.analysistype, GenObject())
+            # Create a dictionary of records for each file
+            record_dict = SeqIO.to_dict(SeqIO.parse(sample.general.bestassemblyfile, "fasta"))
+            # Set the records dictionary as the attribute for the object
+            sample[self.analysistype].record_dict = record_dict
+
+    def fasta_stats(self):
+        """
+        Parse the lengths of all contigs for each sample, as well as the total GC%
+        """
+        for sample in self.metadata:
+            # Initialise variables to store appropriate values parsed from contig records
+            contig_lengths = list()
+            fasta_sequence = str()
+            for contig, record in sample[self.analysistype].record_dict.items():
+                # Append the length of the contig to the list
+                contig_lengths.append(len(record.seq))
+                # Add the contig sequence to the string
+                fasta_sequence += record.seq
+            # Set the reverse sorted (e.g. largest to smallest) list of contig sizes as the value
+            sample[self.analysistype].contig_lengths = sorted(contig_lengths, reverse=True)
+            # Calculate the GC% of the total genome sequence using GC - format to have two decimal places
+            sample[self.analysistype].gc = float('{:0.2f}'.format(GC(fasta_sequence)))
+
+    def find_largest_contig(self):
+        """
+        Determine the largest contig for each strain
+        """
+        # for file_name, contig_lengths in contig_lengths_dict.items():
+        for sample in self.metadata:
+            # As the list is sorted in descending order, the largest contig is the first entry in the list
+            sample[self.analysistype].longest_contig = sample[self.analysistype].contig_lengths
+
+    def find_genome_length(self):
+        """
+        Determine the total length of all the contigs for each strain
+        """
+        for sample in self.metadata:
+            # Use the sum() method to add all the contig lengths in the list
+            sample[self.analysistype].genome_length = sum(sample[self.analysistype].contig_lengths)
+
+    def find_num_contigs(self):
+        """
+        Count the total number of contigs for each strain
+        """
+        for sample in self.metadata:
+            # Use the len() method to count the number of entries in the list
+            sample[self.analysistype].num_contigs = len(sample[self.analysistype].contig_lengths)
+
+    def find_n50(self):
+        """
+        Calculate the N50 for each strain. N50 is defined as the largest contig such that at least half of the total
+        genome size is contained in contigs equal to or larger than this contig
+        """
+        for sample in self.metadata:
+            # Initialise a variable to store a running total of contig lengths
+            currentlength = 0
+            for contig_length in sample[self.analysistype].contig_lengths:
+                # Increment the current length with the length of the current contig
+                currentlength += contig_length
+                # If the current length is now greater than the total genome / 2, the current contig length is the N50
+                if currentlength >= sample[self.analysistype].genome_length * 0.5:
+                    # Populate the dictionary, and break the loop
+                    sample[self.analysistype].n50 = contig_length
+                    break
+
+    def clear_attributes(self):
+        """
+        Remove the record_dict attribute from the object, as SeqRecords are not JSON-serializable
+        """
+        for sample in self.metadata:
+            try:
+                delattr(sample[self.analysistype], 'record_dict')
+            except KeyError:
+                pass
+
+    def __init__(self, inputobject):
+        self.metadata = inputobject.runmetadata.samples
+        self.start = inputobject.starttime
+        self.analysistype = 'quality_features'
