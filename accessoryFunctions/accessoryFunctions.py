@@ -26,7 +26,7 @@ def dependency_check(dependency):
     Checks a program to see if it's installed (or at least, checks whether or not some sort of executable
     for it is on your path).
     :param dependency: Name of program you want to check, as a string.
-    :return: True if depedency is present, False if it isn't.
+    :return: True if dependency is present, False if it isn't.
     """
     check = shutil.which(dependency)
     if not check:
@@ -182,11 +182,13 @@ def make_path(inpath):
     does what is indicated by the URL
     :param inpath: string of the supplied path
     """
-    if not os.path.isdir(inpath):
+    if not os.path.isfile(inpath):
         try:
             os.makedirs(inpath)
         except FileExistsError:
             pass
+    else:
+        raise OSError
 
 
 def make_dict():
