@@ -24,7 +24,6 @@ class Versions(object):
             ss.mash = self.mash
             ss.prodigal = self.prodigal
             ss.pipeline = self.commit
-            ss.quast = self.quast
             ss.spades = self.spades
             ss.bbmap = self.bbmap
             ss.fastqc = self.fastqc
