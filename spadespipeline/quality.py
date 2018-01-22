@@ -1,7 +1,10 @@
 #!/usr/bin/env python
 from accessoryFunctions.accessoryFunctions import GenObject, MetadataObject, printtime, make_path, \
     run_subprocess, write_to_logfile
-from confindr import confindr
+try:
+    from confindr import confindr
+except ImportError:
+    import confindr as confindr
 from biotools import bbtools
 from subprocess import Popen, PIPE
 from Bio.SeqUtils import GC
