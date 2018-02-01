@@ -8,9 +8,12 @@ from genesippr.genesippr import GeneSippr
 from Bio.Alphabet import IUPAC
 from Bio.Seq import Seq
 from Bio import SeqIO
+from Bio.SeqRecord import SeqRecord
 from csv import DictReader
 from glob import glob
+import xlsxwriter
 import os
+import re
 
 __author__ = 'adamkoziol'
 
@@ -320,8 +323,8 @@ class ResFinder(GeneSeekr):
         for sample in self.metadata:
             if sample.general.bestassemblyfile != 'NA':
                 setattr(sample, self.analysistype, GenObject())
-                targets = glob(os.path.join(self.targetpath, '*.fsa'))
-                targetcheck = glob(os.path.join(self.targetpath, '*.fsa'))
+                targets = glob(os.path.join(self.targetpath, '*.tfa'))
+                targetcheck = glob(os.path.join(self.targetpath, '*.tfa'))
                 if targetcheck:
                     try:
                         combinedtargets = glob(os.path.join(self.targetpath, '*.fasta'))[0]
@@ -357,8 +360,6 @@ class ResFinder(GeneSeekr):
         """
         Custom reports for ResFinder analyses. These reports link the gene(s) found to their resistance phenotypes
         """
-        import xlsxwriter
-        from Bio.SeqRecord import SeqRecord
         # Initialise resistance dictionaries from the notes.txt file
         genedict, altgenedict, revaltgenedict = ResistanceNotes.notes(self.targetpath)
         # Create a workbook to store the report. Using xlsxwriter rather than a simple csv format, as I want to be
@@ -618,8 +619,6 @@ class Prophages(GeneSeekr):
 class Univec(GeneSeekr):
 
     def reporter(self):
-        from Bio import SeqIO
-        import re
         with open(os.path.join(self.reportpath, 'univec.csv'), 'w') as report:
             data = 'Strain,Gene,Description,PercentIdentity,PercentCovered,Contig,Location\n'
             for sample in self.metadata:
@@ -640,6 +639,7 @@ class Univec(GeneSeekr):
                                         # Cut out the description from the entry.description using regex
                                         # e.g. for 'gnl|uv|X66730.1:1-2687-49 B.bronchiseptica plasmid pBBR1 genes for
                                         # mobilization and replication' only save the string after '2687-49'
+                                        print(sample.name, entry)
                                         description = re.findall('\d+-\d+\s(.+)', entry.description)[0]
                                         # Don't add the same gene more than once to the report
                                         if gene not in genes:

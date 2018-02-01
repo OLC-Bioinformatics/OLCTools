@@ -32,7 +32,6 @@ class GeneSeekr(object):
             self.resfinderreporter()
         elif self.analysistype == 'virulence':
             self.virulencefinderreporter()
-        # elif self.unique:
         else:
             self.reporter()
         # Remove the attributes from the object; they take up too much room on the .json report
@@ -125,7 +124,7 @@ class GeneSeekr(object):
         # Make blast databases for MLST files (if necessary)
         for targetdir in self.targetfolders:
             # List comprehension to remove any previously created database files from list
-            self.targetfiles = glob(os.path.join(targetdir, '*.tfa'))
+            self.targetfiles = glob(os.path.join(targetdir, '*.fasta'))
             try:
                 _ = self.targetfiles[0]
             except IndexError:
@@ -865,12 +864,12 @@ if __name__ == '__main__':
             # Get the sequences in the sequences folder into a list. Note that they must have a file extension that
             # begins with .fa
             self.strains = sorted(glob('{}*.fa*'.format(self.sequencepath)))
-            self.targets = sorted(glob('{}*.fa*'.format(self.targetpath)))
+            self.targets = sorted(glob(os.path.join(self.targetpath, '*.tfa')))
             try:
-                self.combinedtargets = glob('{}/*.tfa'.format(self.targetpath))[0]
+                self.combinedtargets = glob(os.path.join(self.targetpath, '*.fasta'))[0]
             except IndexError:
                 combinetargets(self.targets, self.targetpath)
-                self.combinedtargets = glob('{}/*.tfa'.format(self.targetpath))[0]
+                self.combinedtargets = glob(os.path.join(self.targetpath, '*.fasta'))[0]
             # Populate the metadata object. This object will be populated to mirror the objects created in the
             # genome assembly pipeline. This way this script will be able to be used as a stand-alone, or as part
             # of a pipeline
@@ -984,8 +983,6 @@ if __name__ == '__main__':
             self.align = self.runmetadata.align
             self.unique = self.runmetadata.unique
             self.logfile = self.runmetadata.logfile
-            # self.resfinder = self.runmetadata.resfinder
-            # self.virulencefinder = self.runmetadata.virulencefinder
             # Run the analyses
             GeneSeekr(self)
 
@@ -1005,14 +1002,14 @@ class PipelineInit(object):
                     targetpath = os.path.join(self.referencefilepath, self.analysistype, genus)
                 else:
                     targetpath = os.path.join(self.referencefilepath, self.analysistype)
-                targets = glob(os.path.join(targetpath, '*.fa*'))
-                targetcheck = glob(os.path.join(targetpath, '*.*fa*'))
+                targets = glob(os.path.join(targetpath, '*.tfa'))
+                targetcheck = glob(os.path.join(targetpath, '*.tfa'))
                 if targetcheck:
                     try:
-                        combinedtargets = glob(os.path.join(targetpath, '*.tfa'))[0]
+                        combinedtargets = glob(os.path.join(targetpath, '*.fasta'))[0]
                     except IndexError:
                         combinetargets(targets, targetpath)
-                        combinedtargets = glob(os.path.join(targetpath, '*.tfa'))[0]
+                        combinedtargets = glob(os.path.join(targetpath, '*.fasta'))[0]
                     sample[self.analysistype].targets = targets
                     sample[self.analysistype].combinedtargets = combinedtargets
                     sample[self.analysistype].targetpath = targetpath
@@ -1027,9 +1024,6 @@ class PipelineInit(object):
                     sample[self.analysistype].targetnames = 'NA'
                     sample[self.analysistype].reportdir = 'NA'
                     sample[self.analysistype].blastresults = 'NA'
-                # Special typing for Vibrio involves in silico qPCR primer/probe binding
-                if sample.general.referencegenus == 'Vibrio':
-                    self.chas.append(sample)
             else:
                 # Set the metadata file appropriately
                 setattr(sample, self.analysistype, GenObject())
@@ -1039,9 +1033,6 @@ class PipelineInit(object):
                 sample[self.analysistype].targetnames = 'NA'
                 sample[self.analysistype].reportdir = 'NA'
                 sample[self.analysistype].blastresults = 'NA'
-        if self.chas:
-            from spadespipeline.CHAS import CHAS
-            CHAS(self, 'chas')
 
     def __init__(self, inputobject, analysistype, genusspecific, cutoff, unique):
         self.runmetadata = inputobject.runmetadata
@@ -1050,14 +1041,12 @@ class PipelineInit(object):
         self.start = inputobject.starttime
         self.referencefilepath = inputobject.reffilepath
         self.threads = inputobject.cpus
-        self.reportdir = '{}/'.format(inputobject.reportpath)
+        self.reportdir = inputobject.reportpath
         self.cutoff = cutoff
         self.logfile = inputobject.logfile
         self.pipeline = True
         self.genusspecific = genusspecific
-        self.chas = list()
         self.align = False
         self.unique = unique
-        # self.virulencefinder = False
         # Get the alleles and profile into the metadata
         self.strainer()

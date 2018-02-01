@@ -18,7 +18,7 @@ class CoreGenome(GeneSeekr):
         coregenomes = list()
         # Create a list of all the names of the database files - glob, replace - with _, remove path and extension
         corefiles = glob(
-            os.path.join(self.referencefilepath, self.analysistype, sample.general.referencegenus, '*.fasta'))
+            os.path.join(self.referencefilepath, self.analysistype, sample.general.referencegenus, '*.tfa'))
         for fasta in corefiles:
             fastaname = os.path.basename(os.path.splitext(fasta)[0]).replace('-', '_')
             fastaname = fastaname.split('.')[0]
@@ -82,8 +82,8 @@ class CoreGenome(GeneSeekr):
                         # If the script is being run as part of the assembly pipeline, make a report for each sample
                         if self.pipeline:
                             # Open the report
-                            with open('{}{}_{}.csv'.format(sample[self.analysistype].reportdir, sample.name,
-                                                           self.analysistype), 'w') as report:
+                            with open(os.path.join(sample[self.analysistype].reportdir,
+                                                   '{}_{}.csv'.format(sample.name, self.analysistype)), 'w') as report:
                                 # Write the row to the report
                                 report.write(header)
                                 report.write(row)
@@ -96,7 +96,7 @@ class CoreGenome(GeneSeekr):
                 sample[self.analysistype].targetspresent = 'NA'
                 sample[self.analysistype].totaltargets = 'NA'
                 sample[self.analysistype].coreresults = 'NA'
-        with open('{}coregenome.csv'.format(self.reportpath), 'w') as report:
+        with open(os.path.join(self.reportpath, 'coregenome.csv'), 'w') as report:
             # Write the data to the report
             report.write(header)
             report.write(data)
@@ -132,9 +132,10 @@ class AnnotatedCore(object):
         blastdict = DictReader(open(report), fieldnames=self.fieldnames, dialect='excel-tab')
         # Create a list of all the names of the database files - glob, remove path and extension
         self.coregenomes = list(map(lambda x: os.path.basename(x).split('.')[0],
-                                    glob('{}/*.fa*'.format(os.path.join(self.reffilepath,
-                                                                        self.analysistype,
-                                                                        sample.general.referencegenus)))))
+                                    glob(os.path.join(self.reffilepath,
+                                                      self.analysistype,
+                                                      sample.general.referencegenus,
+                                                      '*.tfa'))))
         # Go through each BLAST result
         for row in blastdict:
             # Calculate the percent identity and extract the bitscore from the row

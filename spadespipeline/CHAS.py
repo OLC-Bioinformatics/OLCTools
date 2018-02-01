@@ -1,7 +1,10 @@
 #!/usr/bin/env python
+from accessoryFunctions.accessoryFunctions import dotter, GenObject, make_path, run_subprocess, write_to_logfile
 from threading import Thread
+from queue import Queue
+from glob import glob
 import threading
-from accessoryFunctions.accessoryFunctions import *
+import os
 __author__ = 'adamkoziol'
 
 
@@ -19,8 +22,7 @@ class CHAS(object):
         self.report()
 
     def primers(self):
-        """Setup and create  threads for ePCR"""
-        from glob import glob
+        """Setup and create threads for ePCR"""
         # Create the threads for the ePCR analysis
         for sample in self.metadata:
             if sample.general.bestassemblyfile != 'NA':
@@ -32,19 +34,23 @@ class CHAS(object):
                 setattr(sample, self.analysistype, GenObject())
                 # Get the primers ready
                 try:
-                    sample[self.analysistype].primers = \
-                        glob('{}geneseekr/{}/{}/primers/*.txt'.format(self.reffilepath, self.analysistype,
-                                                                      sample.general.referencegenus))[0]
+                    sample[self.analysistype].primers = glob(os.path.join(self.reffilepath,
+                                                                          self.analysistype,
+                                                                          sample.general.referencegenus,
+                                                                          'primers',
+                                                                          '*.txt'))[0]
                     # Find the name of the probe file
-                    sample[self.analysistype].probes = \
-                        glob('{}geneseekr/{}/{}/probes/*.fa'.format(self.reffilepath, self.analysistype,
-                                                                    sample.general.referencegenus))[0]
+                    sample[self.analysistype].probes = glob(os.path.join(self.reffilepath,
+                                                                         self.analysistype,
+                                                                         sample.general.referencegenus,
+                                                                         'probes',
+                                                                         '*.fa'))[0]
                     # Create the BLAST database of the probes (if necessary)
                     self.makeblastdb(sample[self.analysistype].probes)
                     # Initialise a list to store the names of the targets
                     sample[self.analysistype].targets = list()
                     # Open the primer file, and read the names of the targets into a list
-                    with open(sample[self.analysistype].primers, 'rb') as primerfile:
+                    with open(sample[self.analysistype].primers, 'r') as primerfile:
                         for line in primerfile:
                             sample[self.analysistype].targets.append(line.split('\t')[0])
                 # Organisms without primer/probe files will fail. Populate metadata with 'NA' values
@@ -54,8 +60,8 @@ class CHAS(object):
                 # Only try to process organisms with primer files
                 if sample[self.analysistype].primers != 'NA':
                     # Make the output path
-                    sample[self.analysistype].reportdir = '{}/{}/'.format(sample.general.outputdirectory,
-                                                                          self.analysistype)
+                    sample[self.analysistype].reportdir = os.path.join(sample.general.outputdirectory,
+                                                                       self.analysistype)
                     make_path(sample[self.analysistype].reportdir)
                     # Set the base name of the output file
                     outfile = sample[self.analysistype].reportdir + sample.name
@@ -75,7 +81,6 @@ class CHAS(object):
         self.epcrqueue.join()
 
     def epcr(self):
-        from subprocess import call
         while True:
             sample, linkfile = self.epcrqueue.get()
             # Set the names of the output files
@@ -129,22 +134,23 @@ class CHAS(object):
                 threads.setDaemon(True)
                 threads.start()
         for sample in self.metadata:
-            if sample[self.analysistype].primers != 'NA':
-                # Initialise a dictionary to store the SeqIO records of each assembly
-                record = dict()
-                # Initialise dictionaries to store results in the object
-                sample[self.analysistype].blastresults = dict()
-                sample[self.analysistype].rawblastresults = dict()
-                # Load the records from the assembly into the dictionary
-                for rec in SeqIO.parse(sample.general.bestassemblyfile, 'fasta'):
-                    record[rec.id] = str(rec.seq)
-                # Iterate through the ePCR results
-                for line in sample[self.analysistype].epcrresults:
-                    # The data of interest is in the lines that do not start with a #
-                    # TLH	2016-SEQ-0359_4_length_321195_cov_28.6354_ID_3773	+	227879	228086	0	0	208/1000-1000
-                    if not line.startswith('#'):
-                        # Add the variables to the queue
-                        self.epcrparsequeue.put((sample, record, line))
+            if sample.general.bestassemblyfile != 'NA':
+                if sample[self.analysistype].primers != 'NA':
+                    # Initialise a dictionary to store the SeqIO records of each assembly
+                    record = dict()
+                    # Initialise dictionaries to store results in the object
+                    sample[self.analysistype].blastresults = dict()
+                    sample[self.analysistype].rawblastresults = dict()
+                    # Load the records from the assembly into the dictionary
+                    for rec in SeqIO.parse(sample.general.bestassemblyfile, 'fasta'):
+                        record[rec.id] = str(rec.seq)
+                    # Iterate through the ePCR results
+                    for line in sample[self.analysistype].epcrresults:
+                        # The data of interest is in the lines that do not start with a #
+                        # TLH 2016-SEQ-0359_4_length_321195_cov_28.6354_ID_3773 + 227879 228086 0	0 208/1000-1000
+                        if not line.startswith('#'):
+                            # Add the variables to the queue
+                            self.epcrparsequeue.put((sample, record, line))
         self.epcrparsequeue.join()
 
     def epcrparse(self):
@@ -197,8 +203,6 @@ class CHAS(object):
         """
         Makes blast database files from targets as necessary
         """
-        import subprocess
-        import shlex
         # remove the path and the file extension for easier future globbing
         db = fastapath.split('.')[0]
         nhr = '{}.nhr'.format(db)  # add nhr for searching
@@ -206,11 +210,9 @@ class CHAS(object):
             # Create the databases
             threadlock = threading.Lock()
             command = 'makeblastdb -in {} -parse_seqids -max_file_sz 2GB -dbtype nucl -out {}'.format(fastapath, db)
-            #subprocess.call(shlex.split('makeblastdb -in {} -parse_seqids -max_file_sz 2GB -dbtype nucl -out {}'
-            #                            .format(fastapath, db)), stdout=self.fnull, stderr=self.fnull)
             out, err = run_subprocess(command)
             threadlock.acquire()
-            write_log_file(out, err, self.logfile)
+            write_to_logfile(out, err, self.logfile)
             threadlock.release()
         dotter()
 
@@ -223,8 +225,8 @@ class CHAS(object):
         for sample in self.metadata:
             if sample[self.analysistype].primers != 'NA':
                 # Set the name of the strain-specific report
-                sample[self.analysistype].report = '{}/{}_{}.csv'.format(sample[self.analysistype].reportdir,
-                                                                         sample.name, self.analysistype)
+                sample[self.analysistype].report = os.path.join(sample[self.analysistype].reportdir,
+                                                                '{}_{}.csv'.format(sample.name, self.analysistype))
                 # Populate the strain-specific string with header, and strain name
                 strainspecific = 'Strain,{},\n{},'.format(','.join(sorted(sample[self.analysistype].targets)),
                                                           sample.name)
@@ -248,17 +250,16 @@ class CHAS(object):
                 # Add all the data from each strain to the cumulative data string
                 data += strainspecific
         # Open and write the cumulative data to the cumulative report
-        with open('{}/{}.csv'.format(self.reportdir, self.analysistype), 'w') as report:
+        with open(os.path.join(self.reportdir, '{}.csv'.format(self.analysistype)), 'w') as report:
             report.write(data)
 
     def __init__(self, inputobject, analysistype):
-        from queue import Queue
         self.metadata = inputobject.runmetadata.samples
         self.path = inputobject.path
         self.start = inputobject.start
         self.reffilepath = inputobject.referencefilepath
         self.threads = inputobject.threads
-        self.reportdir = '{}/'.format(inputobject.reportdir)
+        self.reportdir = inputobject.reportdir
         self.analysistype = analysistype
         self.epcrqueue = Queue(maxsize=self.threads)
         self.epcrparsequeue = Queue(maxsize=self.threads)
