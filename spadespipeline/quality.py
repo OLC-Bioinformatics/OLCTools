@@ -4,7 +4,7 @@ from accessoryFunctions.accessoryFunctions import GenObject, MetadataObject, pri
 try:
     from confindr import confindr
 except ImportError:
-    import confindr as confindr
+    import confindr
 from biotools import bbtools
 from subprocess import Popen, PIPE
 from Bio.SeqUtils import GC

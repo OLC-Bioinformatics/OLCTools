@@ -34,7 +34,7 @@ class Reporter(object):
                 # N50
                 data += GenObject.returnattr(sample.quality_features, 'n50')
                 # NumContigs
-                data += GenObject.returnattr(sample.mapping, 'Contigs')
+                data += GenObject.returnattr(sample.quality_features, 'num_contigs')
                 # TotalLength
                 data += GenObject.returnattr(sample.quality_features, 'genome_length')
                 # MeanInsertSize
@@ -46,7 +46,7 @@ class Reporter(object):
                 # CoverageDepthSTD
                 data += GenObject.returnattr(sample.mapping, 'StdCoveragedata')
                 # PercentGC
-                data += GenObject.returnattr(sample.mapping, 'GcPercentage')
+                data += GenObject.returnattr(sample.quality_features, 'gc')
                 # MASH_ReferenceGenome
                 data += GenObject.returnattr(sample.mash, 'closestrefseq')
                 # MASH_NumMatchingHashes
@@ -171,8 +171,8 @@ class Reporter(object):
                 data = OrderedDict([
                     ('SampleName', sample.name),
                     ('N50', str(sample.quality_features.n50)),
-                    ('NumContigs', sample.mapping.Contigs),
-                    ('TotalLength', sample.mapping.Bases.split('bp')[0]),
+                    ('NumContigs', str(sample.quality_features.num_contigs)),
+                    ('TotalLength', str(sample.quality_features.genome_length)),
                     ('MeanInsertSize', sample.mapping.MeanInsertSize),
                     ('AverageCoverageDepth', sample.mapping.MeanCoveragedata.split("X")[0]),
                     ('ReferenceGenome', sample.mash.closestrefseq),
@@ -181,13 +181,13 @@ class Reporter(object):
                     ('rMLSTsequenceType', sample.rmlst.sequencetype),
                     ('MLSTsequencetype', sample.mlst.sequencetype),
                     ('MLSTmatches', str(sample.mlst.matchestosequencetype)),
-                    ('coreGenome', GenObject.returnattr(sample.coregenome, 'coreresults')),
+                    ('coreGenome', GenObject.returnattr(sample.coregenome, 'coreresults').rstrip(',')),
                     ('SeroType', '{oset}:{hset}'
                         .format(oset=';'.join(sample.serosippr.o_set),
                                 hset=';'.join(sample.serosippr.h_set))),
                     ('geneSeekrProfile', ';'.join(result for result, pid in sorted(sample.genesippr.results.items()))),
                     ('vtyperProfile', ';'.join(sorted(sample.vtyper.profile))),
-                    ('percentGC', sample.mapping.GcPercentage),
+                    ('percentGC', str(sample.quality_features.gc)),
                     ('TotalPredictedGenes', str(sample.prodigal.predictedgenestotal)),
                     ('predictedgenesover3000bp', str(sample.prodigal.predictedgenesover3000bp)),
                     ('predictedgenesover1000bp', str(sample.prodigal.predictedgenesover1000bp)),

@@ -5,7 +5,7 @@ import threading
 import re
 from Bio.Sequencing.Applications import SamtoolsViewCommandline, SamtoolsSortCommandline, SamtoolsIndexCommandline
 from accessoryFunctions.accessoryFunctions import make_path, run_subprocess, write_to_logfile, logstr, GenObject, \
-    printtime, get_version
+    printtime, get_version, MetadataObject
 from spadespipeline.bowtie import Bowtie2BuildCommandLine, Bowtie2CommandLine
 from Bio.Application import ApplicationError
 from io import StringIO
@@ -47,13 +47,13 @@ class QualiMap(object):
             # Set an easier to write shortcut for sample.general
             sagen = sample.general
             if sagen.bestassemblyfile != "NA":
-                sagen.QualimapResults = '{}/qualimap_results'.format(sagen.outputdirectory)
+                sagen.QualimapResults = os.path.join(sagen.outputdirectory, 'qualimap_results')
                 # Set the results folder
                 # Create this results folder if necessary
                 make_path(sagen.QualimapResults)
                 # Set file names
-                sagen.sortedbam = '{}/{}_sorted.bam'.format(sagen.QualimapResults, sample.name)
-                filenoext = sagen.filteredfile.split('.')[0]
+                sagen.sortedbam = os.path.join(sagen.QualimapResults, '{}_sorted.bam'.format(sample.name))
+                filenoext = os.path.splitext(sagen.filteredfile)[0]
                 sagen.filenoext = filenoext
                 sagen.bowtie2results = os.path.join(sagen.QualimapResults, sample.name)
                 # Use fancy new bowtie2 wrapper
@@ -307,7 +307,8 @@ class QualiMap(object):
                     # name used as the key in the sample.depth.coverage dictionary
                     contig = record.id.split('_pilon')[0]
                     # Only include contigs with a depth greater or equal to 10
-                    if float(sample.depth.coverage[contig]) > (coveragemean - coveragestd * 1.5):
+                    if float(sample.depth.coverage[contig]) > (coveragemean - coveragestd * 1.5) \
+                            and len(record.seq) > 500:
                         # Replace 'NODE' in the fasta header with the sample name
                         # >NODE_1_length_705814_cov_37.107_ID_4231
                         newid = re.sub("NODE", sample.name, record.id)
@@ -395,7 +396,6 @@ if __name__ == '__main__':
     class Parser(object):
 
         def associate(self):
-            from accessoryFunctions.accessoryFunctions import GenObject, MetadataObject
             # Get the sequences in the sequences folder into a list. Note that they must have a file extension that
             # begins with .fa
             self.strains = [fasta for fasta in sorted(glob('{}*.fa*'.format(self.assemblypath)))
