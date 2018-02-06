@@ -111,7 +111,7 @@ class ResistanceNotes(object):
             # Some names have a slightly different naming scheme:
             except ValueError:
                 try:
-                    if 'bla' in name:
+                    if 'bla' in name or 'aac' in name:
                         # >blaACC_1_2_AM939420 yields gname, genename: blaACC-1, allele: 2, accession: AM939420
                         genename, version, allele, accession = name.split('_')
                         gname = '{g}-{v}'.format(g=genename,
