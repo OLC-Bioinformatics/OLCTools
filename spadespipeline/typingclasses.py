@@ -98,7 +98,7 @@ class ResistanceNotes(object):
         """
         # Allow for an additional part to the gene name aph(3'')_Ib_5_AF321551 yields gname: aph(3''), genename:
         # aph(3'')-Ib, allele: 5, accession AF321551
-        if '_I' in name:
+        if '_I' in name or 'Van' in name:
             pregene, postgene, allele, accession = name.split('_')
             genename = '{pre}-{post}'.format(pre=pregene,
                                              post=postgene)
@@ -129,9 +129,17 @@ class ResistanceNotes(object):
                         # blaOXY_1_1_1_Z30177 yields gname: blaOXY-1-1, genename: blaOXY, allele: 1, accession: Z30177
                         genename, version, allele, duplicate, accession = name.split('_')
                     else:
-                        # blaOKP_B_15_1_AM850917 yields gname: blaOKP-B-15, genename: blaOKP, allele: 1,
-                        # accession: AM850917
-                        genename, version, allele, unknown, accession = name.split('_')
+                        try:
+                            # blaOKP_B_15_1_AM850917 yields gname: blaOKP-B-15, genename: blaOKP, allele: 1,
+                            # accession: AM850917
+                            genename, version, allele, unknown, accession = name.split('_')
+                        except ValueError:
+                            try:
+                                # blaSHV_5a_alias_blaSHV_9_1_S82452 yields genename: blaSHV, version: 5a, alias: alias
+                                # unknown: blaSHV, allele: 9, unknown: 1, accession: S82452
+                                genename, version, alias, unknown, allele, unknown, accession = name.split('_')
+                            except ValueError:
+                                genename, version, alias, allele, unknown, accession = name.split('_')
                     gname = '{g}-{ver}-{a}'.format(g=genename,
                                                    ver=version,
                                                    a=allele)
@@ -140,7 +148,7 @@ class ResistanceNotes(object):
     @staticmethod
     def resistance(gname, genename, genedict, altgenedict, revaltgenedict):
         """
-        Exxtracts the resistance phenotype from the dictionaries using the gene name
+        Extracts the resistance phenotype from the dictionaries using the gene name
         :param gname: Name of gene. Often the same as genename, but for certain entries it is longer
         e.g. blaOKP-B-15 instead of blaOKP
         :param genename: Name of gene e.g. blaOKP
@@ -165,7 +173,10 @@ class ResistanceNotes(object):
         try:
             res = genedict[genename]
         except KeyError:
-            res = genedict[gname]
+            try:
+                res = genedict[gname]
+            except KeyError:
+                res = genedict[gname]
         return finalgene, res
 
 
@@ -639,7 +650,6 @@ class Univec(GeneSeekr):
                                         # Cut out the description from the entry.description using regex
                                         # e.g. for 'gnl|uv|X66730.1:1-2687-49 B.bronchiseptica plasmid pBBR1 genes for
                                         # mobilization and replication' only save the string after '2687-49'
-                                        print(sample.name, entry)
                                         description = re.findall('\d+-\d+\s(.+)', entry.description)[0]
                                         # Don't add the same gene more than once to the report
                                         if gene not in genes:
