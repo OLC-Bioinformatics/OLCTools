@@ -251,7 +251,7 @@ class Quality(object):
             args.reverse_id = '_R2'
             args.threads = self.cpus
             args.kmer_size = 31
-            args.number_subsamples = 5
+            args.number_subsamples = 3
             args.subsample_depth = 20
             args.kmer_cutoff = 2
             try:

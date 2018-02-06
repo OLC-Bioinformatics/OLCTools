@@ -54,7 +54,7 @@ class Spades(object):
                                     sample.general.unmergedreverse,
                                     sample.general.spadesoutput,
                                     self.threads)
-                except AttributeError:
+                except KeyError:
                     fastqfiles = sample.general.trimmedcorrectedfastqfiles
                     # Set the the forward fastq files
                     sample.general.assemblyfastq = fastqfiles

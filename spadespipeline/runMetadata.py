@@ -107,7 +107,7 @@ class Metadata(object):
             # Create a list of keys for which values are to be extracted
             datalist = ["SampleNumber", "SampleID", "SampleName", "NumberOfClustersPF"]
             # Load the file as an xml ElementTree object
-            runstatistics = ElementTree.ElementTree(file=os.path.join("GenerateFASTQRunStatistics.xml"))
+            runstatistics = ElementTree.ElementTree(file=os.path.join(self.path, "GenerateFASTQRunStatistics.xml"))
             # Iterate through all the elements in the object
             # .iterfind() allow for the matching and iterating though matches
             # This is stored as a float to allow subsequent calculations
