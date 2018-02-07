@@ -189,10 +189,10 @@ class ResSippingMethods(Sippr):
         # Find the target files
         self.targets()
         # Use bbduk to bait the FASTQ reads matching the target sequences
-        self.bait(maskmiddle='t', k=11)
+        self.bait(maskmiddle='t', k=17)
         # If desired, use bbduk to bait the target sequences with the previously baited FASTQ files
         if self.revbait:
-            self.reversebait(maskmiddle='t', k=11)
+            self.reversebait(maskmiddle='t', k=17)
         # Run the bowtie2 read mapping module
         self.mapping()
         # Use samtools to index the sorted bam file
@@ -713,7 +713,7 @@ class Virulence(GeneSippr):
                     sample[self.analysistype].uniquegenes = dict()
                     for name, identity in sample[self.analysistype].results.items():
                         # Split the name of the gene from the string e.g. stx1:11:Z36899:11 yields stx1
-                        genename = name.split(':')[0]
+                        genename = name.split('_')[0]
                         # Only allow matches of 100% identity for stx genes
                         if 'stx' in genename and float(identity) < 100.0:
                             pass
@@ -745,11 +745,11 @@ class Virulence(GeneSippr):
                             try:
                                 # Split the name on colons: stx2A:63:AF500190:d; gene: stx2A, allele: 63, accession:
                                 # AF500190, subtype: d
-                                genename, allele, accession, subtype = name.split(':')
+                                genename, allele, accession, subtype = name.split('_')
                             # Treat samples without a subtype e.g. icaC:intercellular adhesion protein C: differently.
                             # Extract the allele as the 'subtype', and the gene name, and accession as above
                             except ValueError:
-                                genename, subtype, accession = name.split(':')
+                                genename, subtype, accession = name.split('_')
                             # Retrieve the best identity for each gene
                             percentid = sample[self.analysistype].uniquegenes[genename]
                             # If the percent identity of the current gene matches the best percent identity, add it to

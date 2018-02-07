@@ -183,7 +183,7 @@ class PrimerFinder(object):
                 # from https://stackoverflow.com/a/27552377 - find any degenerate bases in the primer sequence, and
                 # create all possibilities as a list
                 degenerates = Seq.IUPAC.IUPACData.ambiguous_dna_values
-                primerlist = list(map("".join, product(*map(degenerates.get, str(record.seq)))))
+                primerlist = list(map("".join, product(*map(degenerates.get, str(record.seq).upper()))))
                 # As the record.id is being updated in the loop below, set the name of the primer here so that will
                 # be able to be recalled when setting the new record.ids
                 primername = record.id
@@ -772,8 +772,6 @@ class PrimerFinder(object):
         self.klength = 20
         # A list of valid file extensions for FASTA formatted-files
         self.extensions = ['.fasta', '.fa', '.fas', '.fsa', '.fna', '.tfa']
-        # Run the script
-        self.main()
 
 
 if __name__ == '__main__':
@@ -797,7 +795,8 @@ if __name__ == '__main__':
                              '.......\n')
     parser.add_argument('-m', '--mismatches',
                         default=0,
-                        help='Number of mismatches allowed [0-3]. Default is 0')
+                        help='Number of mismatches allowed [0-3]. Default is 0. NOTE: allowing three mismatches will'
+                             'slow down the program considerably')
     parser.add_argument('-k', '--kmerlength',
                         default='99',
                         help='The range of kmers used in SPAdes assembly. Default is 99, but you can'
