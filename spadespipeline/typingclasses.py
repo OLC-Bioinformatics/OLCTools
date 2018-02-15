@@ -5,6 +5,7 @@ from spadespipeline.GeneSeekr import GeneSeekr
 from sipprCommon.objectprep import Objectprep
 from sipprCommon.sippingmethods import Sippr
 from genesippr.genesippr import GeneSippr
+from reporter.reports import Reports
 from Bio.Alphabet import IUPAC
 from Bio.Seq import Seq
 from Bio import SeqIO
@@ -16,6 +17,26 @@ import os
 import re
 
 __author__ = 'adamkoziol'
+
+
+class GDCS(Sippr):
+
+    def reporter(self):
+        # Create the report object
+        report = Reports(self)
+        report.gdcsreporter()
+
+    def __init__(self, inputobject):
+        self.reports = str()
+        self.samples = inputobject.runmetadata
+        self.starttime = inputobject.starttime
+        self.completemetadata = inputobject.runmetadata
+        self.path = inputobject.path
+        self.analysescomplete = True
+        self.reportpath = inputobject.reportpath
+        self.runmetadata = inputobject.runmetadata
+        self.reporter()
+
 
 
 class Plasmids(GeneSippr):

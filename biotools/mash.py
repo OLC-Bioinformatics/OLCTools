@@ -97,7 +97,7 @@ def screen(*args, output_file='screen.tab', threads=1, returncmd=False, **kwargs
     cmd = 'mash screen '
     for arg in args:
         cmd += arg + ' '
-    cmd += ' -p {} {} > {}'.format(str(threads), options, output_file)
+    cmd += ' -p {} {} | sort -gr > {}'.format(str(threads), options, output_file)
     out, err = accessoryfunctions.run_subprocess(cmd)
     if returncmd:
         return out, err, cmd

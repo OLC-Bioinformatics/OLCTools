@@ -6,9 +6,9 @@ try:
 except ImportError:
     import confindr
 from biotools import bbtools
-from subprocess import Popen, PIPE
 from Bio.SeqUtils import GC
 from Bio import SeqIO
+from subprocess import CalledProcessError
 from queue import Queue
 from glob import glob
 import threading
@@ -25,7 +25,6 @@ class Quality(object):
         for sample in self.metadata:
             if type(sample.general.fastqfiles) is list:
                 # Create and start threads for each fasta file in the list
-                # Send the threads to bbduker. :args is empty as I'm using
                 threads = threading.Thread(target=self.fastqc, args=())
                 # Set the daemon to true - something to do with thread management
                 threads.setDaemon(True)
@@ -91,12 +90,12 @@ class Quality(object):
                     fastqccall = '{} {} {} | fastqc -q -t {} stdin -o {}'\
                         .format(reader, fastqfiles[0], fastqfiles[1], self.threads, outdir)
                     # Also perform QC on the individual forward and reverse reads
-                    fastqcreads = "fastqc {} {} -q -o {} -t 12".format(fastqfiles[0], fastqfiles[1], outdir)
+                    fastqcreads = "fastqc {} {} -q -o {} -t {}"\
+                        .format(fastqfiles[0], fastqfiles[1], outdir, self.threads)
                 elif len(fastqfiles) == 1:
-                    # fastqccall = "fastqc {} -q -o {} -t 12".format(fastqfiles[0], outdir)
                     fastqccall = '{} {} | fastqc -q -t {} stdin -o {}'\
                         .format(reader, fastqfiles[0], self.threads, outdir)
-                    fastqcreads = "fastqc {} -q -o {} -t 12".format(fastqfiles[0], outdir)
+                    fastqcreads = "fastqc {} -q -o {} -t {}".format(fastqfiles[0], outdir, self.threads)
                 # Add the arguments to the queue
                 sample.commands.fastqc = fastqccall
                 self.qcqueue.put((sample, fastqccall, outdir, fastqcreads))
@@ -147,12 +146,10 @@ class Quality(object):
     def trimquality(self):
         """Uses bbduk from the bbmap tool suite to quality and adapter trim"""
         printtime("Trimming fastq files", self.start)
-        # print("\r[{:}] Trimming fastq files".format(time.strftime("%H:%M:%S")))
         # Create and start threads for each strain with fastq files
         for sample in self.metadata:
             if type(sample.general.fastqfiles) is list:
                 # Create and start threads for each fasta file in the list
-                # Send the threads to bbduker. :args is empty as I'm using
                 threads = threading.Thread(target=self.bbduker, args=())
                 # Set the daemon to true - something to do with thread management
                 threads.setDaemon(True)
@@ -177,24 +174,21 @@ class Quality(object):
                     # BBduk 37.23 doesn't need the ktrim=l/mink=11 parameters, so they have been removed.
                     if len(fastqfiles) == 2:
                         if int(sample.run.forwardlength) > 75 and int(sample.run.reverselength) > 75:
-                            bbdukcall = "bbduk.sh -Xmx1g in1={} in2={} out1={} out2={} qtrim=w trimq=20 " \
-                                "k=25 minlength=50 forcetrimleft=15 ref=adapters hdist=1 " \
-                                        "tpe tbo" \
-                                .format(fastqfiles[0], fastqfiles[1], cleanforward, cleanreverse, self.bbduklocation)
+                            bbdukcall = "bbduk.sh -Xmx1g in1={} in2={} out1={} out2={} qtrim=w trimq=10 " \
+                                "k=25 minlength=50 ref=adapters tpe tbo" \
+                                .format(fastqfiles[0], fastqfiles[1], cleanforward, cleanreverse)
                         else:
-                            bbdukcall = "bbduk.sh -Xmx1g in1={} out1={} qtrim=w trimq=20 k=25 " \
-                                        "minlength=50 forcetrimleft=15 ref=adapters hdist=1" \
-                                .format(fastqfiles[1], cleanreverse)
+                            bbdukcall = "bbduk.sh -Xmx1g in1={} out1={} qtrim=w trimq=10 k=25 " \
+                                        "minlength=50 ref=adapters".format(fastqfiles[1], cleanreverse)
                     elif len(fastqfiles) == 1:
-                        bbdukcall = "bbduk.sh -Xmx1g in={} out={} qtrim=w trimq=20 k=25 " \
-                            "minlength=50 forcetrimleft=15 ref=adapters hdist=1" \
-                            .format(fastqfiles[0], cleanforward)
+                        bbdukcall = "bbduk.sh -Xmx1g in={} out={} qtrim=w trimq=10 k=25 " \
+                            "minlength=50 ref=adapters".format(fastqfiles[0], cleanforward)
                     else:
                         bbdukcall = ""
                 # Allows for exclusion of the reverse reads if desired
                 else:
-                    bbdukcall = "bbduk.sh -Xmx1g in={} out={} qtrim=w trimq=20 k=25 " \
-                                "minlength=50 forcetrimleft=15 ref=adapters hdist=1" \
+                    bbdukcall = "bbduk.sh -Xmx1g in={} out={} qtrim=w trimq=10 k=25 " \
+                                "minlength=50 ref=adapters hdist=1" \
                         .format(fastqfiles[0], cleanforward)
                     # There is a check to ensure that the trimmed reverse file is created. This will change the file
                     # being looked for to the forward file
@@ -263,7 +257,10 @@ class Quality(object):
             with open(os.path.join(report), 'w') as f:
                 f.write('Sample,Genus,NumContamSNVs,NumUniqueKmers,ContamStatus\n')
             for sample in self.metadata:
-                confindr.find_contamination(sample.general.trimmedcorrectedfastqfiles, args)
+                if len(sample.general.trimmedcorrectedfastqfiles) == 2:
+                    confindr.find_contamination(sample.general.trimmedcorrectedfastqfiles, args)
+                elif len(sample.general.trimmedcorrectedfastqfiles) == 1:
+                    confindr.find_contamination_unpaired(args, sample.general.trimmedcorrectedfastqfiles[0])
             printtime('Contamination detection complete!', self.start)
         # Load the confindr report into a dictionary using pandas
         # https://stackoverflow.com/questions/33620982/reading-csv-file-as-dictionary-using-pandas
@@ -317,14 +314,17 @@ class Quality(object):
         for sample in self.metadata:
             sample.general.trimmedcorrectedfastqfiles = [fastq.split('.fastq.gz')[0] + '_trimmed_corrected.fastq.gz'
                                                          for fastq in sorted(sample.general.fastqfiles)]
-            out, err, cmd = bbtools.tadpole(forward_in=sorted(sample.general.trimmedfastqfiles)[0],
-                                            forward_out=sample.general.trimmedcorrectedfastqfiles[0],
-                                            returncmd=True,
-                                            mode='correct',
-                                            threads=self.cpus)
-            # Set the command in the object
-            sample[self.analysistype].errorcorrectcmd = cmd
-            write_to_logfile(out, err, self.logfile, sample.general.logout, sample.general.logerr, None, None)
+            try:
+                out, err, cmd = bbtools.tadpole(forward_in=sorted(sample.general.trimmedfastqfiles)[0],
+                                                forward_out=sample.general.trimmedcorrectedfastqfiles[0],
+                                                returncmd=True,
+                                                mode='correct',
+                                                threads=self.cpus)
+                # Set the command in the object
+                sample[self.analysistype].errorcorrectcmd = cmd
+                write_to_logfile(out, err, self.logfile, sample.general.logout, sample.general.logerr, None, None)
+            except CalledProcessError:
+                sample.general.trimmedcorrectedfastqfiles = sample.general.trimmedfastqfiles
 
     def normalise_reads(self):
         """
@@ -335,13 +335,16 @@ class Quality(object):
             # Set the name of the normalised read files
             sample.general.normalisedreads = [fastq.split('.fastq.gz')[0] + '_normalised.fastq.gz'
                                               for fastq in sorted(sample.general.fastqfiles)]
-            # Run the normalisation command
-            out, err, cmd = bbtools.bbnorm(forward_in=sorted(sample.general.trimmedcorrectedfastqfiles)[0],
-                                           forward_out=sample.general.normalisedreads[0],
-                                           returncmd=True,
-                                           threads=self.cpus)
-            sample[self.analysistype].normalisecmd = cmd
-            write_to_logfile(out, err, self.logfile, sample.general.logout, sample.general.logerr, None, None)
+            try:
+                # Run the normalisation command
+                out, err, cmd = bbtools.bbnorm(forward_in=sorted(sample.general.trimmedcorrectedfastqfiles)[0],
+                                               forward_out=sample.general.normalisedreads[0],
+                                               returncmd=True,
+                                               threads=self.cpus)
+                sample[self.analysistype].normalisecmd = cmd
+                write_to_logfile(out, err, self.logfile, sample.general.logout, sample.general.logerr, None, None)
+            except CalledProcessError:
+                sample.general.normalisedreads = sample.general.trimmedfastqfiles
 
     def merge_pairs(self):
         """
@@ -358,15 +361,20 @@ class Quality(object):
                     os.path.join(sample.general.outputdirectory, '{}_unpaired_R1.fastq.gz'.format(sample.name))
                 sample.general.unmergedreverse = \
                     os.path.join(sample.general.outputdirectory, '{}_unpaired_R2.fastq.gz'.format(sample.name))
-                # Run the merging command
-                out, err, cmd = bbtools.bbmerge(forward_in=sample.general.normalisedreads[0],
-                                                merged_reads=sample.general.mergedreads,
-                                                returncmd=True,
-                                                outu1=sample.general.unmergedforward,
-                                                outu2=sample.general.unmergedreverse,
-                                                threads=self.cpus)
-                sample[self.analysistype].bbmergecmd = cmd
-                write_to_logfile(out, err, self.logfile, sample.general.logout, sample.general.logerr, None, None)
+                try:
+                    # Run the merging command
+                    out, err, cmd = bbtools.bbmerge(forward_in=sample.general.normalisedreads[0],
+                                                    merged_reads=sample.general.mergedreads,
+                                                    returncmd=True,
+                                                    outu1=sample.general.unmergedforward,
+                                                    outu2=sample.general.unmergedreverse,
+                                                    threads=self.cpus)
+                    sample[self.analysistype].bbmergecmd = cmd
+                    write_to_logfile(out, err, self.logfile, sample.general.logout, sample.general.logerr, None, None)
+                except CalledProcessError:
+                    delattr(sample.general, 'mergedreads')
+                    delattr(sample.general, 'unmergedforward')
+                    delattr(sample.general, 'unmergedreverse')
             else:
                 sample.general.mergedreads = sorted(sample.general.trimmedcorrectedfastqfiles)[0]
 
@@ -390,10 +398,6 @@ class Quality(object):
             self.reverselength = 'full'
         self.numreads = inputobject.numreads
         self.logfile = inputobject.logfile
-        # Find the location of the bbduk.sh script. This will be used in finding the adapter file
-        self.bbduklocation = os.path.split(Popen('which bbduk.sh', shell=True, stdout=PIPE)
-                                           .communicate()[0].rstrip())[0]
-        self.bbduklocation = self.bbduklocation.decode('utf-8')
         self.path = inputobject.path
         self.analysistype = 'quality'
         self.reffilepath = inputobject.reffilepath
