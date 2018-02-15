@@ -91,8 +91,14 @@ class Sistr(object):
                 report.write(data)
 
     def __init__(self, inputobject, analysistype):
-        self.metadata = inputobject.runmetadata.samples
-        self.start = inputobject.starttime
+        try:
+            self.metadata = inputobject.runmetadata.samples
+        except AttributeError:
+            self.metadata = inputobject.metadata
+        try:
+            self.start = inputobject.starttime
+        except AttributeError:
+            self.start = inputobject.start
         self.cpus = inputobject.cpus
         self.logfile = inputobject.logfile
         self.reportdir = os.path.join(inputobject.reportpath, '')

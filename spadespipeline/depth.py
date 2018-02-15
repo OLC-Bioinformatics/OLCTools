@@ -26,7 +26,7 @@ class QualiMap(object):
         printtime('Aligning reads with bowtie2 for Qualimap', self.start)
         self.bowtie()
         self.indexing()
-        # self.pilon()
+        self.pilon()
         self.filter()
         self.clear()
 
@@ -77,7 +77,7 @@ class QualiMap(object):
                                        'm2': sample.general.trimmedcorrectedfastqfiles[1]})
                     else:
                         indict.update({'U': sample.general.trimmedcorrectedfastqfiles[0]})
-                except AttributeError:
+                except KeyError:
                     if len(sample.general.assemblyfastq) == 2:
                         indict.update({'m1': sample.general.assemblyfastq[0], 'm2': sample.general.assemblyfastq[1]})
                     else:
@@ -248,7 +248,7 @@ class QualiMap(object):
             make_path(sample.mapping.pilondir)
             # I was getting a java.lang.OutOfMemoryError: GC overhead limit exceeded error, which I fixed by
             # providing the -Xmx20G argument.
-            sample.mapping.piloncmd = 'pilon -Xmx40G --genome {} --bam {} --fix bases --threads {} ' \
+            sample.mapping.piloncmd = 'pilon --genome {} --bam {} --fix bases --threads {} ' \
                                       '--outdir {} --changes --mindepth 0.25' \
                 .format(sample.general.contigsfile,
                         sample.mapping.BamFile,
