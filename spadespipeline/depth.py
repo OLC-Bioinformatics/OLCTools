@@ -191,8 +191,8 @@ class QualiMap(object):
             if qdict:
                 # Make new category for Qualimap results and populate this category with the report data
                 for attribute in qdict:
-                    # setattr(sample, "mapping", GenObject(qdict))
-                    setattr(sample.mapping, attribute, qdict[attribute])
+                    # Remove the 'X' from the depth values e.g. 40.238X
+                    setattr(sample.mapping, attribute, qdict[attribute].rstrip('X'))
 
     def indexing(self):
         printtime('Indexing sorted bam files', self.start)
