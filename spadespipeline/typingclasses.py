@@ -1,5 +1,6 @@
 #!/usr/bin/env python 3
-from accessoryFunctions.accessoryFunctions import combinetargets, GenObject, MetadataObject, printtime, make_path
+from accessoryFunctions.accessoryFunctions import combinetargets, filer, GenObject, MetadataObject, printtime, \
+    make_path, run_subprocess, write_to_logfile
 from accessoryFunctions.metadataprinter import MetadataPrinter
 from spadespipeline.GeneSeekr import GeneSeekr
 from sipprCommon.objectprep import Objectprep
@@ -13,6 +14,8 @@ from Bio.SeqRecord import SeqRecord
 from csv import DictReader
 from glob import glob
 import xlsxwriter
+import threading
+import pandas
 import os
 import re
 
@@ -36,7 +39,6 @@ class GDCS(Sippr):
         self.reportpath = inputobject.reportpath
         self.runmetadata = inputobject.runmetadata
         self.reporter()
-
 
 
 class Plasmids(GeneSippr):
@@ -69,6 +71,90 @@ class Plasmids(GeneSippr):
                 except KeyError:
                     data += '\n'
             report.write(data)
+
+
+class PlasmidExtractor(object):
+
+    def main(self):
+        """
+        Run the methods in the correct order
+        """
+        self.run_plasmid_extractor()
+        self.parse_report()
+
+    def run_plasmid_extractor(self):
+        """
+        Create and run the plasmid extractor system call
+        """
+        printtime('Extracting plasmids', self.start)
+        # Define the system call
+        extract_command = 'PlasmidExtractor.py -i {inf} -o {outf} -p {plasdb} -d {db} -t {cpus} -nc'\
+            .format(inf=self.path,
+                    outf=self.plasmid_output,
+                    plasdb=os.path.join(self.plasmid_db, 'plasmid_db.fasta'),
+                    db=self.plasmid_db,
+                    cpus=self.cpus)
+        # Only attempt to extract plasmids if the report doesn't already exist
+        if not os.path.isfile(self.plasmid_report):
+            # Run the system calls
+            out, err = run_subprocess(extract_command)
+            # Acquire thread lock, and write the logs to file
+            self.threadlock.acquire()
+            write_to_logfile(extract_command, extract_command, self.logfile)
+            write_to_logfile(out, err, self.logfile)
+            self.threadlock.release()
+
+    def parse_report(self):
+        """
+        Parse the plasmid extractor report, and populate metadata objects
+        """
+        printtime('Parsing Plasmid Extractor outputs', self.start)
+        # A dictionary to store the parsed excel file in a more readable format
+        nesteddictionary = dict()
+        # Use pandas to read in the CSV file, and convert the pandas data frame to a dictionary (.to_dict())
+        dictionary = pandas.read_csv(self.plasmid_report).to_dict()
+        # Iterate through the dictionary - each header from the CSV file
+        for header in dictionary:
+            # Sample is the primary key, and value is the value of the cell for that primary key + header combination
+            for sample, value in dictionary[header].items():
+                # Update the dictionary with the new data
+                try:
+                    nesteddictionary[sample].update({header: value})
+                # Create the nested dictionary if it hasn't been created yet
+                except KeyError:
+                    nesteddictionary[sample] = dict()
+                    nesteddictionary[sample].update({header: value})
+        # Get the results into the metadata object
+        for sample in self.metadata:
+            # Initialise the plasmid extractor genobject
+            setattr(sample, self.analysistype, GenObject())
+            # Initialise the list of all plasmids
+            sample[self.analysistype].plasmids = list()
+            # Iterate through the dictionary of results
+            for line in nesteddictionary:
+                # Extract the sample name from the dictionary in a manner consistent with the rest of the COWBAT
+                # pipeline e.g. 2014-SEQ-0276_S2_L001 becomes 2014-SEQ-0276
+                sample_name = nesteddictionary[line]['Sample']
+                # Use the filer method to extract the name
+                name = list(filer([sample_name]))[0]
+                # Ensure that the names match
+                if name == sample.name:
+                    # Append the plasmid name extracted from the dictionary to the list of plasmids
+                    sample[self.analysistype].plasmids.append(nesteddictionary[line]['Plasmid'])
+
+    def __init__(self, inputobject):
+        self.path = inputobject.path
+        self.reportpath = inputobject.reportpath
+        self.reffilepath = inputobject.reffilepath
+        self.analysistype = 'plasmidextractor'
+        self.plasmid_output = os.path.join(self.path, self.analysistype)
+        self.plasmid_db = os.path.join(self.reffilepath, self.analysistype)
+        self.plasmid_report = os.path.join(self.plasmid_output, 'plasmidReport.csv')
+        self.start = inputobject.starttime
+        self.cpus = inputobject.cpus
+        self.logfile = inputobject.logfile
+        self.threadlock = threading.Lock()
+        self.metadata = inputobject.runmetadata.samples
 
 
 class ResistanceNotes(object):

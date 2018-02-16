@@ -515,3 +515,78 @@ class QualityFeatures(object):
         self.metadata = inputobject.runmetadata.samples
         self.start = inputobject.starttime
         self.analysistype = 'quality_features'
+
+
+class GenomeQAML(object):
+
+    def main(self):
+        """
+
+        """
+        self.run_qaml()
+        self.parse_qaml()
+
+    def run_qaml(self):
+        """
+        Create and run the GenomeQAML system call
+        """
+        printtime('Running GenomeQAML quality assessment', self.start)
+        qaml_call = 'classify.py -t {tf} -r {rf}'\
+            .format(tf=self.qaml_path,
+                    rf=self.qaml_report)
+        # Only attempt to assess assemblies if the report doesn't already exist
+        if not os.path.isfile(self.qaml_report):
+            # Run the system calls
+            out, err = run_subprocess(qaml_call)
+            # Acquire thread lock, and write the logs to file
+            self.threadlock.acquire()
+            write_to_logfile(qaml_call, qaml_call, self.logfile)
+            write_to_logfile(out, err, self.logfile)
+            self.threadlock.release()
+
+    def parse_qaml(self):
+        """
+        Parse the GenomeQAML report, and populate metadata objects
+        """
+        printtime('Parsing GenomeQAML outputs', self.start)
+        # A dictionary to store the parsed excel file in a more readable format
+        nesteddictionary = dict()
+        # Use pandas to read in the CSV file, and convert the pandas data frame to a dictionary (.to_dict())
+        dictionary = pandas.read_csv(self.qaml_report).to_dict()
+        # Iterate through the dictionary - each header from the CSV file
+        for header in dictionary:
+            # Sample is the primary key, and value is the value of the cell for that primary key + header combination
+            for sample, value in dictionary[header].items():
+                # Update the dictionary with the new data
+                try:
+                    nesteddictionary[sample].update({header: value})
+                # Create the nested dictionary if it hasn't been created yet
+                except KeyError:
+                    nesteddictionary[sample] = dict()
+                    nesteddictionary[sample].update({header: value})
+        # Get the results into the metadata object
+        for sample in self.metadata:
+            # Initialise the plasmid extractor genobject
+            setattr(sample, self.analysistype, GenObject())
+            # Initialise the list of all plasmids
+            sample[self.analysistype].prediction = str()
+            # Iterate through the dictionary of results
+            for line in nesteddictionary:
+                # Extract the sample name from the dictionary
+                name = nesteddictionary[line]['Sample']
+                # Ensure that the names match
+                if name == sample.name:
+                    # Append the plasmid name extracted from the dictionary to the list of plasmids
+                    sample[self.analysistype].prediction = nesteddictionary[line]['Predicted_Class']
+
+    def __init__(self, inputobject):
+        self.path = inputobject.path
+        self.reportpath = inputobject.reportpath
+        self.analysistype = 'GenomeQAML'
+        self.qaml_path = os.path.join(self.path, 'BestAssemblies')
+        self.qaml_report = os.path.join(self.reportpath, 'QAMLReport.csv')
+        self.start = inputobject.starttime
+        self.cpus = inputobject.cpus
+        self.logfile = inputobject.logfile
+        self.threadlock = threading.Lock()
+        self.metadata = inputobject.runmetadata.samples
