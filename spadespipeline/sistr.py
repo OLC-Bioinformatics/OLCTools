@@ -74,7 +74,8 @@ class Sistr(object):
                         # Tab separate all the results
                         row += '{}\t'.format(sample[self.analysistype].jsondata[0][category])
                         # Create attributes for each category
-                        setattr(sample[self.analysistype], category, sample[self.analysistype].jsondata[0][category])
+                        setattr(sample[self.analysistype], category,
+                                str(sample[self.analysistype].jsondata[0][category]))
                     # End the results with a newline
                     row += '\n'
 

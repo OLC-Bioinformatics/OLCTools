@@ -167,29 +167,38 @@ class Quality(object):
                 # Define the name of the trimmed fastq files
                 cleanforward = os.path.join(outputdir, '{}_R1_trimmed.fastq.gz'.format(sample.name))
                 cleanreverse = os.path.join(outputdir, '{}_R2_trimmed.fastq.gz'.format(sample.name))
+                min_len = 50
                 if self.numreads == 2:
+                    # Incorporate read length into the minlength parameter - set it to 50 unless one or more of the
+                    # reads has a lower calculated length than 50
+                    lesser_length = min(sample.run.forwardlength, sample.run.reverselength)
+                    min_len = 50 if lesser_length >= 50 else lesser_length
                     # Separate system calls for paired and unpaired fastq files
-                    # TODO minlen=number - incorporate read length
                     # http://seqanswers.com/forums/showthread.php?t=42776
                     # BBduk 37.23 doesn't need the ktrim=l/mink=11 parameters, so they have been removed.
                     if len(fastqfiles) == 2:
-                        if int(sample.run.forwardlength) > 75 and int(sample.run.reverselength) > 75:
-                            bbdukcall = "bbduk.sh -Xmx1g in1={} in2={} out1={} out2={} qtrim=w trimq=10 " \
-                                "k=25 minlength=50 ref=adapters tpe tbo" \
-                                .format(fastqfiles[0], fastqfiles[1], cleanforward, cleanreverse)
-                        else:
-                            bbdukcall = "bbduk.sh -Xmx1g in1={} out1={} qtrim=w trimq=10 k=25 " \
-                                        "minlength=50 ref=adapters".format(fastqfiles[1], cleanreverse)
+                        bbdukcall = "bbduk.sh -Xmx1g in1={in1} in2={in2} out1={out1} out2={out2} qtrim=w trimq=10 " \
+                                    "k=25 minlength={ml} ref=adapters tpe tbo"\
+                            .format(in1=fastqfiles[0],
+                                    in2=fastqfiles[1],
+                                    out1=cleanforward,
+                                    out2=cleanreverse,
+                                    ml=min_len)
                     elif len(fastqfiles) == 1:
-                        bbdukcall = "bbduk.sh -Xmx1g in={} out={} qtrim=w trimq=10 k=25 " \
-                            "minlength=50 ref=adapters".format(fastqfiles[0], cleanforward)
+                        bbdukcall = "bbduk.sh -Xmx1g in={in1} out={out1} qtrim=w trimq=10 k=25 minlength={ml} " \
+                                    "ref=adapters" \
+                            .format(in1=fastqfiles[0],
+                                    out1=cleanforward,
+                                    ml=min_len)
                     else:
                         bbdukcall = ""
                 # Allows for exclusion of the reverse reads if desired
                 else:
-                    bbdukcall = "bbduk.sh -Xmx1g in={} out={} qtrim=w trimq=10 k=25 " \
-                                "minlength=50 ref=adapters hdist=1" \
-                        .format(fastqfiles[0], cleanforward)
+                    bbdukcall = "bbduk.sh -Xmx1g in={in1} out={out1} qtrim=w trimq=10 k=25 minlength={ml} " \
+                                "ref=adapters"\
+                        .format(in1=fastqfiles[0],
+                                out1=cleanforward,
+                                ml=min_len)
                     # There is a check to ensure that the trimmed reverse file is created. This will change the file
                     # being looked for to the forward file
                     cleanreverse = cleanforward
@@ -212,7 +221,7 @@ class Quality(object):
             if systemcall:
                 threadlock = threading.Lock()
                 if not os.path.isfile(reversename) and not os.path.isfile('{}.bz2'.format(reversename)):
-                    # call(systemcall, shell=True, stdout=self.devnull, stderr=self.devnull)
+                    # Run the call
                     out, err = run_subprocess(systemcall)
                     threadlock.acquire()
                     write_to_logfile(systemcall, systemcall, self.logfile, sample.general.logout, sample.general.logerr,
