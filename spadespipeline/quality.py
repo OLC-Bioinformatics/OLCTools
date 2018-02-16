@@ -178,7 +178,7 @@ class Quality(object):
                     # BBduk 37.23 doesn't need the ktrim=l/mink=11 parameters, so they have been removed.
                     if len(fastqfiles) == 2:
                         bbdukcall = "bbduk.sh -Xmx1g in1={in1} in2={in2} out1={out1} out2={out2} qtrim=w trimq=10 " \
-                                    "k=25 minlength={ml} ref=adapters tpe tbo"\
+                                    "k=25 minlength={ml} ref=adapters tbo"\
                             .format(in1=fastqfiles[0],
                                     in2=fastqfiles[1],
                                     out1=cleanforward,
