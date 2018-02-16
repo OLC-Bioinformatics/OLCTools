@@ -30,6 +30,8 @@ class Reporter(object):
             data += GenObject.returnattr(sample.run, 'InvestigatorName')
             # SamplePurity
             data += GenObject.returnattr(sample.confinder, 'contam_status')
+            # GenomeQAML prediction
+            data += GenObject.returnattr(sample.GenomeQAML, 'prediction')
             # N50
             data += GenObject.returnattr(sample.quality_features, 'n50')
             # NumContigs
@@ -115,11 +117,11 @@ class Reporter(object):
                 data += ';'.join(sorted(sample.resfinder.pipelineresults)) + ','
             except KeyError:
                 data += '-,'
-            # Plasmid_MLST_Result'
+            # Plasmid Result'
             try:
-                data += 'TODO,'
+                data += ';'.join(sorted(sample.plasmidextractor.plasmids)) + ','
             except KeyError:
-                data += 'TODO,'
+                data += '-,'
             # TotalPredictedGenes
             data += GenObject.returnattr(sample.prodigal, 'predictedgenestotal')
             # PredictedGenesOver3000bp
@@ -331,7 +333,7 @@ class Reporter(object):
         self.reportpath = inputobject.reportpath
         self.starttime = inputobject.starttime
         # 'rMLST_ReferenceGenome', 'rMLST_NumMatchingAlleles',
-        self.headers = ['SeqID', 'SampleName', 'Genus', 'Species', 'SequencingDate', 'Analyst', 'SamplePurity', 'N50', 'NumContigs', 'TotalLength',
+        self.headers = ['SeqID', 'SampleName', 'Genus', 'Species', 'SequencingDate', 'Analyst', 'SamplePurity', 'AssemblyQuality', 'N50', 'NumContigs', 'TotalLength',
                         'MeanInsertSize', 'InsertSizeSTD', 'AverageCoverageDepth', 'CoverageDepthSTD', 'PercentGC',
                         'MASH_ReferenceGenome', 'MASH_NumMatchingHashes', '16S_result', 'rMLST_Result', 'MLST_Result',
                         'MLST_gene_1_allele', 'MLST_gene_2_allele', 'MLST_gene_3_allele', 'MLST_gene_4_allele',
