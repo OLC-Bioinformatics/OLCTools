@@ -534,6 +534,7 @@ class GenomeQAML(object):
         qaml_call = 'classify.py -t {tf} -r {rf}'\
             .format(tf=self.qaml_path,
                     rf=self.qaml_report)
+        make_path(self.reportpath)
         # Only attempt to assess assemblies if the report doesn't already exist
         if not os.path.isfile(self.qaml_report):
             # Run the system calls
