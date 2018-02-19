@@ -171,7 +171,7 @@ class Quality(object):
                 if self.numreads == 2:
                     # Incorporate read length into the minlength parameter - set it to 50 unless one or more of the
                     # reads has a lower calculated length than 50
-                    lesser_length = min(sample.run.forwardlength, sample.run.reverselength)
+                    lesser_length = min(int(sample.run.forwardlength), int(sample.run.reverselength))
                     min_len = 50 if lesser_length >= 50 else lesser_length
                     # Separate system calls for paired and unpaired fastq files
                     # http://seqanswers.com/forums/showthread.php?t=42776
