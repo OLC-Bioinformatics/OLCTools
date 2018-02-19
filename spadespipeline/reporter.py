@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from accessoryFunctions.accessoryFunctions import printtime, GenObject
+from accessoryFunctions.accessoryFunctions import GenObject, printtime
 from datetime import datetime
 import os
 __author__ = 'adamkoziol'
@@ -332,17 +332,18 @@ class Reporter(object):
         self.commit = inputobject.commit
         self.reportpath = inputobject.reportpath
         self.starttime = inputobject.starttime
-        # 'rMLST_ReferenceGenome', 'rMLST_NumMatchingAlleles',
-        self.headers = ['SeqID', 'SampleName', 'Genus', 'Species', 'SequencingDate', 'Analyst', 'SamplePurity', 'AssemblyQuality', 'N50', 'NumContigs', 'TotalLength',
-                        'MeanInsertSize', 'InsertSizeSTD', 'AverageCoverageDepth', 'CoverageDepthSTD', 'PercentGC',
-                        'MASH_ReferenceGenome', 'MASH_NumMatchingHashes', '16S_result', 'rMLST_Result', 'MLST_Result',
-                        'MLST_gene_1_allele', 'MLST_gene_2_allele', 'MLST_gene_3_allele', 'MLST_gene_4_allele',
-                        'MLST_gene_5_allele', 'MLST_gene_6_allele', 'MLST_gene_7_allele', 'CoreGenesPresent',
-                        'E_coli_Serotype', 'SISTR_serovar_antigen', 'SISTR_serovar_cgMLST', 'SISTR_serogroup',
-                        'SISTR_h1', 'SISTR_h2', 'SISTR_serovar', 'GeneSeekr_Profile', 'Vtyper_Profile', 'AMR_Profile',
-                        'Plasmid_MLST_Result', 'TotalPredictedGenes', 'PredictedGenesOver3000bp',
-                        'PredictedGenesOver1000bp', 'PredictedGenesOver500bp', "PredictedGenesUnder500bp",
-                        'NumClustersPF', 'LengthForwardRead', 'LengthReverseRead', 'OtherNames', 'Flowcell', 'MachineName', 'PipelineVersion', 'AssemblyDate']
+        # Define the headers to be used in the metadata report
+        self.headers = ['SeqID', 'SampleName', 'Genus', 'Species', 'SequencingDate', 'Analyst', 'SamplePurity',
+                        'AssemblyQuality', 'N50', 'NumContigs', 'TotalLength', 'MeanInsertSize', 'InsertSizeSTD',
+                        'AverageCoverageDepth', 'CoverageDepthSTD', 'PercentGC', 'MASH_ReferenceGenome',
+                        'MASH_NumMatchingHashes', '16S_result', 'rMLST_Result', 'MLST_Result', 'MLST_gene_1_allele',
+                        'MLST_gene_2_allele', 'MLST_gene_3_allele', 'MLST_gene_4_allele', 'MLST_gene_5_allele',
+                        'MLST_gene_6_allele', 'MLST_gene_7_allele', 'CoreGenesPresent', 'E_coli_Serotype',
+                        'SISTR_serovar_antigen', 'SISTR_serovar_cgMLST', 'SISTR_serogroup', 'SISTR_h1', 'SISTR_h2',
+                        'SISTR_serovar', 'GeneSeekr_Profile', 'Vtyper_Profile', 'AMR_Profile', 'PlasmidProfile',
+                        'TotalPredictedGenes', 'PredictedGenesOver3000bp', 'PredictedGenesOver1000bp',
+                        'PredictedGenesOver500bp', "PredictedGenesUnder500bp", 'NumClustersPF', 'LengthForwardRead',
+                        'LengthReverseRead', 'OtherNames', 'Flowcell', 'MachineName', 'PipelineVersion', 'AssemblyDate']
         self.reporter()
         self.legacy_reporter()
         # Create a database to store all the metadata
