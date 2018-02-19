@@ -16,6 +16,7 @@ from glob import glob
 import xlsxwriter
 import threading
 import pandas
+import shutil
 import os
 import re
 
@@ -141,6 +142,11 @@ class PlasmidExtractor(object):
                 if name == sample.name:
                     # Append the plasmid name extracted from the dictionary to the list of plasmids
                     sample[self.analysistype].plasmids.append(nesteddictionary[line]['Plasmid'])
+        # Copy the report to the folder containing all reports for the pipeline
+        try:
+            shutil.copyfile(self.plasmid_report, os.path.join(self.reportpath, 'plasmidReport.csv'))
+        except IOError:
+            pass
 
     def __init__(self, inputobject):
         self.path = inputobject.path

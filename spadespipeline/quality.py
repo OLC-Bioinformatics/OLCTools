@@ -295,6 +295,11 @@ class Quality(object):
                         sample.confinder.contam_status = 'Contaminated'
                     elif sample.confinder.contam_status is False:
                         sample.confinder.contam_status = 'Clean'
+        # Copy the report to the folder containing all reports for the pipeline
+        try:
+            shutil.copyfile(report, os.path.join(self.path, 'reports', 'confindr_report.csv'))
+        except IOError:
+            pass
 
     def estimate_genome_size(self):
         """
