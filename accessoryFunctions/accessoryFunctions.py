@@ -277,7 +277,8 @@ def printtime(string, start, option=None, output=None):
     """
     # If not option is provided, default to bold high-intensity white
     if not option:
-        option = '\033[1;97m'
+        # option = '\033[1;97m'
+        option = '\033[1;94m'
     # Add the string formatting option to the message. Reset the format back to normal at the end with \033[0m
     print('{} [Elapsed Time: {:.2f} seconds] {} \033[0m'.format(option, time.time() - start, string))
     if output:

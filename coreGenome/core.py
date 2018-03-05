@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from accessoryFunctions.accessoryFunctions import MetadataObject
+from accessoryFunctions.accessoryFunctions import MetadataObject, printtime
 from spadespipeline.GeneSeekr import GeneSeekr
 from csv import DictReader
 from glob import glob
@@ -45,7 +45,6 @@ class CoreGenome(GeneSeekr):
                 if underscored == sorted(coregenomes)[0]:
                     coregenes.add(target)
                 # If the percent identity is greater than the cutoff - adjust the cutoff to 90% for these analyses
-                # print(sample.name, target, percentidentity, row)
                 self.cutoff = 90
                 if percentidentity >= self.cutoff:
                     # Update the dictionary with the target and the number of hits
@@ -108,18 +107,18 @@ class AnnotatedCore(object):
         """
         Calculates the core genome of organisms using custom databases
         """
-        from accessoryFunctions.accessoryFunctions import printtime
         printtime('Calculating annotated core', self.start)
         # Iterate through all the samples, and process all Escherichia
         for sample in self.metadata:
-            if sample.general.referencegenus == 'Escherichia':
-                # Add the Escherichia sample to the runmetadata
-                self.runmetadata.samples.append(sample)
-                # Create a set to store the names of all the core genes in this strain
-                sample[self.analysistype].coreset = set()
-                # Parse the BLAST report
-                self.blastparser(sample[self.analysistype].report, sample)
-        # Create the report
+            if sample.general.bestassemblyfile != 'NA':
+                if sample.general.referencegenus == 'Escherichia':
+                    # Add the Escherichia sample to the runmetadata
+                    self.runmetadata.samples.append(sample)
+                    # Create a set to store the names of all the core genes in this strain
+                    sample[self.analysistype].coreset = set()
+                    # Parse the BLAST report
+                    self.blastparser(sample[self.analysistype].report, sample)
+            # Create the report
         self.reporter()
 
     def blastparser(self, report, sample):

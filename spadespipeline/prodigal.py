@@ -28,37 +28,41 @@ class Prodigal(object):
     def predict(self):
         while True:
             sample = self.predictqueue.get()
-            # fnull = open(os.devnull, 'w')  # define /dev/null
-            reportdir = '{}/prodigal'.format(sample.general.outputdirectory)
-            sample.prodigal.reportdir = '{}/prodigal'.format(sample.general.outputdirectory)
-            results = '{}/{}_prodigalresults.sco'.format(reportdir, sample.name)
-            sample.prodigal.results = results
-            prodigal = 'prodigal -i {} -o {} -f sco -d {}/{}_genes.fa'\
-                .format(sample.general.bestassemblyfile, results, reportdir, sample.name)
-            sample.commands.prodigal = prodigal
-            make_path(reportdir)
+            # Populate attributes
+            sample.prodigal.reportdir = os.path.join(sample.general.outputdirectory, 'prodigal')
+            sample.prodigal.results_file = os.path.join(sample.prodigal.reportdir,
+                                                        '{}_prodigalresults.sco'.format(sample.name))
+            sample.prodigal.results = sample.prodigal.results_file
+            sample.commands.prodigal = 'prodigal -i {in1} -o {out1} -f sco -d {genes}'\
+                .format(in1=sample.general.bestassemblyfile,
+                        out1=sample.prodigal.results_file,
+                        genes=os.path.join(sample.prodigal.reportdir, '{}_genes.fa'.format(sample.name)))
+            # Create the folder to store the reports
+            make_path(sample.prodigal.reportdir)
+            # Determine if the report already exists, and that it is not empty
             size = 0
-            if os.path.isfile(results):
-                size = os.stat(results).st_size
-            if not os.path.isfile(results) or size == 0:
-                out, err = run_subprocess(prodigal)
+            if os.path.isfile(sample.prodigal.results_file):
+                size = os.stat(sample.prodigal.results_file).st_size
+            if not os.path.isfile(sample.prodigal.results_file) or size == 0:
+                # Run the command
+                out, err = run_subprocess(sample.commands.prodigal)
                 threadlock.acquire()
-                write_to_logfile(prodigal, prodigal, self.logfile, sample.general.logout, sample.general.logerr, None,
+                write_to_logfile(sample.commands.prodigal, sample.commands.prodigal, self.logfile,
+                                 sample.general.logout, sample.general.logerr, None,
                                  None)
                 write_to_logfile(out, err, self.logfile, sample.general.logout, sample.general.logerr, None, None)
                 threadlock.release()
-                # call(prodigal, shell=True, stdout=fnull, stderr=fnull)
             self.predictqueue.task_done()
 
     def prodigalparse(self):
         printtime('Parsing gene predictions', self.start)
         for sample in self.metadata:
+            sample.prodigal.predictedgenestotal = 0
+            sample.prodigal.predictedgenesover3000bp = 0
+            sample.prodigal.predictedgenesover1000bp = 0
+            sample.prodigal.predictedgenesover500bp = 0
+            sample.prodigal.predictedgenesunder500bp = 0
             if sample.general.bestassemblyfile != 'NA':
-                sample.prodigal.predictedgenestotal = 0
-                sample.prodigal.predictedgenesover3000bp = 0
-                sample.prodigal.predictedgenesover1000bp = 0
-                sample.prodigal.predictedgenesover500bp = 0
-                sample.prodigal.predictedgenesunder500bp = 0
                 with open(sample.prodigal.results, 'r') as results:
                     for line in results:
                         if line.startswith('>'):

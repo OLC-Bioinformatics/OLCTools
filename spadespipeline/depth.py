@@ -1,19 +1,18 @@
 #!/usr/bin/env python3
-from glob import glob
-from threading import Lock, Thread
-import threading
-import re
-from Bio.Sequencing.Applications import SamtoolsViewCommandline, SamtoolsSortCommandline, SamtoolsIndexCommandline
 from accessoryFunctions.accessoryFunctions import make_path, run_subprocess, write_to_logfile, logstr, GenObject, \
     printtime, get_version, MetadataObject
 from spadespipeline.bowtie import Bowtie2BuildCommandLine, Bowtie2CommandLine
+from Bio.Sequencing.Applications import SamtoolsViewCommandline, SamtoolsSortCommandline, SamtoolsIndexCommandline
 from Bio.Application import ApplicationError
-from io import StringIO
-import os
 from Bio import SeqIO
+from threading import Lock, Thread
+from io import StringIO
+from glob import glob
+import threading
 import shutil
+import os
+import re
 
-threadlock = Lock()
 __author__ = 'mike knowles, adamkoziol'
 
 
@@ -93,6 +92,8 @@ class QualiMap(object):
                 self.bowqueue.put((sample, sample.commands.bowtie2build, sample.commands.bowtie2align))
             else:
                 sample.commands.samtools = "NA"
+                sample.mapping.MeanInsertSize = 'NA'
+                sample.mapping.MeanCoveragedata = 'NA'
         self.bowqueue.join()
 
     def align(self):
@@ -105,12 +106,12 @@ class QualiMap(object):
                     for func in bowtie2build, bowtie2align:
                         stdout.close()
                         out, err = run_subprocess(str(func))
-                        threadlock.acquire()
+                        self.threadlock.acquire()
                         write_to_logfile(str(func), str(func), self.logfile, sample.general.logout,
                                          sample.general.logerr, None, None)
                         write_to_logfile(out, err, self.logfile, sample.general.logout, sample.general.logerr,
                                          None, None)
-                        threadlock.release()
+                        self.threadlock.release()
             # For different alignment
             sam = sample.general.bowtie2results + ".sam"
             if os.path.isfile(sam):
@@ -183,10 +184,8 @@ class QualiMap(object):
                                 except ValueError:
                                     pass
 
-            except IOError:
-                self.bowqueue.task_done()
-                self.bowqueue.join()
-                raise
+            except (IOError, FileNotFoundError):
+                pass
             # If there are values in the dictionary
             if qdict:
                 # Make new category for Qualimap results and populate this category with the report data
@@ -242,19 +241,19 @@ class QualiMap(object):
             # Start the threading
             threads.start()
         for sample in self.metadata:
-            # Set the name of the unfiltered spades assembly output file
-            sample.general.contigsfile = os.path.join(sample.general.spadesoutput, 'contigs.fasta')
-            sample.mapping.pilondir = os.path.join(sample.general.QualimapResults, 'pilon')
-            make_path(sample.mapping.pilondir)
-            # I was getting a java.lang.OutOfMemoryError: GC overhead limit exceeded error, which I fixed by
-            # providing the -Xmx20G argument.
-            sample.mapping.piloncmd = 'pilon --genome {} --bam {} --fix bases --threads {} ' \
-                                      '--outdir {} --changes --mindepth 0.25' \
-                .format(sample.general.contigsfile,
-                        sample.mapping.BamFile,
-                        self.threads,
-                        sample.mapping.pilondir)
-            self.pilonqueue.put(sample)
+            if sample.general.bestassemblyfile != 'NA':
+                # Set the name of the unfiltered spades assembly output file
+                sample.general.contigsfile = os.path.join(sample.general.spadesoutput, 'contigs.fasta')
+                sample.mapping.pilondir = os.path.join(sample.general.QualimapResults, 'pilon')
+                make_path(sample.mapping.pilondir)
+                # Create the command line command
+                sample.mapping.piloncmd = 'pilon --genome {} --bam {} --fix bases --threads {} ' \
+                                          '--outdir {} --changes --mindepth 0.25' \
+                    .format(sample.general.contigsfile,
+                            sample.mapping.BamFile,
+                            self.threads,
+                            sample.mapping.pilondir)
+                self.pilonqueue.put(sample)
         self.pilonqueue.join()
 
     def pilonthreads(self):
@@ -265,11 +264,11 @@ class QualiMap(object):
             if not os.path.isfile(sample.general.contigsfile):
                 command = sample.mapping.piloncmd
                 out, err = run_subprocess(command)
-                threadlock.acquire()
+                self.threadlock.acquire()
                 write_to_logfile(command, command, self.logfile, sample.general.logout, sample.general.logerr, None,
                                  None)
                 write_to_logfile(out, err, self.logfile, sample.general.logout, sample.general.logerr, None, None)
-                threadlock.release()
+                self.threadlock.release()
             self.pilonqueue.task_done()
 
     def filter(self):
@@ -279,7 +278,7 @@ class QualiMap(object):
 
         printtime('Filtering contigs', self.start)
         for i in range(self.cpus):
-            # Send the threads to the merge method. :args is empty as I'm using
+            # Send the threads to the filter method
             threads = Thread(target=self.filterthreads, args=())
             # Set the daemon to true - something to do with thread management
             threads.setDaemon(True)
@@ -287,8 +286,9 @@ class QualiMap(object):
             threads.start()
         for sample in self.metadata:
             # Set the name of the unfiltered spades assembly output file
-            sample.general.contigsfile = os.path.join(sample.general.spadesoutput, 'contigs.fasta')
-            self.filterqueue.put(sample)
+            if sample.general.bestassemblyfile != 'NA':
+                sample.general.contigsfile = os.path.join(sample.general.spadesoutput, 'contigs.fasta')
+                self.filterqueue.put(sample)
         self.filterqueue.join()
 
     def filterthreads(self):
@@ -374,14 +374,13 @@ class QualiMap(object):
         self.metadata = inputobject.runmetadata.samples
         self.start = inputobject.starttime
         self.cpus = inputobject.cpus
+        self.threadlock = Lock()
         try:
             self.threads = int(self.cpus / len(self.metadata)) if self.cpus / len(self.metadata) > 1 else 1
         except TypeError:
             self.threads = self.cpus
         self.logfile = inputobject.logfile
         self.path = inputobject.path
-        # Define /dev/null
-        # self.fnull = open(os.devnull, 'wb')
         self.samversion = get_version(['samtools']).decode('utf-8').split('\n')[2].split()[1]
         # Initialise queues
         self.mapqueue = Queue(maxsize=self.cpus)
@@ -413,8 +412,6 @@ if __name__ == '__main__':
                 metadata.name = strainname
                 # Create the .general attribute
                 metadata.general = GenObject()
-                # Set the .general.filteredfile file to be the name and path of the sequence file
-                # metadata.general.filteredfile = strain
                 # Set the path of the assembly file
                 metadata.general.bestassembliespath = self.assemblypath
                 # Populate the .fastqfiles category of :self.metadata

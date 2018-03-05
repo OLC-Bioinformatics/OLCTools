@@ -406,3 +406,44 @@ def subsample_reads(forward_in, forward_out, num_bases, returncmd=False, reverse
         return out, err, cmd
     else:
         return out, err
+
+
+def validate_reads(forward_in, returncmd=False, reverse_in='NA'):
+    if os.path.isfile(forward_in.replace('_R1', '_R2')) and reverse_in == 'NA' and '_R1' in forward_in:
+        reverse_in = forward_in.replace('_R1', '_R2')
+        cmd = 'reformat.sh in1={} in2={} vpair'.format(forward_in, reverse_in)
+    elif reverse_in == 'NA':
+        cmd = 'reformat.sh in={}'.format(forward_in)
+    out, err = accessoryfunctions.run_subprocess(cmd)
+    if returncmd:
+        return out, err, cmd
+    else:
+        return out, err
+
+
+def repair_reads(forward_in, forward_out, returncmd=False, reverse_in='NA', reverse_out='NA'):
+    if os.path.isfile(forward_in.replace('_R1', '_R2')) and reverse_in == 'NA' and '_R1' in forward_in:
+        reverse_in = forward_in.replace('_R1', '_R2')
+        if reverse_out == 'NA':
+            if '_R1' in forward_out:
+                reverse_out = forward_out.replace('_R1', '_R2')
+            else:
+                raise ValueError('If you do not specify reverse_out, forward_out must contain _R1.\n\n')
+        cmd = 'reformat.sh in1={} in2={} out1={} out2={} tossbrokenreads=t ow=t'.format(forward_in, reverse_in,
+                                                                                         forward_out, reverse_out)
+    elif reverse_in == 'NA':
+        cmd = 'reformat.sh in={} out={} tossbrokenreasd=t ow=t'.format(forward_in, forward_out)
+    else:
+        if reverse_out == 'NA':
+            raise ValueError('Reverse output reads must be specified.')
+        cmd = 'reformat.sh in1={} in2={} out1={} out2={} tossbrokenreads=t ow=t'.format(forward_in, reverse_in,
+                                                                                         forward_out, reverse_out)
+    if not os.path.isfile(forward_out):
+        out, err = accessoryfunctions.run_subprocess(cmd)
+    else:
+        out = str()
+        err = str()
+    if returncmd:
+        return out, err, cmd
+    else:
+        return out, err
