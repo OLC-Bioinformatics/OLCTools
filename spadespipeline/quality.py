@@ -36,37 +36,55 @@ class Quality(object):
                 # Add the sample to the list of samples with FASTQ files that pass this validation step
                 validated_reads.append(sample)
             except CalledProcessError:
+                # Set the file names for the repaired files
+                outputfile1 = os.path.join(sample.general.outputdirectory, '{}_repaired_R1.fastq.gz'
+                                           .format(sample.name))
+                if len(sample.general.fastqfiles) == 2:
+                    outputfile2 = os.path.join(sample.general.outputdirectory, '{}_repaired_R2.fastq.gz'
+                                               .format(sample.name))
+                else:
+                    outputfile2 = str()
                 # Try to use reformat.sh to repair the reads - if this fails, discard the sample from the analyses
                 try:
                     printtime('Errors detected in FASTQ files for sample {sample}. Please check the following log files'
-                              'for details {log} {logout} {logerr}. Using reformat.sh to attempt to repair issues'
+                              ' for details {log} {logout} {logerr}. Using reformat.sh to attempt to repair issues'
                               .format(sample=sample.name,
                                       log=self.logfile,
                                       logout=sample.general.logout,
                                       logerr=sample.general.logerr), self.start)
-                    # Set the file names for the repaired files
-                    outputfile1 = os.path.join(sample.general.outputdirectory, '{}_repaired_R1.fastq.gz'
-                                               .format(sample.name))
-                    outputfile2 = os.path.join(sample.general.outputdirectory, '{}_repaired_R2.fastq.gz'
-                                               .format(sample.name))
-                    # Run repair.sh
-                    out, err, cmd = bbtools.repair_reads(forward_in=sample.general.fastqfiles[0],
-                                                         forward_out=outputfile1,
-                                                         returncmd=True)
-                    write_to_logfile(out, err, self.logfile, sample.general.logout, sample.general.logerr, None, None)
-                    # Update the fastqfiles attribute to point to the repaired files
-                    sample.general.fastqfiles = [outputfile1, outputfile2]
-                    # Add the sample object to the list of samples passing the FASTQ validation step
-                    validated_reads.append(sample)
+                    if not os.path.isfile(outputfile1):
+                        # Run repair.sh
+                        out, err, cmd = bbtools.repair_reads(forward_in=sample.general.fastqfiles[0],
+                                                             forward_out=outputfile1,
+                                                             returncmd=True)
+                        write_to_logfile(out, err, self.logfile, sample.general.logout, sample.general.logerr, None,
+                                         None)
+                    # Ensure that the output file(s) exist before declaring this a success
+                    if os.path.isfile(outputfile1):
+                        # Update the fastqfiles attribute to point to the repaired files
+                        sample.general.fastqfiles = [outputfile1, outputfile2] if outputfile2 else [outputfile1]
+                        # Add the sample object to the list of samples passing the FASTQ validation step
+                        validated_reads.append(sample)
                 except CalledProcessError:
-                    # Write that there was an error detected in the FASTQ files
-                    write_to_logfile('An error was detected in FASTQ files. These files will not be processed further',
-                                     'An error was detected in FASTQ files. These files will not be processed further',
-                                     self.logfile,
-                                     sample.general.logout,
-                                     sample.general.logerr, None, None)
-                    # Set the .fastqfiles attribute to 'NA' to remove this strain from the analyses
-                    sample.general.fastqfiles = 'NA'
+                    # The file(s) can be created even if there is STDERR from reformat.sh
+                    if os.path.isfile(outputfile1):
+                        # Update the fastqfiles attribute to point to the repaired files
+                        sample.general.fastqfiles = [outputfile1, outputfile2] if outputfile2 else [outputfile1]
+                        # Add the sample object to the list of samples passing the FASTQ validation step
+                        validated_reads.append(sample)
+                    else:
+                        # Write in the logs that there was an error detected in the FASTQ files
+                        write_to_logfile('An error was detected in the FASTQ files for sample {}. '
+                                         'These files will not be processed further'.format(sample.name),
+                                         'An error was detected in the FASTQ files for sample {}. '
+                                         'These files will not be processed further'.format(sample.name),
+                                         self.logfile,
+                                         sample.general.logout,
+                                         sample.general.logerr,
+                                         None,
+                                         None)
+                        # Set the .fastqfiles attribute to 'NA' to remove this strain from the analyses
+                        sample.general.fastqfiles = 'NA'
         # Overwrite self.metadata with objects that do not fail the validation
         self.metadata = validated_reads
 
