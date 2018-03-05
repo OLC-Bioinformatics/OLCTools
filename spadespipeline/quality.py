@@ -313,7 +313,6 @@ class Quality(object):
                     cleanreverse = cleanforward
                     if self.forwardlength != 'full':
                         bbdukcall += ' forcetrimright={}'.format(str(self.forwardlength))
-                print(sample.name, bbdukcall)
                 sample.commands.bbduk = bbdukcall
                 # Add the arguments to the queue
                 self.trimqueue.put((sample, bbdukcall, cleanreverse))
