@@ -219,29 +219,30 @@ class Sippr(object):
         """
         printtime('Subsampling {} reads'.format(self.analysistype), self.start, output=self.portallog)
         for sample in self.runmetadata:
-            # Create the name of the subsampled read file
-            sample[self.analysistype].subsampledreads = os.path.join(
-                sample[self.analysistype].outputdir, '{}_targetMatches_subsampled.fastq.gz'.format(self.analysistype))
-            # Set the reformat.sh command - as this command will be run multiple times, overwrite previous iterations
-            # each time. Use samplebasestarget to provide an approximation of the number of bases to include in the
-            # subsampled reads e.g. for rMLST: 700000 (approx. 35000 bp total length of genes x 20X coverage)
-            sample[self.analysistype].subsamplecmd = 'reformat.sh in={} out={} overwrite samplebasestarget=700000' \
-                .format(sample[self.analysistype].baitedfastq,
-                        sample[self.analysistype].subsampledreads)
-            if not os.path.isfile(sample[self.analysistype].subsampledreads):
-                # Run the call
-                # call(sample[self.analysistype].subsamplecmd, shell=True, stdout=self.devnull, stderr=self.devnull)
-                out, err = run_subprocess(sample[self.analysistype].subsamplecmd)
-                write_to_logfile(sample[self.analysistype].subsamplecmd,
-                                 sample[self.analysistype].subsamplecmd,
-                                 self.logfile, sample.general.logout, sample.general.logerr,
-                                 sample[self.analysistype].logout, sample[self.analysistype].logerr)
-                write_to_logfile(out,
-                                 err,
-                                 self.logfile, sample.general.logout, sample.general.logerr,
-                                 sample[self.analysistype].logout, sample[self.analysistype].logerr)
-            # Update the variable to store the baited reads
-            sample[self.analysistype].baitedfastq = sample[self.analysistype].subsampledreads
+            if sample.general.bestassemblyfile != 'NA':
+                # Create the name of the subsampled read file
+                sample[self.analysistype].subsampledreads = os.path.join(
+                    sample[self.analysistype].outputdir,
+                    '{}_targetMatches_subsampled.fastq.gz'.format(self.analysistype))
+                # Set the reformat.sh command - this command will be run multiple times, overwrite previous iterations
+                # each time. Use samplebasestarget to provide an approximation of the number of bases to include in the
+                # subsampled reads e.g. for rMLST: 700000 (approx. 35000 bp total length of genes x 20X coverage)
+                sample[self.analysistype].subsamplecmd = 'reformat.sh in={} out={} overwrite samplebasestarget=700000' \
+                    .format(sample[self.analysistype].baitedfastq,
+                            sample[self.analysistype].subsampledreads)
+                if not os.path.isfile(sample[self.analysistype].subsampledreads):
+                    # Run the call
+                    out, err = run_subprocess(sample[self.analysistype].subsamplecmd)
+                    write_to_logfile(sample[self.analysistype].subsamplecmd,
+                                     sample[self.analysistype].subsamplecmd,
+                                     self.logfile, sample.general.logout, sample.general.logerr,
+                                     sample[self.analysistype].logout, sample[self.analysistype].logerr)
+                    write_to_logfile(out,
+                                     err,
+                                     self.logfile, sample.general.logout, sample.general.logerr,
+                                     sample[self.analysistype].logout, sample[self.analysistype].logerr)
+                # Update the variable to store the baited reads
+                sample[self.analysistype].baitedfastq = sample[self.analysistype].subsampledreads
 
     def mapping(self):
         printtime('Performing reference mapping', self.start, output=self.portallog)

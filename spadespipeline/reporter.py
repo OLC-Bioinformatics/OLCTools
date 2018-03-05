@@ -22,8 +22,6 @@ class Reporter(object):
             data += GenObject.returnattr(sample.run, 'SampleName')
             # Genus
             data += GenObject.returnattr(sample.sixteens_full, 'genus')
-            # Species
-            data += GenObject.returnattr(sample.sixteens_full, 'species')
             # SequencingDate
             data += GenObject.returnattr(sample.run, 'Date')
             # Analyst
@@ -55,7 +53,10 @@ class Reporter(object):
             # 16S_result
             data += GenObject.returnattr(sample.sixteens_full, 'sixteens_match')
             # rMLST_Result
-            data += GenObject.returnattr(sample.rmlst, 'sequencetype') if sample.rmlst.matches == 53 else '-,'
+            try:
+                data += GenObject.returnattr(sample.rmlst, 'sequencetype') if sample.rmlst.matches == 53 else '-,'
+            except KeyError:
+                data += '-,'
             # MLST_Result
             try:
                 data += GenObject.returnattr(sample.mlst, 'sequencetype') if sample.mlst.matches == 7 else '-,'
@@ -333,7 +334,7 @@ class Reporter(object):
         self.reportpath = inputobject.reportpath
         self.starttime = inputobject.starttime
         # Define the headers to be used in the metadata report
-        self.headers = ['SeqID', 'SampleName', 'Genus', 'Species', 'SequencingDate', 'Analyst', 'SamplePurity',
+        self.headers = ['SeqID', 'SampleName', 'Genus', 'SequencingDate', 'Analyst', 'SamplePurity',
                         'AssemblyQuality', 'N50', 'NumContigs', 'TotalLength', 'MeanInsertSize', 'InsertSizeSTD',
                         'AverageCoverageDepth', 'CoverageDepthSTD', 'PercentGC', 'MASH_ReferenceGenome',
                         'MASH_NumMatchingHashes', '16S_result', 'rMLST_Result', 'MLST_Result', 'MLST_gene_1_allele',

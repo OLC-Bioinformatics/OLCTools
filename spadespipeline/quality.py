@@ -20,6 +20,56 @@ __author__ = 'adamkoziol'
 
 class Quality(object):
 
+    def validate_fastq(self):
+        """
+        Runs reformat.sh on the FASTQ files. If a CalledProcessError arises, do not proceed with the assembly of
+        these files
+        """
+        printtime('Validating FASTQ files', self.start)
+        validated_reads = list()
+        for sample in self.metadata:
+            # Try to run reformat.sh on the reads - on any errors try to run repair.sh
+            try:
+                out, err, cmd = bbtools.validate_reads(forward_in=sample.general.fastqfiles[0],
+                                                       returncmd=True)
+                write_to_logfile(out, err, self.logfile, sample.general.logout, sample.general.logerr, None, None)
+                # Add the sample to the list of samples with FASTQ files that pass this validation step
+                validated_reads.append(sample)
+            except CalledProcessError:
+                # Try to use reformat.sh to repair the reads - if this fails, discard the sample from the analyses
+                try:
+                    printtime('Errors detected in FASTQ files for sample {sample}. Please check the following log files'
+                              'for details {log} {logout} {logerr}. Using reformat.sh to attempt to repair issues'
+                              .format(sample=sample.name,
+                                      log=self.logfile,
+                                      logout=sample.general.logout,
+                                      logerr=sample.general.logerr), self.start)
+                    # Set the file names for the repaired files
+                    outputfile1 = os.path.join(sample.general.outputdirectory, '{}_repaired_R1.fastq.gz'
+                                               .format(sample.name))
+                    outputfile2 = os.path.join(sample.general.outputdirectory, '{}_repaired_R2.fastq.gz'
+                                               .format(sample.name))
+                    # Run repair.sh
+                    out, err, cmd = bbtools.repair_reads(forward_in=sample.general.fastqfiles[0],
+                                                         forward_out=outputfile1,
+                                                         returncmd=True)
+                    write_to_logfile(out, err, self.logfile, sample.general.logout, sample.general.logerr, None, None)
+                    # Update the fastqfiles attribute to point to the repaired files
+                    sample.general.fastqfiles = [outputfile1, outputfile2]
+                    # Add the sample object to the list of samples passing the FASTQ validation step
+                    validated_reads.append(sample)
+                except CalledProcessError:
+                    # Write that there was an error detected in the FASTQ files
+                    write_to_logfile('An error was detected in FASTQ files. These files will not be processed further',
+                                     'An error was detected in FASTQ files. These files will not be processed further',
+                                     self.logfile,
+                                     sample.general.logout,
+                                     sample.general.logerr, None, None)
+                    # Set the .fastqfiles attribute to 'NA' to remove this strain from the analyses
+                    sample.general.fastqfiles = 'NA'
+        # Overwrite self.metadata with objects that do not fail the validation
+        self.metadata = validated_reads
+
     def fastqcthreader(self, level):
         printtime('Running quality control on {} fastq files'.format(level), self.start)
         for sample in self.metadata:
@@ -101,7 +151,6 @@ class Quality(object):
                 self.qcqueue.put((sample, fastqccall, outdir, fastqcreads))
         # Wait on the trimqueue until everything has been processed
         self.qcqueue.join()
-        self.qcqueue = Queue()
 
     def fastqc(self):
         """Run fastqc system calls"""
@@ -169,22 +218,31 @@ class Quality(object):
                 cleanreverse = os.path.join(outputdir, '{}_R2_trimmed.fastq.gz'.format(sample.name))
                 min_len = 50
                 if self.numreads == 2:
-                    # Incorporate read length into the minlength parameter - set it to 50 unless one or more of the
-                    # reads has a lower calculated length than 50
-                    lesser_length = min(int(sample.run.forwardlength), int(sample.run.reverselength))
-                    min_len = 50 if lesser_length >= 50 else lesser_length
                     # Separate system calls for paired and unpaired fastq files
                     # http://seqanswers.com/forums/showthread.php?t=42776
                     # BBduk 37.23 doesn't need the ktrim=l/mink=11 parameters, so they have been removed.
                     if len(fastqfiles) == 2:
-                        bbdukcall = "bbduk.sh -Xmx1g in1={in1} in2={in2} out1={out1} out2={out2} qtrim=w trimq=10 " \
-                                    "k=25 minlength={ml} ref=adapters tbo"\
-                            .format(in1=fastqfiles[0],
-                                    in2=fastqfiles[1],
-                                    out1=cleanforward,
-                                    out2=cleanreverse,
-                                    ml=min_len)
+                        # Incorporate read length into the minlength parameter - set it to 50 unless one or more of the
+                        # reads has a lower calculated length than 50
+                        try:
+                            lesser_length = min(int(sample.run.forwardlength), int(sample.run.reverselength))
+                            min_len = 50 if lesser_length >= 50 else lesser_length
+                            bbdukcall = "bbduk.sh -Xmx1g in1={in1} in2={in2} out1={out1} out2={out2} qtrim=w " \
+                                        "trimq=10 k=25 minlength={ml} ref=adapters tbo" \
+                                .format(in1=fastqfiles[0],
+                                        in2=fastqfiles[1],
+                                        out1=cleanforward,
+                                        out2=cleanreverse,
+                                        ml=min_len)
+                        except ValueError:
+                            bbdukcall = ''
+
                     elif len(fastqfiles) == 1:
+                        try:
+                            lesser_length = int(sample.run.forwardlength)
+                        except ValueError:
+                            lesser_length = int(sample.run.reverselength)
+                        min_len = 50 if lesser_length >= 50 else lesser_length
                         bbdukcall = "bbduk.sh -Xmx1g in={in1} out={out1} qtrim=w trimq=10 k=25 minlength={ml} " \
                                     "ref=adapters" \
                             .format(in1=fastqfiles[0],
@@ -339,6 +397,8 @@ class Quality(object):
                 write_to_logfile(out, err, self.logfile, sample.general.logout, sample.general.logerr, None, None)
             except CalledProcessError:
                 sample.general.trimmedcorrectedfastqfiles = sample.general.trimmedfastqfiles
+            except KeyError:
+                sample.general.trimmedcorrectedfastqfiles = list()
 
     def normalise_reads(self):
         """
@@ -359,6 +419,8 @@ class Quality(object):
                 write_to_logfile(out, err, self.logfile, sample.general.logout, sample.general.logerr, None, None)
             except CalledProcessError:
                 sample.general.normalisedreads = sample.general.trimmedfastqfiles
+            except IndexError:
+                sample.general.normalisedreads = list()
 
     def merge_pairs(self):
         """
@@ -386,6 +448,10 @@ class Quality(object):
                     sample[self.analysistype].bbmergecmd = cmd
                     write_to_logfile(out, err, self.logfile, sample.general.logout, sample.general.logerr, None, None)
                 except CalledProcessError:
+                    delattr(sample.general, 'mergedreads')
+                    delattr(sample.general, 'unmergedforward')
+                    delattr(sample.general, 'unmergedreverse')
+                except IndexError:
                     delattr(sample.general, 'mergedreads')
                     delattr(sample.general, 'unmergedforward')
                     delattr(sample.general, 'unmergedreverse')
@@ -442,7 +508,10 @@ class QualityFeatures(object):
             # Create the analysis-type specific attribute
             setattr(sample, self.analysistype, GenObject())
             # Create a dictionary of records for each file
-            record_dict = SeqIO.to_dict(SeqIO.parse(sample.general.bestassemblyfile, "fasta"))
+            try:
+                record_dict = SeqIO.to_dict(SeqIO.parse(sample.general.bestassemblyfile, "fasta"))
+            except FileNotFoundError:
+                record_dict = dict()
             # Set the records dictionary as the attribute for the object
             sample[self.analysistype].record_dict = record_dict
 
@@ -461,8 +530,11 @@ class QualityFeatures(object):
                 fasta_sequence += record.seq
             # Set the reverse sorted (e.g. largest to smallest) list of contig sizes as the value
             sample[self.analysistype].contig_lengths = sorted(contig_lengths, reverse=True)
-            # Calculate the GC% of the total genome sequence using GC - format to have two decimal places
-            sample[self.analysistype].gc = float('{:0.2f}'.format(GC(fasta_sequence)))
+            try:
+                # Calculate the GC% of the total genome sequence using GC - format to have two decimal places
+                sample[self.analysistype].gc = float('{:0.2f}'.format(GC(fasta_sequence)))
+            except TypeError:
+                sample[self.analysistype].gc = 'NA'
 
     def find_largest_contig(self):
         """
@@ -495,6 +567,8 @@ class QualityFeatures(object):
         genome size is contained in contigs equal to or larger than this contig
         """
         for sample in self.metadata:
+            # Initialise the N50 attribute in case there is no assembly, and the attribute is not created in the loop
+            sample[self.analysistype].n50 = '-'
             # Initialise a variable to store a running total of contig lengths
             currentlength = 0
             for contig_length in sample[self.analysistype].contig_lengths:

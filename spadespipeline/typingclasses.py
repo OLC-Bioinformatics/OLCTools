@@ -1,4 +1,4 @@
-#!/usr/bin/env python 3
+#!/usr/bin/env python3
 from accessoryFunctions.accessoryFunctions import combinetargets, filer, GenObject, MetadataObject, printtime, \
     make_path, run_subprocess, write_to_logfile
 from accessoryFunctions.metadataprinter import MetadataPrinter
@@ -6,6 +6,7 @@ from spadespipeline.GeneSeekr import GeneSeekr
 from sipprCommon.objectprep import Objectprep
 from sipprCommon.sippingmethods import Sippr
 from genesippr.genesippr import GeneSippr
+from serosippr.serosippr import SeroSippr
 from reporter.reports import Reports
 from Bio.Alphabet import IUPAC
 from Bio.Seq import Seq
@@ -293,7 +294,27 @@ class ResistanceNotes(object):
         return finalgene, res
 
 
-class ResSippingMethods(Sippr):
+class Serotype(SeroSippr):
+
+    def runner(self):
+        """
+        Run the necessary methods in the correct order
+        """
+        printtime('Starting {} analysis pipeline'.format(self.analysistype), self.starttime)
+        # Run the analyses
+        ShortKSippingMethods(self, self.cutoff)
+        printer = MetadataPrinter(self)
+        printer.printmetadata()
+        self.serotype_escherichia()
+        self.serotype_salmonella()
+        # Create the reports
+        self.reporter()
+        # Print the metadata
+        printer = MetadataPrinter(self)
+        printer.printmetadata()
+
+
+class ShortKSippingMethods(Sippr):
 
     def main(self):
         """
@@ -335,7 +356,7 @@ class ResSippr(GeneSippr):
                 objects.objectprep()
                 self.runmetadata = objects.samples
         # Run the analyses
-        ResSippingMethods(self, self.cutoff)
+        ShortKSippingMethods(self, self.cutoff)
         # Create the reports
         self.reporter()
         # Print the metadata

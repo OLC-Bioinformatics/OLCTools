@@ -105,11 +105,18 @@ class Basic(object):
                     """
                     # The line with the sequence information occurs every four lines (1, 5, 9, etc). This can be
                     # represented by linenumber % 4 == 1
-                    forwardreads = forwardreads.decode('utf-8')  # Added due to weird 2to3 conversion issues, was coming
+                    try:
+                        # Added due to weird 2to3 conversion issues, was coming
+                        forwardreads = forwardreads.decode('utf-8')
+                    except UnicodeDecodeError:
+                        sample.run.forwardlength = 'NA'
                     # up as a bytes object when we need it as a string.
-                    forwardlength = max([len(sequence) for iterator, sequence in enumerate(forwardreads.split('\n'))
-                                         if iterator % 4 == 1])
-                    sample.run.forwardlength = forwardlength
+                    try:
+                        forwardlength = max([len(sequence) for iterator, sequence in enumerate(forwardreads.split('\n'))
+                                             if iterator % 4 == 1])
+                        sample.run.forwardlength = forwardlength
+                    except (ValueError, TypeError):
+                        sample.run.forwardlength = 'NA'
                     # For paired end analyses, also calculate the length of the reverse reads
                     if len(sample.general.fastqfiles) == 2:
                         reversefastq = sorted(sample.general.fastqfiles)[1]
@@ -117,9 +124,15 @@ class Basic(object):
                                                         shell=True,
                                                         stdout=subprocess.PIPE,
                                                         stderr=devnull).communicate()[0].rstrip()
-                        reversereads = reversereads.decode('utf-8')
-                        sample.run.reverselength = max([len(sequence) for iterator, sequence in
-                                                        enumerate(reversereads.split('\n')) if iterator % 4 == 1])
+                        try:
+                            reversereads = reversereads.decode('utf-8')
+                        except UnicodeDecodeError:
+                            sample.run.reverselength = 'NA'
+                        try:
+                            sample.run.reverselength = max([len(sequence) for iterator, sequence in
+                                                            enumerate(reversereads.split('\n')) if iterator % 4 == 1])
+                        except (ValueError, TypeError):
+                            sample.run.reverselength = 'NA'
                     # Populate metadata of single end reads with 'NA'
                     else:
                         sample.run.reverselength = 'NA'
