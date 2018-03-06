@@ -101,11 +101,7 @@ class Reporter(object):
             data += GenObject.returnattr(sample.sistr, 'serovar')
             # GeneSeekr_Profile
             try:
-                results = list()
-                for result, percentid in sorted(sample.genesippr.results.items()):
-                    if float(percentid) > 70:
-                        results.append(result)
-                data += ';'.join(results) + ','
+                data += ';'.join(sample.genesippr.report_output) + ','
             except KeyError:
                 data += '-,'
             # Vtyper_Profile

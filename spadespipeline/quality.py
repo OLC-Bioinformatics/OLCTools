@@ -67,22 +67,20 @@ class Quality(object):
                         # Run repair.sh (if necessary)
                         if outputfile2:
                             out, err, cmd = bbtools.repair_reads(forward_in=outputfile1,
-                                                                 forward_out=outputfile1,
+                                                                 forward_out=repair_file1,
                                                                  returncmd=True)
                             write_to_logfile(out, err, self.logfile, sample.general.logout, sample.general.logerr, None,
                                              None)
                     # Ensure that the output file(s) exist before declaring this a success
                     if os.path.isfile(outputfile1):
                         # Update the fastqfiles attribute to point to the repaired files
-                        sample.general.fastqfiles = [repair_file1, repair_file2] if repair_file2 else [repair_file1]
+                        sample.general.fastqfiles = [repair_file1, repair_file2] if repair_file2 else [outputfile1]
                         # Add the sample object to the list of samples passing the FASTQ validation step
                         validated_reads.append(sample)
                 except CalledProcessError:
                     # The file(s) can be created even if there is STDERR from reformat.sh
                     if os.path.isfile(outputfile1) and outputfile2:
                         try:
-                            repair_file1 = os.path.join(sample.general.outputdirectory, '{}_repaired_R1.fastq.gz'
-                                                        .format(sample.name))
                             out, err, cmd = bbtools.repair_reads(forward_in=outputfile1,
                                                                  forward_out=repair_file1,
                                                                  returncmd=True)
