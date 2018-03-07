@@ -19,7 +19,7 @@ class Reporter(object):
             # Add the value of the appropriate attribute to the results string
             data += GenObject.returnattr(sample, 'name')
             # SampleName
-            data += GenObject.returnattr(sample.run, 'SampleName')
+            data += GenObject.returnattr(sample.run, 'SamplePlate')
             # Genus
             data += GenObject.returnattr(sample.sixteens_full, 'genus')
             # SequencingDate
