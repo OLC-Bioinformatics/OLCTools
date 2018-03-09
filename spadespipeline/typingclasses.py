@@ -26,6 +26,16 @@ __author__ = 'adamkoziol'
 
 class GDCS(Sippr):
 
+    def main(self):
+        """
+        Run the necessary methods in the correct order
+        """
+        printtime('Starting {} analysis pipeline'.format(self.analysistype), self.starttime)
+        # Run the analyses
+        ShortKSippingMethods(self, self.cutoff)
+        # Create the reports
+        self.reporter()
+
     def reporter(self):
         # Create the report object
         report = Reports(self)
@@ -40,7 +50,20 @@ class GDCS(Sippr):
         self.analysescomplete = True
         self.reportpath = inputobject.reportpath
         self.runmetadata = inputobject.runmetadata
-        self.reporter()
+        self.homepath = inputobject.homepath
+        self.analysistype = 'GDCS'
+        self.cutoff = 0.9
+        self.pipeline = True
+        self.revbait = False
+        self.sequencepath = inputobject.path
+        self.targetpath = os.path.join(inputobject.reffilepath, self.analysistype)
+        self.cpus = inputobject.cpus
+        self.threads = int(self.cpus / len(self.runmetadata.samples)) \
+            if self.cpus / len(self.runmetadata.samples) > 1 else 1
+        self.taxonomy = {'Escherichia': 'coli', 'Listeria': 'monocytogenes', 'Salmonella': 'enterica'}
+        self.logfile = inputobject.logfile
+        super().__init__(self)
+        # self.runner()
 
 
 class Plasmids(GeneSippr):
@@ -322,11 +345,12 @@ class ShortKSippingMethods(Sippr):
         """
         # Find the target files
         self.targets()
+        kmer = 15 if self.analysistype == 'GDCS' else 17
         # Use bbduk to bait the FASTQ reads matching the target sequences
-        self.bait(maskmiddle='t', k=17)
+        self.bait(maskmiddle='t', k=kmer)
         # If desired, use bbduk to bait the target sequences with the previously baited FASTQ files
         if self.revbait:
-            self.reversebait(maskmiddle='t', k=17)
+            self.reversebait(maskmiddle='t', k=kmer)
         # Run the bowtie2 read mapping module
         self.mapping()
         # Use samtools to index the sorted bam file

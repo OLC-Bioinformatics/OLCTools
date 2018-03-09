@@ -734,7 +734,10 @@ class Sippr(object):
         self.sequencepath = inputobject.sequencepath
         self.targetpath = inputobject.targetpath
         self.reportpath = inputobject.reportpath
-        self.runmetadata = inputobject.runmetadata.samples
+        try:
+            self.runmetadata = inputobject.runmetadata.samples
+        except AttributeError:
+            self.runmetadata = inputobject.runmetadata
         self.start = inputobject.starttime
         self.analysistype = inputobject.analysistype
         self.cpus = inputobject.cpus
