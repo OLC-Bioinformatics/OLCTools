@@ -224,6 +224,10 @@ class ResistanceNotes(object):
                     genedict[altgene] = resistance
                     altgenedict[gene] = altgene
                     revaltgenedict[altgene] = gene
+                # cfr genes are grouped together in the notes.txt file
+                if 'cfr' in line:
+                    genedict['{}B'.format(gene)] = resistance
+                    genedict['{}(C)'.format(gene)] = resistance
         return genedict, altgenedict, revaltgenedict
 
     @staticmethod

@@ -64,8 +64,20 @@ class Reporter(object):
                 data += '-,'
             # MLST_gene_X_alleles
             try:
-                for allele in sorted(sample.mlst.results):
-                    data += allele + ','
+                # Create a set of all the genes present in the results (gene name split from allele)
+                gene_set = {gene.split('_')[0] for gene in sample.mlst.results}
+                for gene in sorted(gene_set):
+                    allele_list = list()
+                    # Determine all the alleles that are present for each gene
+                    for allele in sample.mlst.results:
+                        if gene in allele:
+                            allele_list.append(allele)
+                    # If there is more than one allele in the sample, add both to the string separated by a ';'
+                    if len(allele_list) > 1:
+                        data += '{},'.format(';'.join(allele_list))
+                    # Otherwise add the only allele
+                    else:
+                        data += allele_list[0] + ','
                 # If there are fewer than seven matching alleles, add a - for each missing result
                 if len(sample.mlst.results) < 7:
                     data += (7 - len(sample.mlst.results)) * '-,'
