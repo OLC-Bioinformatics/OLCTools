@@ -123,7 +123,11 @@ class QualiMap(object):
                     samsort = SamtoolsSortCommandline(input=sample.mapping.BamFile, o=True, out_prefix="-")
                 # Use cStringIO streams to handle bowtie output
                 stdout = StringIO()
-                for func in [SamtoolsViewCommandline(b=True, S=True, input_file=sample.mapping.BamFile), samsort]:
+                for func in [SamtoolsViewCommandline(b=True,
+                                                     S=True,
+                                                     F=4,
+                                                     h=True,
+                                                     input_file=sample.mapping.BamFile), samsort]:
                     # Use closing contextmanager for handle __exit__() as close()
                     stdout, stderr = map(StringIO, func(stdin=stdout.getvalue()))
                     # Write the standard error to log
@@ -242,8 +246,8 @@ class QualiMap(object):
             threads.start()
         for sample in self.metadata:
             if sample.general.bestassemblyfile != 'NA':
-                # Set the name of the unfiltered spades assembly output file
-                sample.general.contigsfile = os.path.join(sample.general.spadesoutput, 'contigs.fasta')
+                # Set the name of the unfiltered assembly output file
+                sample.general.contigsfile = sample.general.assemblyfile
                 sample.mapping.pilondir = os.path.join(sample.general.QualimapResults, 'pilon')
                 make_path(sample.mapping.pilondir)
                 # Create the command line command
@@ -285,16 +289,16 @@ class QualiMap(object):
             # Start the threading
             threads.start()
         for sample in self.metadata:
-            # Set the name of the unfiltered spades assembly output file
+            # Set the name of the unfiltered assembly output file
             if sample.general.bestassemblyfile != 'NA':
-                sample.general.contigsfile = os.path.join(sample.general.spadesoutput, 'contigs.fasta')
+                sample.general.contigsfile = sample.general.assemblyfile
                 self.filterqueue.put(sample)
         self.filterqueue.join()
 
     def filterthreads(self):
         while True:
             sample = self.filterqueue.get()
-            # Only run on samples that have been processed with spades
+            # Only run on samples that have been assembled
             if os.path.isfile(sample.general.contigsfile) and not os.path.isfile(sample.general.filteredfile):
                 # Create a list to store all the records of contigs that pass the minimum depth filtering
                 passdepth = list()
@@ -311,8 +315,8 @@ class QualiMap(object):
                             and len(record.seq) > 500:
                         # Replace 'NODE' in the fasta header with the sample name
                         # >NODE_1_length_705814_cov_37.107_ID_4231
-                        newid = re.sub("NODE", sample.name, record.id)
-                        record.id = str(record.id).replace('NODE', sample.name)
+                        newid = re.sub("Contig", sample.name, record.id)
+                        record.id = str(record.id).replace('Contig', sample.name)
                         record.id = newid
                         # Clear the name and description attributes of the record
                         record.name = ''

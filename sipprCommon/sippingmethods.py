@@ -247,7 +247,7 @@ class Sippr(object):
     def mapping(self):
         printtime('Performing reference mapping', self.start, output=self.portallog)
         for i in range(len(self.runmetadata)):
-            # Send the threads to
+            # Start threads
             threads = Thread(target=self.map, args=())
             # Set the daemon to True - something to do with thread management
             threads.setDaemon(True)
@@ -256,8 +256,8 @@ class Sippr(object):
         for sample in self.runmetadata:
             if sample.general.bestassemblyfile != 'NA' and sample[self.analysistype].runanalysis:
                 # Set the path/name for the sorted bam file to be created
-                sample[self.analysistype].sortedbam = '{}/{}_sorted.bam'.format(sample[self.analysistype].outputdir,
-                                                                                self.analysistype)
+                sample[self.analysistype].sortedbam = os.path.join(sample[self.analysistype].outputdir,
+                                                                   '{}_sorted.bam'.format(self.analysistype))
                 # Remove the file extension of the bait file for use in the indexing command
                 sample[self.analysistype].baitfilenoext = sample[self.analysistype].baitfile.split('.fasta')[0]
                 # Use bowtie2 wrapper to create index the target file
