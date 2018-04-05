@@ -198,8 +198,6 @@ class GeneSeekr(object):
             # alignments are reported. Also note the custom outfmt: the doubled quotes are necessary to get it work
             blastn = NcbiblastnCommandline(query=assembly, db=db, evalue='1E-5', num_alignments=1000000,
                                            num_threads=12,
-                                           # outfmt="'6 qseqid sseqid positive mismatch gaps "
-                                           #        "evalue bitscore slen length'",
                                            outfmt="'6 qseqid sseqid positive mismatch gaps "
                                                   "evalue bitscore slen length qstart qend qseq sstart send sseq'",
                                            out=sample[self.analysistype].report)
@@ -209,7 +207,7 @@ class GeneSeekr(object):
             if not os.path.isfile(sample[self.analysistype].report):
                 try:
                     blastn()
-                except:
+                except ApplicationError:
                     self.blastqueue.task_done()
                     self.blastqueue.join()
                     try:
@@ -270,6 +268,11 @@ class GeneSeekr(object):
         :param report: Name of the blast output report being parsed
         :param sample: sample object
         """
+        # Encountering the following error: # _csv.Error: field larger than field limit (131072)
+        # According to https://stackoverflow.com/a/15063941, increasing the field limit should fix the issue
+        import csv
+        import sys
+        csv.field_size_limit(sys.maxsize)
         # Open the sequence profile file as a dictionary
         blastdict = DictReader(open(report), fieldnames=self.fieldnames, dialect='excel-tab')
         # Initialise a dictionary to store all the target sequences
@@ -961,8 +964,8 @@ if __name__ == '__main__':
             elif self.virulencefinder:
                 self.analysistype = 'virulence'
             elif self.resfinder and self.virulencefinder:
-                print('Cannot perform ResFinder and VirulenceFinder simultaneously. Please choose only one'
-                      'of the -R and -v flags')
+                printtime('Cannot perform ResFinder and VirulenceFinder simultaneously. Please choose only one '
+                          'of the -R and -v flags', self.start)
             else:
                 self.analysistype = 'geneseekr'
             self.start = time.time()

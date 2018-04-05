@@ -487,8 +487,8 @@ class Quality(object):
                 sample.general.unmergedreverse = \
                     os.path.join(sample.general.outputdirectory, '{}_unpaired_R2.fastq.gz'.format(sample.name))
                 try:
-                    # Run the merging command
-                    out, err, cmd = bbtools.bbmerge(forward_in=sample.general.normalisedreads[0],
+                    # Run the merging command - forward_in=sample.general.normalisedreads[0],
+                    out, err, cmd = bbtools.bbmerge(forward_in=sorted(sample.general.trimmedcorrectedfastqfiles)[0],
                                                     merged_reads=sample.general.mergedreads,
                                                     returncmd=True,
                                                     outu1=sample.general.unmergedforward,

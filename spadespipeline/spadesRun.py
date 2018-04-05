@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 from accessoryFunctions.accessoryFunctions import printtime, get_version, run_subprocess, write_to_logfile, dotter
 import threading
 from threading import Thread

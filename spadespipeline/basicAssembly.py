@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 from accessoryFunctions.accessoryFunctions import filer, MetadataObject, GenObject, make_path
 from spadespipeline import metadataReader
 from glob import glob
@@ -140,5 +140,4 @@ class Basic(object):
     def __init__(self, inputobject):
         self.samples = list()
         self.path = inputobject.path
-        self.kmers = inputobject.kmers
         self.basic()
