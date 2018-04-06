@@ -15,7 +15,7 @@ class Skesa(object):
 
     def assemble_threads(self):
         # Only make as many threads are there are samples with fastq files
-        for i in range(self.threads):
+        for i in range(self.cpus):
             # Send the threads to the merge method. :args is empty as I'm using
             threads = Thread(target=self.assemble, args=())
             # Set the daemon to true - something to do with thread management
@@ -33,20 +33,7 @@ class Skesa(object):
                     sample.general.assemblyfile = os.path.join(sample.general.assembly_output, '{name}_unfiltered.fasta'
                                                                .format(name=sample.name))
                     sample.general.bestassemblyfile = os.path.join(sample.general.assembly_output, '{name}.fasta'
-                                                               .format(name=sample.name))
-                    # try:
-                    #     fastqfiles = [sample.general.mergedreads,
-                    #                   sample.general.unmergedforward,
-                    #                   sample.general.unmergedreverse]
-                    #     sample.general.assemblyfastq = fastqfiles
-                    #     gz = True if '.gz' in sample.general.mergedreads else False
-                    #     sample.commands.assemble = 'skesa --fastq {fastqfiles} --cores {threads} --gz {gz} ' \
-                    #                                '--use_paired_ends --contigs_out {contigs}'\
-                    #         .format(fastqfiles=','.join(fastqfiles),
-                    #                 threads=self.threads,
-                    #                 gz=gz,
-                    #                 contigs=sample.general.assemblyfile)
-                    # except KeyError:
+                                                                   .format(name=sample.name))
                     fastqfiles = sample.general.trimmedcorrectedfastqfiles
 
                     # Set the the forward fastq files
