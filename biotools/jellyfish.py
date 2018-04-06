@@ -22,7 +22,7 @@ def count(forward_in, reverse_in='NA', kmer_size=31, count_file='mer_counts.jf',
     """
     create_uncompressed = False
     to_remove = list()
-    if os.path.isfile(forward_in.replace('_R1', '_R2')) and reverse_in == 'NA':
+    if os.path.isfile(forward_in.replace('_R1', '_R2')) and reverse_in == 'NA' and forward_in.replace('_R1', '_R2') != forward_in:
         reverse_in = forward_in.replace('_R1', '_R2')
         if forward_in.endswith('.gz'):
             forward_in = accessoryfunctions.uncompress_gzip(forward_in)
