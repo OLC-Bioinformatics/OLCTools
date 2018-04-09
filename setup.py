@@ -9,5 +9,5 @@ setup(
     author="Andrew Low",
     author_email="andrew.low@inspection.gc.ca",
     url="https://github.com/lowandrew/OLCTools",
-    install_requires=['biopython']
+    install_requires=['biopython', 'interop']
 )

@@ -143,6 +143,10 @@ class Reporter(object):
             data += GenObject.returnattr(sample.prodigal, 'predictedgenesunder500bp')
             # NumClustersPF
             data += GenObject.returnattr(sample.run, 'NumberofClustersPF')
+            # Percent of reads mapping to PhiX control
+            data += GenObject.returnattr(sample.run, 'phix_aligned')
+            # Error rate calculated from PhiX control
+            data += GenObject.returnattr(sample.run, 'error_rate')
             # LengthForwardRead
             data += GenObject.returnattr(sample.run, 'forwardlength')
             # LengthReverseRead
@@ -351,8 +355,9 @@ class Reporter(object):
                         'SISTR_serovar_antigen', 'SISTR_serovar_cgMLST', 'SISTR_serogroup', 'SISTR_h1', 'SISTR_h2',
                         'SISTR_serovar', 'GeneSeekr_Profile', 'Vtyper_Profile', 'AMR_Profile', 'PlasmidProfile',
                         'TotalPredictedGenes', 'PredictedGenesOver3000bp', 'PredictedGenesOver1000bp',
-                        'PredictedGenesOver500bp', "PredictedGenesUnder500bp", 'NumClustersPF', 'LengthForwardRead',
-                        'LengthReverseRead', 'OtherNames', 'Flowcell', 'MachineName', 'PipelineVersion', 'AssemblyDate']
+                        'PredictedGenesOver500bp', "PredictedGenesUnder500bp", 'NumClustersPF', 'PercentReadsPhiX',
+                        'ErrorRate', 'LengthForwardRead', 'LengthReverseRead', 'OtherNames', 'Flowcell', 'MachineName',
+                        'PipelineVersion', 'AssemblyDate']
         self.reporter()
         self.legacy_reporter()
         # Create a database to store all the metadata
