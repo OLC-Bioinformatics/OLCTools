@@ -109,8 +109,6 @@ class CLARK(object):
         for sample in self.runmetadata.samples:
             # Set the name of the abundance report
             sample.general.abundance = sample.general.combined.split('.')[0] + '_abundance.csv'
-            # print sample.name, sample.general.combined, sample.general.abundance
-            #
             # if not hasattr(sample, 'commands'):
             if not sample.commands.datastore:
                 sample.commands = GenObject()
@@ -141,7 +139,7 @@ class CLARK(object):
 
     def reports(self):
         """Create reports from the abundance estimation"""
-        printtime('Creating report', self.start)
+        printtime('Creating CLARK report for {} files'.format(self.extension), self.start)
         # Create a workbook to store the report. Using xlsxwriter rather than a simple csv format, as I want to be
         # able to have appropriately sized, multi-line cells
         workbook = xlsxwriter.Workbook(self.report)
@@ -294,7 +292,7 @@ class CLARK(object):
                 self.runmetadata = args.runmetadata
                 self.extension = self.runmetadata.extension
                 # Create the name of the final report
-                self.report = os.path.join('{}'.format('abundance{}.xlsx'.format(self.extension)))
+                self.report = os.path.join(self.reportpath, '{}'.format('abundance{}.xlsx'.format(self.extension)))
                 # Only re-run the CLARK analyses if the CLARK report doesn't exist. All files created by CLARK
                 if not os.path.isfile(self.report):
                     #
@@ -417,7 +415,7 @@ if __name__ == '__main__':
 
 class PipelineInit(object):
 
-    def __init__(self, inputobject, analysis='pipeline'):
+    def __init__(self, inputobject):
         # Create an object to mimic the command line arguments necessary for the script
         args = MetadataObject()
         args.path = inputobject.path
