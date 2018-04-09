@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 from accessoryFunctions.accessoryFunctions import printtime
-from glob import glob
 import os
 import re
 __author__ = 'adamkoziol'
@@ -14,11 +13,6 @@ class Compress(object):
         printtime('Removing large and/or temporary files', self.start)
         removefolder = list()
         for sample in self.metadata:
-            # Find the folders in the spades output directory that should be removed
-            for folder in glob(os.path.join(sample.general.spadesoutput, 'K*')):
-                removefolder.append(folder)
-            removefolder.append(os.path.join(sample.general.spadesoutput, 'misc'))
-            removefolder.append(os.path.join(sample.general.spadesoutput, 'tmp'))
             # Use os.walk to iterate through all the files in the sample output directory
             for path, dirs, files in os.walk(sample.general.outputdirectory):
                 for item in files:
@@ -27,15 +21,15 @@ class Compress(object):
                             or re.search(".bt2$", item) or re.search(".tab$", item) or re.search("^before", item) \
                             or re.search("^baitedtargets", item) or re.search("_combined.csv$", item) \
                             or re.search("^scaffolds", item) or re.search(".fastg$", item) or re.search(".gfa$", item) \
-                            or re.search(".bai$", item):
+                            or re.search(".bai$", item) or 'coregenome' in dirs:
                         # Keep the baitedtargets.fa files
-                        if item != 'baitedtargets.fa':
+                        if item != 'baitedtargets.fa' and not re.search("coregenome", item):
                             # Remove the unnecessary files
                             try:
                                 os.remove(os.path.join(path, item))
                             except IOError:
                                 pass
-        # # Clear out the folders
+        # Clear out the folders
         for folder in removefolder:
             try:
                 shutil.rmtree(folder)

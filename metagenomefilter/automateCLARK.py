@@ -76,9 +76,6 @@ class CLARK(object):
                         filelist.write(sample.general.combined + '\n')
                         reportlist.write(sample.general.combined.split('.')[0] + '\n')
         # Define the system call
-        # Need to add the cwd to self.filelist and self.reportlist.
-        # self.filelist = os.getcwd() + "/" + self.filelist
-        # self.reportlist = os.getcwd() + "/" + self.reportlist
         self.classifycall = 'cd {} && ./classify_metagenome.sh -O {} -R {} -n {}'.format(self.clarkpath,
                                                                                          self.filelist,
                                                                                          self.reportlist,
@@ -297,7 +294,7 @@ class CLARK(object):
                 self.runmetadata = args.runmetadata
                 self.extension = self.runmetadata.extension
                 # Create the name of the final report
-                self.report = '{}/{}'.format(self.reportpath, 'abundance{}.xlsx'.format(self.extension))
+                self.report = os.path.join('{}'.format('abundance{}.xlsx'.format(self.extension)))
                 # Only re-run the CLARK analyses if the CLARK report doesn't exist. All files created by CLARK
                 if not os.path.isfile(self.report):
                     #
@@ -319,11 +316,11 @@ class CLARK(object):
                         make_path(sample[clarkextension].outputpath)
                         # Move the files to the CLARK folder
                         move(sample.general.abundance,
-                             '{}/{}'.format(sample[clarkextension].outputpath,
-                                            os.path.basename(sample.general.abundance)))
+                             os.path.join(sample[clarkextension].outputpath,
+                                          os.path.basename(sample.general.abundance)))
                         move(sample.general.classification,
-                             '{}/{}'.format(sample[clarkextension].outputpath,
-                                            os.path.basename(sample.general.classification)))
+                             os.path.join(sample[clarkextension].outputpath,
+                                          os.path.basename(sample.general.classification)))
                         # Set the CLARK-specific attributes
                         sample[clarkextension].abundance = sample.general.abundance
                         sample[clarkextension].classification = sample.general.classification
@@ -338,17 +335,17 @@ class CLARK(object):
                         map(lambda x: delattr(sample.general, x), ['abundance', 'classification', 'combined'])
                         # Remove the text files lists of files and reports created by CLARK
                         try:
-                            map(lambda x: os.remove('{}{}'.format(self.path, x)), ['reportList.txt', 'sampleList.txt'])
+                            map(lambda x: os.remove(os.path.join(self.path, x)), ['reportList.txt', 'sampleList.txt'])
                         except OSError:
                             pass
             else:
                 self.runmetadata = MetadataObject()
-                self.report = '{}/{}'.format(self.reportpath, 'abundance.xlsx')
+                self.report = os.path.join(self.reportpath, 'abundance.xlsx')
                 # Create the objects
                 self.objectprep()
         except AttributeError:
             self.runmetadata = MetadataObject()
-            self.report = '{}/{}'.format(self.reportpath, 'abundance.xlsx')
+            self.report = os.path.join(self.reportpath, 'abundance.xlsx')
             # Create the objects
             self.objectprep()
         # Optionally filter the .fastq reads based on taxonomic assignment
@@ -438,16 +435,6 @@ class PipelineInit(object):
         args.runmetadata = inputobject.runmetadata
         args.clean_seqs = False
         args.reffilepath = inputobject.reffilepath
-        if analysis == 'pipeline':
-            # Run CLARK on both .fastq and .fasta files
-            for extension in ['fastq', 'fasta']:
-                args.runmetadata.extension = extension
-                if extension == 'fasta':
-                    # Overwrite the .sequencepath attribute to point to the folder storing all the assemblies
-                    args.sequencepath = os.path.join(args.path, 'BestAssemblies')
-                # Run CLARK
-                CLARK(args, inputobject.commit, inputobject.starttime, inputobject.homepath)
-        else:
-            args.runmetadata.extension = 'fasta'
-            # Run CLARK
-            CLARK(args, inputobject.commit, inputobject.starttime, inputobject.homepath)
+        args.runmetadata.extension = 'fasta'
+        # Run CLARK
+        CLARK(args, inputobject.commit, inputobject.starttime, inputobject.homepath)
