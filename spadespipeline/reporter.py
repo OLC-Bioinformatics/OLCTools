@@ -356,8 +356,8 @@ class Reporter(object):
                         'SISTR_serovar', 'GeneSeekr_Profile', 'Vtyper_Profile', 'AMR_Profile', 'PlasmidProfile',
                         'TotalPredictedGenes', 'PredictedGenesOver3000bp', 'PredictedGenesOver1000bp',
                         'PredictedGenesOver500bp', "PredictedGenesUnder500bp", 'NumClustersPF', 'PercentReadsPhiX',
-                        'ErrorRate', 'LengthForwardRead', 'LengthReverseRead', 'OtherNames', 'Flowcell', 'MachineName',
-                        'PipelineVersion', 'AssemblyDate']
+                        'ErrorRate', 'LengthForwardRead', 'LengthReverseRead', 'RealTimeStrain', 'Flowcell',
+                        'MachineName', 'PipelineVersion', 'AssemblyDate']
         self.reporter()
         self.legacy_reporter()
         # Create a database to store all the metadata
