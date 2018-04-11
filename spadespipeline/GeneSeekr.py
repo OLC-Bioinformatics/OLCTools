@@ -3,7 +3,10 @@ from accessoryFunctions.accessoryFunctions import printtime, run_subprocess, wri
     combinetargets, MetadataObject, GenObject, make_dict
 from Bio.Blast.Applications import NcbiblastnCommandline
 from Bio.Application import ApplicationError
+from Bio.pairwise2 import format_alignment
+from Bio.SeqRecord import SeqRecord
 from Bio.Alphabet import IUPAC
+from Bio import pairwise2
 from Bio.Seq import Seq
 from Bio import SeqIO
 from collections import defaultdict
@@ -11,8 +14,12 @@ from threading import Thread
 from csv import DictReader
 from glob import glob
 import threading
+import xlsxwriter
 import time
+import csv
+import sys
 import os
+import re
 
 __author__ = 'adamkoziol'
 
@@ -95,14 +102,18 @@ class GeneSeekr(object):
                 pass
             # Find the best hit for each location based on percent identity
             for contig in resultdict:
+                # Do not allow the same gene to be added to the dictionary more than once
+                genes = list()
                 for location in resultdict[contig]:
                     # Initialise a variable to determine whether there is already a best hit found for the location
                     multiple = False
                     # Iterate through the BLAST results to find the best hit
                     for row in rowdict[contig][location]:
                         # Add the best hit to the .blastresults attribute of the object
-                        if row['percentidentity'] == max(resultdict[contig][location]) and not multiple:
+                        if row['percentidentity'] == max(resultdict[contig][location]) and not multiple \
+                                and row['subject_id'] not in genes:
                             sample[self.analysistype].blastresults.append(row)
+                            genes.append(row['subject_id'])
                             multiple = True
 
     def makedbthreads(self):
@@ -270,8 +281,6 @@ class GeneSeekr(object):
         """
         # Encountering the following error: # _csv.Error: field larger than field limit (131072)
         # According to https://stackoverflow.com/a/15063941, increasing the field limit should fix the issue
-        import csv
-        import sys
         csv.field_size_limit(sys.maxsize)
         # Open the sequence profile file as a dictionary
         blastdict = DictReader(open(report), fieldnames=self.fieldnames, dialect='excel-tab')
@@ -361,7 +370,6 @@ class GeneSeekr(object):
         """
         Creates .xlsx reports using xlsxwriter
         """
-        import xlsxwriter
         # Create a workbook to store the report. Using xlsxwriter rather than a simple csv format, as I want to be
         # able to have appropriately sized, multi-line cells
         workbook = xlsxwriter.Workbook(os.path.join(self.reportpath, '{}.xlsx'.format(self.analysistype)))
@@ -471,9 +479,6 @@ class GeneSeekr(object):
         """
         Create alignments of the sample nucleotide and amino acid sequences to the reference sequences
         """
-        import re
-        from Bio import pairwise2
-        from Bio.pairwise2 import format_alignment
         # Initialise dictionaries
         sample[self.analysistype].dnaseq = dict()
         sample[self.analysistype].protseq = dict()
@@ -553,8 +558,7 @@ class GeneSeekr(object):
         """
         Custom reports for ResFinder analyses. These reports link the gene(s) found to their resistance phenotypes
         """
-        import xlsxwriter
-        from Bio.SeqRecord import SeqRecord
+
         for sample in self.metadata:
             if sample.general.bestassemblyfile != 'NA':
                 # Create a dictionary to store the genotype: phenotype data
@@ -572,7 +576,7 @@ class GeneSeekr(object):
 
         # Create a workbook to store the report. Using xlsxwriter rather than a simple csv format, as I want to be
         # able to have appropriately sized, multi-line cells
-        workbook = xlsxwriter.Workbook('{}/{}.xlsx'.format(self.reportpath, self.analysistype))
+        workbook = xlsxwriter.Workbook(os.path.join(self.reportpath, '{}.xlsx'.format(self.analysistype)))
         # New worksheet to store the data
         worksheet = workbook.add_worksheet()
         # Add a bold format for header cells. Using a monotype font size 10
@@ -697,6 +701,9 @@ class GeneSeekr(object):
             if sample[self.analysistype].sampledata:
                 for data in sample[self.analysistype].sampledata:
                     if multiple:
+                        worksheet.write(row, col, sample.name, courier)
+                        columnwidth[col] = len(sample.name)
+                        worksheet.set_column(col, col, columnwidth[col])
                         col += 1
                     # List of the number of lines for each result
                     totallines = list()
@@ -713,8 +720,8 @@ class GeneSeekr(object):
                             totallines.append(lines)
                         except IndexError:
                             try:
-                                # Counting the length of multi-line strings yields columns that are far too wide, only count
-                                # the length of the string up to the first line break
+                                # Counting the length of multi-line strings yields columns that are far too wide,
+                                # only count the length of the string up to the first line break
                                 alignmentcorrect = len(str(results).split('\n')[0])
                                 # Count the number of lines for the data
                                 lines = results.count('\n') if results.count('\n') >= 1 else 1
@@ -871,7 +878,7 @@ if __name__ == '__main__':
         def strainer(self):
             # Get the sequences in the sequences folder into a list. Note that they must have a file extension that
             # begins with .fa
-            self.strains = sorted(glob('{}*.fa*'.format(self.sequencepath)))
+            self.strains = sorted(glob(os.path.join(self.sequencepath, '*.fa*'.format(self.sequencepath))))
             self.targets = sorted(glob(os.path.join(self.targetpath, '*.tfa')))
             try:
                 self.combinedtargets = glob(os.path.join(self.targetpath, '*.fasta'))[0]
@@ -943,13 +950,13 @@ if __name__ == '__main__':
                                 action='store_true',
                                 help='Perform VirulenceFinder-like analyses')
             args = parser.parse_args()
-            self.sequencepath = os.path.join(args.sequencepath, '')
+            self.sequencepath = os.path.join(args.sequencepath)
             assert os.path.isdir(self.sequencepath), 'Cannot locate sequence path as specified: {}'\
                 .format(self.sequencepath)
-            self.targetpath = os.path.join(args.targetpath, '')
+            self.targetpath = os.path.join(args.targetpath)
             assert os.path.isdir(self.targetpath), 'Cannot locate target path as specified: {}'\
                 .format(self.targetpath)
-            self.reportpath = os.path.join(args.reportpath, '')
+            self.reportpath = os.path.join(args.reportpath)
             make_path(self.reportpath)
             assert os.path.isdir(self.reportpath), 'Cannot locate report path as specified: {}'\
                 .format(self.reportpath)
