@@ -265,6 +265,8 @@ class CLARK(object):
             .format(self.databasepath)
         # Use the argument for the number of threads to use, or default to the number of cpus in the system
         self.cpus = int(args.threads if args.threads else multiprocessing.cpu_count())
+        # There seems to be an issue with CLARK when running with a very high number of cores. Limit self.cpus to 24
+        self.cpus = self.cpus if self.cpus <= 24 else 24
         # Set variables from the arguments
         self.database = args.database
         self.rank = args.rank

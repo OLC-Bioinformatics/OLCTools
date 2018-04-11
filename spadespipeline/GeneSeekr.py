@@ -694,48 +694,53 @@ class GeneSeekr(object):
             worksheet.set_column(col, col, columnwidth[col])
             col += 1
             multiple = False
-            for data in sample[self.analysistype].sampledata:
-                if multiple:
-                    col += 1
-                # List of the number of lines for each result
-                totallines = list()
-                for results in data:
-                    #
-                    worksheet.write(row, col, results, courier)
-                    try:
-                        # Counting the length of multi-line strings yields columns that are far too wide, only count
-                        # the length of the string up to the first line break
-                        alignmentcorrect = len(str(results).split('\n')[1])
-                        # Count the number of lines for the data
-                        lines = results.count('\n') if results.count('\n') >= 1 else 1
-                        # Add the number of lines to the list
-                        totallines.append(lines)
-                    except IndexError:
+            if sample[self.analysistype].sampledata:
+                for data in sample[self.analysistype].sampledata:
+                    if multiple:
+                        col += 1
+                    # List of the number of lines for each result
+                    totallines = list()
+                    for results in data:
+                        #
+                        worksheet.write(row, col, results, courier)
                         try:
                             # Counting the length of multi-line strings yields columns that are far too wide, only count
                             # the length of the string up to the first line break
-                            alignmentcorrect = len(str(results).split('\n')[0])
+                            alignmentcorrect = len(str(results).split('\n')[1])
                             # Count the number of lines for the data
                             lines = results.count('\n') if results.count('\n') >= 1 else 1
                             # Add the number of lines to the list
                             totallines.append(lines)
-                        # If there are no newline characters, set the width to the length of the string
-                        except AttributeError:
-                            alignmentcorrect = len(str(results))
-                            lines = 1
-                            # Add the number of lines to the list
-                            totallines.append(lines)
-                    # Increase the width of the current column, if necessary
-                    try:
-                        columnwidth[col] = alignmentcorrect if alignmentcorrect > columnwidth[col] else \
-                            columnwidth[col]
-                    except KeyError:
-                        columnwidth[col] = alignmentcorrect
-                    worksheet.set_column(col, col, columnwidth[col])
-                    col += 1
-                    multiple = True
-                # Set the width of the row to be the number of lines (number of newline characters) * 12
-                worksheet.set_row(row, max(totallines) * 11)
+                        except IndexError:
+                            try:
+                                # Counting the length of multi-line strings yields columns that are far too wide, only count
+                                # the length of the string up to the first line break
+                                alignmentcorrect = len(str(results).split('\n')[0])
+                                # Count the number of lines for the data
+                                lines = results.count('\n') if results.count('\n') >= 1 else 1
+                                # Add the number of lines to the list
+                                totallines.append(lines)
+                            # If there are no newline characters, set the width to the length of the string
+                            except AttributeError:
+                                alignmentcorrect = len(str(results))
+                                lines = 1
+                                # Add the number of lines to the list
+                                totallines.append(lines)
+                        # Increase the width of the current column, if necessary
+                        try:
+                            columnwidth[col] = alignmentcorrect if alignmentcorrect > columnwidth[col] else \
+                                columnwidth[col]
+                        except KeyError:
+                            columnwidth[col] = alignmentcorrect
+                        worksheet.set_column(col, col, columnwidth[col])
+                        col += 1
+                        multiple = True
+                    # Set the width of the row to be the number of lines (number of newline characters) * 12
+                    worksheet.set_row(row, max(totallines) * 11)
+                    # Increase the row counter for the next strain's data
+                    row += 1
+                    col = 0
+            else:
                 # Increase the row counter for the next strain's data
                 row += 1
                 col = 0
