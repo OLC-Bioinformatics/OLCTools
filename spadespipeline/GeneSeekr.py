@@ -12,6 +12,7 @@ from Bio import SeqIO
 from collections import defaultdict
 from threading import Thread
 from csv import DictReader
+from queue import Queue
 from glob import glob
 import threading
 import xlsxwriter
@@ -559,21 +560,11 @@ class GeneSeekr(object):
         Custom reports for ResFinder analyses. These reports link the gene(s) found to their resistance phenotypes
         """
 
-        for sample in self.metadata:
-            if sample.general.bestassemblyfile != 'NA':
-                # Create a dictionary to store the genotype: phenotype data
-                sample[self.analysistype].resfindernotes = dict()
-                with open(os.path.join(sample[self.analysistype].targetpath, 'notes.txt')) as notes:
-                    for line in notes:
-                        # Ignore lines starting with a '#' these lines usually denote classes of antibiotics
-                        if not line.startswith('#'):
-                            # Example line: aac(2')-Ia:Aminoglycoside resistance:
-                            # Gene: aac(2')-Ia
-                            gene = line.split(':')[0]
-                            # Resistance: Aminoglycoside resistance
-                            resistance = line.split(':')[1]
-                            sample[self.analysistype].resfindernotes[gene] = resistance
-
+        from spadespipeline.typingclasses import ResistanceNotes
+        target_dir = str()
+        for folder in self.targetfolders:
+            target_dir = folder
+        genedict, altgenedict, revaltgenedict = ResistanceNotes.notes(target_dir)
         # Create a workbook to store the report. Using xlsxwriter rather than a simple csv format, as I want to be
         # able to have appropriately sized, multi-line cells
         workbook = xlsxwriter.Workbook(os.path.join(self.reportpath, '{}.xlsx'.format(self.analysistype)))
@@ -594,90 +585,72 @@ class GeneSeekr(object):
                    'nt_sequence']
         for sample in self.metadata:
             sample[self.analysistype].sampledata = list()
-            # Initialise a list of all the headers with 'Strain'
-            if sample[self.analysistype].targetnames != 'NA':
-                # Process the sample only if the script could find targets
-                if sample[self.analysistype].blastresults != 'NA':
-                    for result in sample[self.analysistype].blastresults:
-                        # Initialise a list to store all the data for each strain
-                        data = list()
-                        # There are three 'styles' of gene:resistance pairs in the notes.txt file
-                        # 1) strA:Aminoglycoside resistance, with an allele format: strA_1_M96392
-                        # Only the gene name (strA) is required
-                        try:
-                            target = result['subject_id'].split('_')[0]
-                            resistance = sample[self.analysistype].resfindernotes[target]
-                        # 2) blaTEM-101:Beta-lactam resistance, with an allele format: blaTEM_1B_1_JF910132
-                        # The '1B' following the gene name (blaTEM) is also required
-                        except KeyError:
-                            try:
-                                target = '-'.join([result['subject_id'].split('_')[0],
-                                                   result['subject_id'].split('_')[1]])
-                                resistance = sample[self.analysistype].resfindernotes[target]
-                            # 3) blaCTX-M-55:Beta-lactam resistance, with an allele format: blaCTX_M_55_2_GQ456159
-                            # The 'M' and the '55' following the gene name (blaCTX) are both required
-                            except KeyError:
-                                target = '-'.join([result['subject_id'].split('_')[0],
-                                                   result['subject_id'].split('_')[1],
-                                                   result['subject_id'].split('_')[2]])
-                                resistance = sample[self.analysistype].resfindernotes[target]
+            # Process the sample only if the script could find targets
+            if sample[self.analysistype].blastresults != 'NA':
+                for result in sample[self.analysistype].blastresults:
+                    # Set the name to avoid writing out the dictionary[key] multiple times
+                    name = result['subject_id']
+                    # Use the ResistanceNotes gene name extraction method to get the necessary variables
+                    gname, genename, accession, allele = ResistanceNotes.gene_name(name)
+                    # Initialise a list to store all the data for each strain
+                    data = list()
+                    # Determine the name of the gene to use in the report and the resistance using the resistance
+                    # method
+                    finalgene, resistance = ResistanceNotes.resistance(gname, genename, genedict, altgenedict,
+                                                                       revaltgenedict)
+                    # Append the necessary values to the data list
+                    data.append(finalgene)
+                    data.append(resistance)
+                    percentid = result['percentidentity']
+                    data.append(percentid)
+                    data.append(result['alignment_fraction'])
+                    data.append(result['query_id'])
+                    data.append('...'.join([str(result['low']), str(result['high'])]))
+                    try:
+                        # Only if the alignment option is selected, for inexact results, add alignments
+                        if self.align and percentid != 100.00:
 
-                        # Append the necessary values to the data list
-                        data.append(result['subject_id'])
-                        data.append(resistance)
-                        percentid = result['percentidentity']
-                        data.append(percentid)
-                        data.append(result['alignment_fraction'])
-                        data.append(result['query_id'])
-                        data.append('...'.join([str(result['low']), str(result['high'])]))
-                        try:
-                            # Only if the alignment option is selected, for inexact results, add alignments
-                            if self.align and percentid != 100.00:
+                            # Align the protein (and nucleotide) sequences to the reference
+                            self.alignprotein(sample, name)
+                            if not extended:
+                                # Add the appropriate headers
+                                headers.extend(['aa_Identity',
+                                                'aa_Alignment',
+                                                'aa_SNP_location',
+                                                'nt_Alignment',
+                                                'nt_SNP_location'
+                                                ])
+                                extended = True
+                            # Create a FASTA-formatted sequence output of the query sequence
+                            record = SeqRecord(sample[self.analysistype].dnaseq[name],
+                                               id='{}_{}'.format(sample.name, name),
+                                               description='')
 
-                                # Align the protein (and nucleotide) sequences to the reference
-                                self.alignprotein(sample, result['subject_id'])
-                                if not extended:
-                                    # Add the appropriate headers
-                                    headers.extend(['aa_Identity',
-                                                    'aa_Alignment',
-                                                    'aa_SNP_location',
-                                                    'nt_Alignment',
-                                                    'nt_SNP_location'
-                                                    ])
-                                    extended = True
-                                # Create a FASTA-formatted sequence output of the query sequence
-                                record = SeqRecord(sample[self.analysistype].dnaseq[result['subject_id']],
-                                                   id='{}_{}'.format(sample.name, result['subject_id']),
-                                                   description='')
-
-                                # Add the alignment, and the location of mismatches for both nucleotide and amino
-                                # acid sequences
-                                data.extend([record.format('fasta'),
-                                             sample[self.analysistype].aaidentity[result['subject_id']],
-                                             sample[self.analysistype].aaalign[result['subject_id']],
-                                             sample[self.analysistype].aaindex[result['subject_id']],
-                                             sample[self.analysistype].ntalign[result['subject_id']],
-                                             sample[self.analysistype].ntindex[result['subject_id']]
-                                             ])
-                            else:
-                                record = SeqRecord(Seq(result['subject_sequence'], IUPAC.unambiguous_dna),
-                                                   id='{}_{}'.format(sample.name, result['subject_id']),
-                                                   description='')
-                                data.append(record.format('fasta'))
-                                if self.align:
-                                    # Add '-'s for the empty results, as there are no alignments for exact matches
-                                    data.extend(['-', '-', '-', '-', '-'])
-                        # If there are no blast results for the target, add a '-'
-                        except (KeyError, TypeError):
-                            data.append('-')
-                        sample[self.analysistype].sampledata.append(data)
-                # If there are no blast results at all, add a '-'
-                # else:
-                #     data.append('-')
+                            # Add the alignment, and the location of mismatches for both nucleotide and amino
+                            # acid sequences
+                            data.extend([record.format('fasta'),
+                                         sample[self.analysistype].aaidentity[name],
+                                         sample[self.analysistype].aaalign[name],
+                                         sample[self.analysistype].aaindex[name],
+                                         sample[self.analysistype].ntalign[name],
+                                         sample[self.analysistype].ntindex[name]
+                                         ])
+                        else:
+                            record = SeqRecord(Seq(result['subject_sequence'], IUPAC.unambiguous_dna),
+                                               id='{}_{}'.format(sample.name, name),
+                                               description='')
+                            data.append(record.format('fasta'))
+                            if self.align:
+                                # Add '-'s for the empty results, as there are no alignments for exact matches
+                                data.extend(['-', '-', '-', '-', '-'])
+                    # If there are no blast results for the target, add a '-'
+                    except (KeyError, TypeError):
+                        data.append('-')
+                    sample[self.analysistype].sampledata.append(data)
 
         if 'nt_sequence' not in headers:
             headers.append('nt_sequence')
-        # Write the header to the spreadsheet
+            # Write the header to the spreadsheet
         for header in headers:
             worksheet.write(row, col, header, bold)
             # Set the column width based on the longest header
@@ -688,7 +661,7 @@ class GeneSeekr(object):
                 columnwidth[col] = len(header)
             worksheet.set_column(col, col, columnwidth[col])
             col += 1
-        # Increment the row and reset the column to zero in preparation of writing results
+            # Increment the row and reset the column to zero in preparation of writing results
         row += 1
         col = 0
         # Write out the data to the spreadsheet
@@ -698,56 +671,55 @@ class GeneSeekr(object):
             worksheet.set_column(col, col, columnwidth[col])
             col += 1
             multiple = False
-            if sample[self.analysistype].sampledata:
-                for data in sample[self.analysistype].sampledata:
-                    if multiple:
-                        worksheet.write(row, col, sample.name, courier)
-                        columnwidth[col] = len(sample.name)
-                        worksheet.set_column(col, col, columnwidth[col])
-                        col += 1
-                    # List of the number of lines for each result
-                    totallines = list()
-                    for results in data:
-                        #
-                        worksheet.write(row, col, results, courier)
+            if not sample[self.analysistype].sampledata:
+                # Increment the row and reset the column to zero in preparation of writing results
+                row += 1
+                col = 0
+                # Set the width of the row to be the number of lines (number of newline characters) * 12
+                worksheet.set_row(row)
+                worksheet.set_column(col, col, columnwidth[col])
+            for data in sample[self.analysistype].sampledata:
+                if multiple:
+                    col += 1
+                # List of the number of lines for each result
+                totallines = list()
+                for results in data:
+                    #
+                    worksheet.write(row, col, results, courier)
+                    try:
+                        # Counting the length of multi-line strings yields columns that are far too wide, only count
+                        # the length of the string up to the first line break
+                        alignmentcorrect = len(str(results).split('\n')[1])
+                        # Count the number of lines for the data
+                        lines = results.count('\n') if results.count('\n') >= 1 else 1
+                        # Add the number of lines to the list
+                        totallines.append(lines)
+                    except IndexError:
                         try:
                             # Counting the length of multi-line strings yields columns that are far too wide, only count
                             # the length of the string up to the first line break
-                            alignmentcorrect = len(str(results).split('\n')[1])
+                            alignmentcorrect = len(str(results).split('\n')[0])
                             # Count the number of lines for the data
                             lines = results.count('\n') if results.count('\n') >= 1 else 1
                             # Add the number of lines to the list
                             totallines.append(lines)
-                        except IndexError:
-                            try:
-                                # Counting the length of multi-line strings yields columns that are far too wide,
-                                # only count the length of the string up to the first line break
-                                alignmentcorrect = len(str(results).split('\n')[0])
-                                # Count the number of lines for the data
-                                lines = results.count('\n') if results.count('\n') >= 1 else 1
-                                # Add the number of lines to the list
-                                totallines.append(lines)
-                            # If there are no newline characters, set the width to the length of the string
-                            except AttributeError:
-                                alignmentcorrect = len(str(results))
-                                lines = 1
-                                # Add the number of lines to the list
-                                totallines.append(lines)
-                        # Increase the width of the current column, if necessary
-                        try:
-                            columnwidth[col] = alignmentcorrect if alignmentcorrect > columnwidth[col] else \
-                                columnwidth[col]
-                        except KeyError:
-                            columnwidth[col] = alignmentcorrect
-                        worksheet.set_column(col, col, columnwidth[col])
-                        col += 1
-                        multiple = True
-                    # Set the width of the row to be the number of lines (number of newline characters) * 12
-                    worksheet.set_row(row, max(totallines) * 11)
-                    # Increase the row counter for the next strain's data
-                    row += 1
-                    col = 0
-            else:
+                        # If there are no newline characters, set the width to the length of the string
+                        except AttributeError:
+                            alignmentcorrect = len(str(results))
+                            lines = 1
+                            # Add the number of lines to the list
+                            totallines.append(lines)
+                    # Increase the width of the current column, if necessary
+                    try:
+                        columnwidth[col] = alignmentcorrect if alignmentcorrect > columnwidth[col] else \
+                            columnwidth[col]
+                    except KeyError:
+                        columnwidth[col] = alignmentcorrect
+                    worksheet.set_column(col, col, columnwidth[col])
+                    col += 1
+                    multiple = True
+                # Set the width of the row to be the number of lines (number of newline characters) * 12
+                worksheet.set_row(row, max(totallines) * 11)
                 # Increase the row counter for the next strain's data
                 row += 1
                 col = 0
@@ -824,7 +796,7 @@ class GeneSeekr(object):
         return blaststring
 
     def __init__(self, inputobject):
-        from queue import Queue
+
         self.metadata = inputobject.runmetadata.samples
         self.cutoff = inputobject.cutoff
         self.start = inputobject.start

@@ -7,7 +7,7 @@ from sipprCommon.objectprep import Objectprep
 from sipprCommon.sippingmethods import Sippr
 from genesippr.genesippr import GeneSippr
 from serosippr.serosippr import SeroSippr
-from reporter.reports import Reports
+from sipprverse_reporter.reports import Reports
 from Bio.Alphabet import IUPAC
 from Bio.Seq import Seq
 from Bio import SeqIO
@@ -228,6 +228,11 @@ class ResistanceNotes(object):
                 if 'cfr' in line:
                     genedict['{}B'.format(gene)] = resistance
                     genedict['{}(C)'.format(gene)] = resistance
+                # ant(3'')-Ih-aac(6')-IId:Aminoglycoside resistance: in notes
+                # >ant(3'')_Ia_1_X02340 in multi-FASTA
+                if 'ant(3'')' in line:
+                    gene = gene.split('-')[0]
+                    genedict[gene] = resistance
         return genedict, altgenedict, revaltgenedict
 
     @staticmethod
@@ -237,53 +242,111 @@ class ResistanceNotes(object):
         :param name: FASTA header
         :return:
         """
-        # Allow for an additional part to the gene name aph(3'')_Ib_5_AF321551 yields gname: aph(3''), genename:
-        # aph(3'')-Ib, allele: 5, accession AF321551
-        if '_I' in name or 'Van' in name:
-            pregene, postgene, allele, accession = name.split('_')
-            genename = '{pre}-{post}'.format(pre=pregene,
-                                             post=postgene)
-            gname = pregene
-        else:
-            # Split the name on '_'s: ARR-2_1_HQ141279; gname, genename: ARR-2, allele: 1, accession: HQ141279
+        if 'Van' in name or 'mcr' in name or 'aph' in name or 'ddlA' in name or 'ant' in name:
             try:
+                if name == "ant(3'')_Ih_aac(6')_IId_1_AF453998":
+                    # >aac(3)_Ib_aac(6')_Ib_1_AF355189 yields gname, genename: aac(3)-Ib-aac(6')-Ib, allele:1,
+                    # accession: AF355189
+                    gene1, version1, gene2, version2, allele, accession = name.split('_')
+                    gname = '{g1}-{v1}-{g2}-{v2}'.format(g1=gene1,
+                                                         v1=version1,
+                                                         g2=gene2,
+                                                         v2=version2)
+                    genename = gname
+                elif name == 'ant(3'')_Ia_1_X02340':
+                    # >ant(3'')_Ia_1_X02340
+                    gene, version, allele, accession = name.split('_')
+                    gname = '{g}-{v}'.format(g=gene,
+                                             v=version)
+                    genename = gname
+                elif 'mcr_3' in name or 'mcr_2' in name or 'mcr_1.10' in name:
+                    # >mcr_3.3_1_NG055492 yields genename, gname: mcr-3, allele: 1, accession: NG055492
+                    gene, combinedversion, allele, accession = name.split('_')
+                    version = combinedversion.split('.')[0]
+                    gname = '{gene}-{version}'.format(gene=gene,
+                                                      version=version)
+                    genename = gname
+
+                else:
+                    # Allow for an additional part to the gene name aph(3'')_Ib_5_AF321551 yields gname: aph(3''),
+                    # genename: aph(3'')-Ib, allele: 5, accession AF321551
+                    try:
+                        pregene, postgene, allele, accession = name.split('_')
+                        gname = '{pre}-{post}'.format(pre=pregene,
+                                                      post=postgene)
+                        genename = gname
+                    except ValueError:
+                        # Allow for underscores in the accession: aac(2')_Ie_1_NC_011896 yields gname: aac(2'),
+                        # genename:  aac('2)-1e, allele: 1, accession NC_011896
+                        pregene, postgene, allele, preaccession, postaccession = name.split('_')
+                        genename = '{pre}-{post}'.format(pre=pregene,
+                                                         post=postgene)
+                        accession = '{pre}_{post}'.format(pre=preaccession,
+                                                          post=postaccession)
+                        gname = pregene
+            except ValueError:
+                # VanC_2_DQ022190
                 genename, allele, accession = name.split('_')
                 gname = genename
-            # Some names have a slightly different naming scheme:
-            except ValueError:
-                try:
-                    if 'bla' in name or 'aac' in name:
-                        # >blaACC_1_2_AM939420 yields gname, genename: blaACC-1, allele: 2, accession: AM939420
-                        genename, version, allele, accession = name.split('_')
-                        gname = '{g}-{v}'.format(g=genename,
-                                                 v=version)
-                    else:
-                        # tet(44)_1_NZ_ABDU01000081 yields gname, genename: tet(44), allele: 1,
-                        # accession: NZ_ABDU01000081
-                        genename, allele, preaccession, postaccession = name.split('_')
-                        accession = '{preaccess}_{postaccess}'.format(preaccess=preaccession,
-                                                                      postaccess=postaccession)
+        else:
+            if 'bla' in name or 'aac' in name or 'ARR' in name or 'POM' in name:
+                if 'OKP' in name or 'CTX' in name or 'OXY' in name:
+                    # >blaOKP_B_11_1_AM051161 yields gname: blaOKP-B-11, genename: blaOXP, allele: 1,
+                    # accession: AM051161
+                    gene, version1, version2, allele, accession = name.split('_')
+                    gname = '{g}-{v1}-{v2}'.format(g=gene,
+                                                   v1=version1,
+                                                   v2=version2)
+                    genename = gname
+                elif name == "aac(3)_Ib_aac(6')_Ib_1_AF355189":
+                    # >aac(3)_Ib_aac(6')_Ib_1_AF355189 yields gname, genename: aac(3)-Ib-aac(6')-Ib, allele:1,
+                    # accession: AF355189
+                    gene1, version1, gene2, version2, allele, accession = name.split('_')
+                    gname = '{g1}-{v1}-{g2}-{v2}'.format(g1=gene1,
+                                                         v1=version1,
+                                                         g2=gene2,
+                                                         v2=version2)
+                    genename = gname
+                elif 'alias' in name:
+                    # >blaSHV_5a_alias_blaSHV_9_1_S82452
+                    gene1, version1, alias, gene2, version2, allele, accession = name.split('_')
+                    gname = '{g1}-{v1}'.format(g1=gene1,
+                                               v1=version1)
+                    genename = gname
+                else:
+                    # Split the name on '_'s: ARR-2_1_HQ141279; gname, genename: ARR-2, allele: 1, accession: HQ141279
+                    try:
+                        genename, allele, accession = name.split('_')
                         gname = genename
-                except ValueError:
-                    # Beta-lactamases have their own naming scheme
-                    if name.split('_')[1].isdigit():
-                        # blaOXY_1_1_1_Z30177 yields gname: blaOXY-1-1, genename: blaOXY, allele: 1, accession: Z30177
-                        genename, version, allele, duplicate, accession = name.split('_')
-                    else:
+                    except ValueError:
                         try:
-                            # blaOKP_B_15_1_AM850917 yields gname: blaOKP-B-15, genename: blaOKP, allele: 1,
-                            # accession: AM850917
-                            genename, version, allele, unknown, accession = name.split('_')
+                            # >blaACC_1_2_AM939420 yields gname: blaACC-1, genename: blaACC, allele: 2,
+                            # accession: AM939420
+                            genename, version, allele, accession = name.split('_')
+                            gname = '{g}-{v}'.format(g=genename,
+                                                     v=version)
                         except ValueError:
-                            try:
-                                # blaSHV_5a_alias_blaSHV_9_1_S82452 yields genename: blaSHV, version: 5a, alias: alias
-                                # unknown: blaSHV, allele: 9, unknown: 1, accession: S82452
-                                genename, version, alias, unknown, allele, unknown, accession = name.split('_')
-                            except ValueError:
-                                genename, version, alias, allele, unknown, accession = name.split('_')
-                    gname = '{g}-{ver}-{a}'.format(g=genename,
-                                                   ver=version,
-                                                   a=allele)
+                            # >aac(2')_Ie_1_NC_011896 yields gname, genename: aac(2')-Ie, allele: 1,
+                            # accession: NC_011896
+                            genename, version, allele, preaccession, postaccession = name.split('_')
+                            gname = '{g}-{v}'.format(g=genename,
+                                                     v=version)
+                            genename = gname
+                            accession = '{preaccess}_{postaccess}'.format(preaccess=preaccession,
+                                                                          postaccess=postaccession)
+            else:
+                # Split the name on '_'s: ARR-2_1_HQ141279; gname, genename: ARR-2, allele: 1, accession: HQ141279
+                try:
+                    genename, allele, accession = name.split('_')
+                    gname = genename
+                # Some names have a slightly different naming scheme:
+                except ValueError:
+                    # tet(44)_1_NZ_ABDU01000081 yields gname, genename: tet(44), allele: 1,
+                    # accession: NZ_ABDU01000081
+                    genename, allele, preaccession, postaccession = name.split('_')
+                    accession = '{preaccess}_{postaccess}'.format(preaccess=preaccession,
+                                                                  postaccess=postaccession)
+                    gname = genename
         return gname, genename, accession, allele
 
     @staticmethod
@@ -426,10 +489,10 @@ class Resistance(ResSippr):
         data = 'Strain,Resistance,Gene,Allele,Accession,PercentIdentity,Length,FoldCoverage\n'
         with open(os.path.join(self.reportpath, self.analysistype + '.csv'), 'w') as report:
             for sample in self.runmetadata.samples:
+                # Create an attribute to store the string for the eventual pipeline report
+                sample[self.analysistype].pipelineresults = list()
                 data += sample.name + ','
                 if sample[self.analysistype].results:
-                    # Create an attribute to store the string for the eventual pipeline report
-                    sample[self.analysistype].pipelineresults = list()
                     # If there are multiple results for a sample, don't write the name in each line of the report
                     multiple = False
                     for name, identity in sorted(sample[self.analysistype].results.items()):
@@ -554,6 +617,8 @@ class ResFinder(GeneSeekr):
         headers = ['Strain', 'Gene', 'Resistance', 'PercentIdentity', 'PercentCovered', 'Contig', 'Location',
                    'nt_sequence']
         for sample in self.metadata:
+            # Create an attribute to store the string for the eventual pipeline report
+            sample[self.analysistype].pipelineresults = list()
             sample[self.analysistype].sampledata = list()
             # Process the sample only if the script could find targets
             if sample[self.analysistype].blastresults != 'NA':
@@ -595,7 +660,11 @@ class ResFinder(GeneSeekr):
                             record = SeqRecord(sample[self.analysistype].dnaseq[name],
                                                id='{}_{}'.format(sample.name, name),
                                                description='')
-
+                            # Populate the attribute storing the resfinder results
+                            sample[self.analysistype].pipelineresults.append(
+                                '{rgene} ({pid}%) {rclass}'.format(rgene=finalgene,
+                                                                   pid=percentid,
+                                                                   rclass=resistance))
                             # Add the alignment, and the location of mismatches for both nucleotide and amino
                             # acid sequences
                             data.extend([record.format('fasta'),
