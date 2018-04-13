@@ -6,7 +6,6 @@ from metagenomefilter import filtermetagenome
 from argparse import ArgumentParser
 from threading import Thread
 from csv import DictReader
-import multiprocessing
 from queue import Queue
 from shutil import move, which
 import subprocess
@@ -263,18 +262,16 @@ class CLARK(object):
         self.databasepath = os.path.join(args.databasepath, '')
         assert os.path.isdir(self.databasepath), u'Supplied database path is not a valid directory {0!r:s}' \
             .format(self.databasepath)
-        # Use the argument for the number of threads to use, or default to the number of cpus in the system
-        self.cpus = int(args.threads if args.threads else multiprocessing.cpu_count())
-        # There seems to be an issue with CLARK when running with a very high number of cores. Limit self.cpus to 24
-        self.cpus = self.cpus if self.cpus <= 24 else 24
+        # There seems to be an issue with CLARK when running with a very high number of cores. Limit self.cpus to 1
+        self.cpus = 1
         # Set variables from the arguments
         self.database = args.database
         self.rank = args.rank
         self.clarkpath = args.clarkpath
         self.cutoff = float(args.cutoff) * 100
         # Initialise variables for the analysis
-        self.targetcall = ''
-        self.classifycall = ''
+        self.targetcall = str()
+        self.classifycall = str()
         self.devnull = open(os.devnull, 'wb')
         self.filelist = os.path.join(self.path, 'sampleList.txt')
         self.reportlist = os.path.join(self.path, 'reportList.txt')
