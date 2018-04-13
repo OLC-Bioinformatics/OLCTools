@@ -121,11 +121,17 @@ class Reporter(object):
                 data += ';'.join(sorted(sample.vtyper.profile)) + ','
             except KeyError:
                 data += '-,'
-            # AMR_Profile
-            try:
-                data += ';'.join(sorted(sample.resfinder.pipelineresults)) + ','
-            except KeyError:
-                data += '-,'
+            # AMR_Profile and resistant/sensitive status
+            if sample.resfinder_assembled.pipelineresults:
+                # Profile
+                data += ';'.join(sorted(sample.resfinder_assembled.pipelineresults)) + ','
+                # Resistant/Sensitive
+                data += 'Resistant,'
+            else:
+                # Profile
+                data += 'ND,'
+                # Resistant/Sensitive
+                data += 'Sensitive,'
             # Plasmid Result'
             try:
                 data += ';'.join(sorted(sample.plasmidextractor.plasmids)) + ','
@@ -353,11 +359,11 @@ class Reporter(object):
                         'MLST_gene_2_allele', 'MLST_gene_3_allele', 'MLST_gene_4_allele', 'MLST_gene_5_allele',
                         'MLST_gene_6_allele', 'MLST_gene_7_allele', 'CoreGenesPresent', 'E_coli_Serotype',
                         'SISTR_serovar_antigen', 'SISTR_serovar_cgMLST', 'SISTR_serogroup', 'SISTR_h1', 'SISTR_h2',
-                        'SISTR_serovar', 'GeneSeekr_Profile', 'Vtyper_Profile', 'AMR_Profile', 'PlasmidProfile',
-                        'TotalPredictedGenes', 'PredictedGenesOver3000bp', 'PredictedGenesOver1000bp',
-                        'PredictedGenesOver500bp', "PredictedGenesUnder500bp", 'NumClustersPF', 'PercentReadsPhiX',
-                        'ErrorRate', 'LengthForwardRead', 'LengthReverseRead', 'RealTimeStrain', 'Flowcell',
-                        'MachineName', 'PipelineVersion', 'AssemblyDate']
+                        'SISTR_serovar', 'GeneSeekr_Profile', 'Vtyper_Profile', 'AMR_Profile',
+                        'AMR Resistant/Sensitive', 'PlasmidProfile', 'TotalPredictedGenes', 'PredictedGenesOver3000bp',
+                        'PredictedGenesOver1000bp', 'PredictedGenesOver500bp', "PredictedGenesUnder500bp",
+                        'NumClustersPF', 'PercentReadsPhiX', 'ErrorRate', 'LengthForwardRead', 'LengthReverseRead',
+                        'RealTimeStrain', 'Flowcell', 'MachineName', 'PipelineVersion', 'AssemblyDate']
         self.reporter()
         self.legacy_reporter()
         # Create a database to store all the metadata
