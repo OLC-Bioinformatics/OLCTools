@@ -68,6 +68,28 @@ class GDCS(Sippr):
 
 class Plasmids(GeneSippr):
 
+    def runner(self):
+        """
+        Run the necessary methods in the correct order
+        """
+        printtime('Starting {} analysis pipeline'.format(self.analysistype), self.starttime)
+        if not self.pipeline:
+            general = None
+            for sample in self.runmetadata.samples:
+                general = getattr(sample, 'general')
+            if general is None:
+                # Create the objects to be used in the analyses
+                objects = Objectprep(self)
+                objects.objectprep()
+                self.runmetadata = objects.samples
+        # Run the analyses
+        ShortKSippingMethods(self, self.cutoff)
+        # Create the reports
+        self.reporter()
+        # Print the metadata
+        printer = MetadataPrinter(self)
+        printer.printmetadata()
+
     def reporter(self):
         """
         Creates a report of the results
@@ -448,8 +470,6 @@ class ResSippr(GeneSippr):
                 self.runmetadata = objects.samples
         # Run the analyses
         ShortKSippingMethods(self, self.cutoff)
-        # Create the reports
-        self.reporter()
         # Print the metadata
         printer = MetadataPrinter(self)
         printer.printmetadata()
