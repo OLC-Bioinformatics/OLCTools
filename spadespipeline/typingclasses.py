@@ -135,7 +135,7 @@ class PlasmidExtractor(object):
         """
         printtime('Extracting plasmids', self.start)
         # Define the system call
-        extract_command = 'PlasmidExtractor.py -i {inf} -o {outf} -p {plasdb} -d {db} -t {cpus} -nc'\
+        extract_command = 'PlasmidExtractor.py -i {inf} -o {outf} -p {plasdb} -d {db} -t {cpus} -nc' \
             .format(inf=self.path,
                     outf=self.plasmid_output,
                     plasdb=os.path.join(self.plasmid_db, 'plasmid_db.fasta'),
@@ -470,17 +470,102 @@ class ResSippr(GeneSippr):
                 self.runmetadata = objects.samples
         # Run the analyses
         ShortKSippingMethods(self, self.cutoff)
-        # Print the metadata
-        printer = MetadataPrinter(self)
-        printer.printmetadata()
+
+    # noinspection PyMissingConstructor
+    def __init__(self, args, pipelinecommit, startingtime, scriptpath, analysistype, cutoff, pipeline, revbait):
+        """
+        :param args: command line arguments
+        :param pipelinecommit: pipeline commit or version
+        :param startingtime: time the script was started
+        :param scriptpath: home path of the script
+        :param analysistype: name of the analysis being performed - allows the program to find databases
+        :param cutoff: percent identity cutoff for matches
+        :param pipeline: boolean of whether this script needs to run as part of a particular assembly pipeline
+        """
+        # Initialise variables
+        # super().__init__(args, pipelinecommit, startingtime, scriptpath, analysistype, cutoff, pipeline, revbait)
+        self.commit = str(pipelinecommit)
+        self.starttime = startingtime
+        self.homepath = scriptpath
+        # Define variables based on supplied arguments
+        self.path = os.path.join(args.path)
+        assert os.path.isdir(self.path), u'Supplied path is not a valid directory {0!r:s}'.format(self.path)
+        try:
+            self.sequencepath = os.path.join(args.sequencepath)
+        except AttributeError:
+            self.sequencepath = self.path
+        assert os.path.isdir(self.sequencepath), u'Sequence path  is not a valid directory {0!r:s}' \
+            .format(self.sequencepath)
+        try:
+            self.targetpath = os.path.join(args.reffilepath, analysistype)
+        except AttributeError:
+            self.targetpath = os.path.join(args.targetpath)
+        self.reportpath = os.path.join(self.path, 'reports')
+        assert os.path.isdir(self.targetpath), u'Target path is not a valid directory {0!r:s}' \
+            .format(self.targetpath)
+        try:
+            self.bcltofastq = args.bcltofastq
+        except AttributeError:
+            self.bcltofastq = False
+        try:
+            self.miseqpath = args.miseqpath
+        except AttributeError:
+            self.miseqpath = str()
+        try:
+            self.miseqfolder = args.miseqfolder
+        except AttributeError:
+            self.miseqfolder = str()
+        try:
+            self.fastqdestination = args.fastqdestination
+        except AttributeError:
+            self.fastqdestination = str()
+        try:
+            self.forwardlength = args.forwardlength
+        except AttributeError:
+            self.forwardlength = 'full'
+        try:
+            self.reverselength = args.reverselength
+        except AttributeError:
+            self.reverselength = 'full'
+        self.numreads = 2 if self.reverselength != 0 else 1
+        self.customsamplesheet = args.customsamplesheet
+        self.logfile = args.logfile
+        # Set the custom cutoff value
+        self.cutoff = float(cutoff)
+        try:
+            self.averagedepth = int(args.averagedepth)
+        except AttributeError:
+            self.averagedepth = 10
+        try:
+            self.copy = args.copy
+        except AttributeError:
+            self.copy = False
+        self.runmetadata = args.runmetadata
+        # Use the argument for the number of threads to use, or default to the number of cpus in the system
+        self.cpus = int(args.cpus)
+        try:
+            self.threads = int(self.cpus / len(self.runmetadata.samples)) if self.cpus / len(self.runmetadata.samples) \
+                                                                             > 1 else 1
+        except TypeError:
+            self.threads = self.cpus
+        self.taxonomy = {'Escherichia': 'coli', 'Listeria': 'monocytogenes', 'Salmonella': 'enterica'}
+        self.analysistype = analysistype
+        self.pipeline = pipeline
+        self.revbait = revbait
 
 
 class Resistance(ResSippr):
+
+    def main(self):
+        self.runner()
+        # Create the reports
+        self.reporter()
 
     def reporter(self):
         """
         Creates a report of the results
         """
+        printtime('Creating {at} report'.format(at=self.analysistype), self.starttime)
         genedict, altgenedict, revaltgenedict = ResistanceNotes.notes(self.targetpath)
         # Find unique gene names with the highest percent identity
         for sample in self.runmetadata.samples:
@@ -911,8 +996,7 @@ class Univec(GeneSeekr):
                                                         description,
                                                         result['percentidentity'],
                                                         result['alignment_fraction'] if float(
-                                                            result['alignment_fraction'])
-                                                        <= 100 else '100.0',
+                                                            result['alignment_fraction']) <= 100 else '100.0',
                                                         result['query_id'],
                                                         result['low'],
                                                         result['high'])
