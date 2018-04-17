@@ -120,7 +120,6 @@ class CLARK(object):
                                                                            self.databasepath,
                                                                            sample.general.classification,
                                                                            sample.general.abundance)
-            # print sample.name, sample.commands.abundancecall
             self.abundancequeue.put(sample)
         self.abundancequeue.join()
         # Create reports
@@ -138,7 +137,7 @@ class CLARK(object):
 
     def reports(self):
         """Create reports from the abundance estimation"""
-        printtime('Creating CLARK report for {} files'.format(self.extension), self.start)
+        printtime('Creating CLARK report for {} files'.format(self.runmetadata.extension), self.start)
         # Create a workbook to store the report. Using xlsxwriter rather than a simple csv format, as I want to be
         # able to have appropriately sized, multi-line cells
         workbook = xlsxwriter.Workbook(self.report)
