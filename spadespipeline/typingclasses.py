@@ -810,11 +810,6 @@ class ResFinder(GeneSeekr):
         col = 0
         # Write out the data to the spreadsheet
         for sample in self.metadata:
-            worksheet.write(row, col, sample.name, courier)
-            columnwidth[col] = len(sample.name)
-            worksheet.set_column(col, col, columnwidth[col])
-            col += 1
-            multiple = False
             if not sample[self.analysistype].sampledata:
                 # Increment the row and reset the column to zero in preparation of writing results
                 row += 1
@@ -823,8 +818,10 @@ class ResFinder(GeneSeekr):
                 worksheet.set_row(row)
                 worksheet.set_column(col, col, columnwidth[col])
             for data in sample[self.analysistype].sampledata:
-                if multiple:
-                    col += 1
+                columnwidth[col] = len(sample.name) + 2
+                worksheet.set_column(col, col, columnwidth[col])
+                worksheet.write(row, col, sample.name, courier)
+                col += 1
                 # List of the number of lines for each result
                 totallines = list()
                 for results in data:
@@ -861,7 +858,6 @@ class ResFinder(GeneSeekr):
                         columnwidth[col] = alignmentcorrect
                     worksheet.set_column(col, col, columnwidth[col])
                     col += 1
-                    multiple = True
                 # Set the width of the row to be the number of lines (number of newline characters) * 12
                 worksheet.set_row(row, max(totallines) * 11)
                 # Increase the row counter for the next strain's data
@@ -872,7 +868,7 @@ class ResFinder(GeneSeekr):
 
     def object_clean(self):
         """
-
+        Remove large attributes from the metadata objects
         """
         for sample in self.metadata:
             try:
@@ -887,7 +883,6 @@ class ResFinder(GeneSeekr):
                 pass
 
     def __init__(self, inputobject):
-        # qseqid sacc stitle positive mismatch gaps evalue bitscore slen length
         self.resfinderfields = ['query_id', 'subject_id', 'positives', 'mismatches', 'gaps', 'evalue', 'bit_score',
                                 'subject_length', 'alignment_length', 'query_start', 'query_end']
         self.analysistype = 'resfinder_assembled'
