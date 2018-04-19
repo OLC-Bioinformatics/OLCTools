@@ -719,7 +719,7 @@ class ResFinder(GeneSeekr):
         # A dictionary to store the column widths for every header
         columnwidth = dict()
         extended = False
-        headers = ['Strain', 'Gene', 'Resistance', 'PercentIdentity', 'PercentCovered', 'Contig', 'Location',
+        headers = ['Strain', 'Gene', 'Allele', 'Resistance', 'PercentIdentity', 'PercentCovered', 'Contig', 'Location',
                    'nt_sequence']
         for sample in self.metadata:
             # Create an attribute to store the string for the eventual pipeline report
@@ -740,6 +740,7 @@ class ResFinder(GeneSeekr):
                                                                        revaltgenedict)
                     # Append the necessary values to the data list
                     data.append(finalgene)
+                    data.append(allele)
                     data.append(resistance)
                     percentid = result['percentidentity']
                     data.append(percentid)

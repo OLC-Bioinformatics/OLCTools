@@ -581,7 +581,7 @@ class GeneSeekr(object):
         # A dictionary to store the column widths for every header
         columnwidth = dict()
         extended = False
-        headers = ['Strain', 'Gene', 'Resistance', 'PercentIdentity', 'PercentCovered', 'Contig', 'Location',
+        headers = ['Strain', 'Gene', 'Allele', 'Resistance', 'PercentIdentity', 'PercentCovered', 'Contig', 'Location',
                    'nt_sequence']
         for sample in self.metadata:
             sample[self.analysistype].sampledata = list()
@@ -600,6 +600,7 @@ class GeneSeekr(object):
                                                                        revaltgenedict)
                     # Append the necessary values to the data list
                     data.append(finalgene)
+                    data.append(allele)
                     data.append(resistance)
                     percentid = result['percentidentity']
                     data.append(percentid)
@@ -666,11 +667,6 @@ class GeneSeekr(object):
         col = 0
         # Write out the data to the spreadsheet
         for sample in self.metadata:
-            worksheet.write(row, col, sample.name, courier)
-            columnwidth[col] = len(sample.name)
-            worksheet.set_column(col, col, columnwidth[col])
-            col += 1
-            multiple = False
             if not sample[self.analysistype].sampledata:
                 # Increment the row and reset the column to zero in preparation of writing results
                 row += 1
@@ -679,8 +675,10 @@ class GeneSeekr(object):
                 worksheet.set_row(row)
                 worksheet.set_column(col, col, columnwidth[col])
             for data in sample[self.analysistype].sampledata:
-                if multiple:
-                    col += 1
+                columnwidth[col] = len(sample.name) + 2
+                worksheet.set_column(col, col, columnwidth[col])
+                worksheet.write(row, col, sample.name, courier)
+                col += 1
                 # List of the number of lines for each result
                 totallines = list()
                 for results in data:
