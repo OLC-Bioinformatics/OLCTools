@@ -63,7 +63,6 @@ class GDCS(Sippr):
         self.taxonomy = {'Escherichia': 'coli', 'Listeria': 'monocytogenes', 'Salmonella': 'enterica'}
         self.logfile = inputobject.logfile
         super().__init__(self)
-        # self.runner()
 
 
 class Plasmids(GeneSippr):
