@@ -1,5 +1,6 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 import json
+import os
 __author__ = 'adamkoziol'
 
 
@@ -10,7 +11,7 @@ class MetadataPrinter(object):
         for sample in self.metadata:
             if type(sample.general.fastqfiles) is list:
                 # Set the name of the json file
-                jsonfile = '{}/{}_metadata.json'.format(sample.general.outputdirectory, sample.name)
+                jsonfile = os.path.join(sample.general.outputdirectory, '{}_metadata.json'.format(sample.name))
                 try:
                     # Open the metadata file to write
                     with open(jsonfile, 'w') as metadatafile:
@@ -25,5 +26,10 @@ class MetadataPrinter(object):
         try:
             self.metadata = inputobject.runmetadata.samples
         except AttributeError:
-            self.metadata = inputobject.runmetadata
-        self.printmetadata()
+            try:
+                self.metadata = inputobject.metadata.samples
+            except AttributeError:
+                try:
+                    self.metadata = inputobject.metadata
+                except AttributeError:
+                    self.metadata = inputobject.runmetadata
