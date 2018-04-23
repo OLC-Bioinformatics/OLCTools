@@ -4,10 +4,10 @@ import accessoryFunctions.metadataprinter as metadataprinter
 from spadespipeline import fileprep, createobject
 from metagenomefilter import filtermetagenome
 from argparse import ArgumentParser
+from shutil import move, which
 from threading import Thread
 from csv import DictReader
 from queue import Queue
-from shutil import move, which
 import subprocess
 import xlsxwriter
 import time
@@ -106,21 +106,22 @@ class CLARK(object):
             # Start the threading
             threads.start()
         for sample in self.runmetadata.samples:
-            # Set the name of the abundance report
-            sample.general.abundance = sample.general.combined.split('.')[0] + '_abundance.csv'
-            # if not hasattr(sample, 'commands'):
-            if not sample.commands.datastore:
-                sample.commands = GenObject()
+            if sample.general.combined != 'NA':
+                # Set the name of the abundance report
+                sample.general.abundance = sample.general.combined.split('.')[0] + '_abundance.csv'
+                # if not hasattr(sample, 'commands'):
+                if not sample.commands.datastore:
+                    sample.commands = GenObject()
 
-            # Define system calls
-            sample.commands.target = self.targetcall
-            sample.commands.classify = self.classifycall
-            sample.commands.abundancecall = \
-                'cd {} && ./estimate_abundance.sh -D {} -F {} > {}'.format(self.clarkpath,
-                                                                           self.databasepath,
-                                                                           sample.general.classification,
-                                                                           sample.general.abundance)
-            self.abundancequeue.put(sample)
+                # Define system calls
+                sample.commands.target = self.targetcall
+                sample.commands.classify = self.classifycall
+                sample.commands.abundancecall = \
+                    'cd {} && ./estimate_abundance.sh -D {} -F {} > {}'.format(self.clarkpath,
+                                                                               self.databasepath,
+                                                                               sample.general.classification,
+                                                                               sample.general.abundance)
+                self.abundancequeue.put(sample)
         self.abundancequeue.join()
         # Create reports
         self.reports()
@@ -182,67 +183,71 @@ class CLARK(object):
             col += 1
             # Initialise a dictionary to store the species above the cutoff in the sample
             sample.general.passfilter = list()
-            # Abundance file as a dictionary
-            abundancedict = DictReader(open(sample.general.abundance))
-            # Filter abundance to taxIDs with at least self.cutoff% of the total proportion
-            for result in abundancedict:
-                # The UNKNOWN category doesn't contain a 'Lineage' column, and therefore, subsequent columns are
-                # shifted out of proper alignment, and do not contain the appropriate data
-                try:
-                    if float(result['Proportion_All(%)']) > self.cutoff:
-                        sample.general.passfilter.append(result)
-                except ValueError:
-                    pass
-            # Determine the longest name of all the strains, and use it to set the width of column 0
-            if len(sample.name) > longeststrain:
-                longeststrain = len(sample.name)
-                worksheet.set_column(0, 0, longeststrain)
-            # Sort the abundance results based on the highest count
-            sortedabundance = sorted(sample.general.passfilter, key=lambda x: int(x['Count']), reverse=True)
-            # Set of contigs from the classification file. For some reason, certain contigs are represented multiple
-            # times in the classification file. As far as I can tell, these multiple representations are always
-            # classified the same, and, therefore, should be treated as duplicates, and ignored
-            contigset = set()
-            for result in sortedabundance:
-                # Add the total number of base pairs classified for each TaxID. As only the total number of contigs
-                # classified as a particular TaxID are presented in the report, it can be misleading if a large number
-                # of small contigs are classified to a particular TaxID e.g. 56 contigs map to TaxID 28901, and 50
-                # contigs map to TaxID 630, however, added together, those 56 contigs are 4705838 bp, while the 50
-                # contigs added together are only 69602 bp. While this is unlikely a pure culture, only
-                # 69602 / (4705838 + 69602) = 1.5% of the total bp map to TaxID 630 compared to 45% of the contigs
-                if self.runmetadata.extension == 'fasta':
-                    # Initialise a variable to store the total bp mapped to the TaxID
-                    result['TotalBP'] = int()
-                    # Read the classification file into a dictionary
-                    classificationdict = DictReader(open(sample.general.classification))
-                    # Read through each contig classification in the dictionary
-                    for contig in classificationdict:
-                        # Pull out each contig with a TaxID that matches the TaxID of the result of interest, and
-                        # is not present in a set of contigs that have already been added to the dictionary
-                        if result['TaxID'] == contig[' Assignment'] and contig['Object_ID'] not in contigset:
-                            # Increment the total bp mapping to the TaxID by the integer of each contig
-                            result['TotalBP'] += int(contig[' Length'])
-                            # Avoid duplicates by adding the contig name to the set of contigs
-                            contigset.add(contig['Object_ID'])
-                # Print the results to file
-                # Ignore the first header, as it is the strain name, which has already been added to the report
-                dictionaryheaders = headers[1:]
-                for header in dictionaryheaders:
-                    data = result[header]
-                    worksheet.write(row, col, data, courier)
-                    col += 1
-                    # Determine the longest name of all the matches, and use it to set the width of column 0
-                    if len(result['Name']) > longestname:
-                        longestname = len(result['Name'])
-                        worksheet.set_column(1, 1, longestname)
-                    # Do the same for the lineages
-                    if len(result['Lineage']) > longestlineage:
-                        longestlineage = len(result['Lineage'])
-                        worksheet.set_column(3, 3, longestlineage)
+            try:
+                # Abundance file as a dictionary
+                abundancedict = DictReader(open(sample.general.abundance))
+                # Filter abundance to taxIDs with at least self.cutoff% of the total proportion
+                for result in abundancedict:
+                    # The UNKNOWN category doesn't contain a 'Lineage' column, and therefore, subsequent columns are
+                    # shifted out of proper alignment, and do not contain the appropriate data
+                    try:
+                        if float(result['Proportion_All(%)']) > self.cutoff:
+                            sample.general.passfilter.append(result)
+                    except ValueError:
+                        pass
+                # Determine the longest name of all the strains, and use it to set the width of column 0
+                if len(sample.name) > longeststrain:
+                    longeststrain = len(sample.name)
+                    worksheet.set_column(0, 0, longeststrain)
+                # Sort the abundance results based on the highest count
+                sortedabundance = sorted(sample.general.passfilter, key=lambda x: int(x['Count']), reverse=True)
+                # Set of contigs from the classification file. For some reason, certain contigs are represented multiple
+                # times in the classification file. As far as I can tell, these multiple representations are always
+                # classified the same, and, therefore, should be treated as duplicates, and ignored
+                contigset = set()
+                for result in sortedabundance:
+                    # Add the total number of base pairs classified for each TaxID. As only the total number of contigs
+                    # classified as a particular TaxID are in the report, it can be misleading if a large number
+                    # of small contigs are classified to a particular TaxID e.g. 56 contigs map to TaxID 28901, and 50
+                    # contigs map to TaxID 630, however, added together, those 56 contigs are 4705838 bp, while the 50
+                    # contigs added together are only 69602 bp. While this is unlikely a pure culture, only
+                    # 69602 / (4705838 + 69602) = 1.5% of the total bp map to TaxID 630 compared to 45% of the contigs
+                    if self.runmetadata.extension == 'fasta':
+                        # Initialise a variable to store the total bp mapped to the TaxID
+                        result['TotalBP'] = int()
+                        # Read the classification file into a dictionary
+                        classificationdict = DictReader(open(sample.general.classification))
+                        # Read through each contig classification in the dictionary
+                        for contig in classificationdict:
+                            # Pull out each contig with a TaxID that matches the TaxID of the result of interest, and
+                            # is not present in a set of contigs that have already been added to the dictionary
+                            if result['TaxID'] == contig[' Assignment'] and contig['Object_ID'] not in contigset:
+                                # Increment the total bp mapping to the TaxID by the integer of each contig
+                                result['TotalBP'] += int(contig[' Length'])
+                                # Avoid duplicates by adding the contig name to the set of contigs
+                                contigset.add(contig['Object_ID'])
+                    # Print the results to file
+                    # Ignore the first header, as it is the strain name, which has already been added to the report
+                    dictionaryheaders = headers[1:]
+                    for header in dictionaryheaders:
+                        data = result[header]
+                        worksheet.write(row, col, data, courier)
+                        col += 1
+                        # Determine the longest name of all the matches, and use it to set the width of column 0
+                        if len(result['Name']) > longestname:
+                            longestname = len(result['Name'])
+                            worksheet.set_column(1, 1, longestname)
+                        # Do the same for the lineages
+                        if len(result['Lineage']) > longestlineage:
+                            longestlineage = len(result['Lineage'])
+                            worksheet.set_column(3, 3, longestlineage)
+                    # Increase the row
+                    row += 1
+                    # Set the column to 1
+                    col = 1
+            except KeyError:
                 # Increase the row
                 row += 1
-                # Set the column to 1
-                col = 1
         # Close the workbook
         workbook.close()
 
@@ -275,7 +280,7 @@ class CLARK(object):
         self.filelist = os.path.join(self.path, 'sampleList.txt')
         self.reportlist = os.path.join(self.path, 'reportList.txt')
         self.abundancequeue = Queue()
-        self.datapath = ''
+        self.datapath = str()
         self.reportpath = os.path.join(self.path, 'reports')
         self.clean_seqs = args.clean_seqs
         if self.clean_seqs:
@@ -311,12 +316,15 @@ class CLARK(object):
                         sample[clarkextension].outputpath = os.path.join(sample.general.outputdirectory, 'CLARK')
                         make_path(sample[clarkextension].outputpath)
                         # Move the files to the CLARK folder
-                        move(sample.general.abundance,
-                             os.path.join(sample[clarkextension].outputpath,
-                                          os.path.basename(sample.general.abundance)))
-                        move(sample.general.classification,
-                             os.path.join(sample[clarkextension].outputpath,
-                                          os.path.basename(sample.general.classification)))
+                        try:
+                            move(sample.general.abundance,
+                                 os.path.join(sample[clarkextension].outputpath,
+                                              os.path.basename(sample.general.abundance)))
+                            move(sample.general.classification,
+                                 os.path.join(sample[clarkextension].outputpath,
+                                              os.path.basename(sample.general.classification)))
+                        except KeyError:
+                            pass
                         # Set the CLARK-specific attributes
                         sample[clarkextension].abundance = sample.general.abundance
                         sample[clarkextension].classification = sample.general.classification
@@ -419,7 +427,6 @@ class PipelineInit(object):
         args.path = inputobject.path
         args.sequencepath = inputobject.path
         args.databasepath = os.path.join(inputobject.reffilepath, 'clark')
-        # args.databasepath = '{}clark'.format(inputobject.reffilepath)
         make_path(args.databasepath)
         args.clarkpath = os.path.dirname(which('CLARK'))
         args.clarkpath += '/../opt/clark/'

@@ -101,7 +101,7 @@ class QualiMap(object):
         while True:
             sample, bowtie2build, bowtie2align = self.bowqueue.get()
             if sample.general.bestassemblyfile != 'NA':
-                if not os.path.isfile(sample.mapping.BamFile) and not os.path.isfile(sample.mapping.BamFile + ".bz2"):
+                if not os.path.isfile(sample.mapping.BamFile):
                     stdout = StringIO()
                     for func in bowtie2build, bowtie2align:
                         stdout.close()
@@ -116,11 +116,7 @@ class QualiMap(object):
             sam = sample.general.bowtie2results + ".sam"
             if os.path.isfile(sam):
                 # PIPE stdout to stdin of samtools view then sort (only outputting sorted bam)
-                # SAMtools sort v1.3 has different run parameters
-                if self.samversion < "1.3":
-                    samsort = SamtoolsSortCommandline(input="-", out_prefix=sample.mapping.BamFile[:-4])
-                else:
-                    samsort = SamtoolsSortCommandline(input=sample.mapping.BamFile, o=True, out_prefix="-")
+                samsort = SamtoolsSortCommandline(input=sample.mapping.BamFile, o=True, out_prefix="-")
                 # Use cStringIO streams to handle bowtie output
                 stdout = StringIO()
                 for func in [SamtoolsViewCommandline(b=True,

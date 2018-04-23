@@ -104,7 +104,12 @@ class Skesa(object):
         for sample in self.metadata:
             # Set the name of the unfiltered spades assembly output file
             if os.path.isfile(sample.general.assemblyfile):
-                sample.general.bestassemblyfile = sample.general.assemblyfile
+                size = os.path.getsize(sample.general.assemblyfile)
+                # Ensure that the assembly isn't just an empty file
+                if size == 0:
+                    sample.general.bestassemblyfile = 'NA'
+                else:
+                    sample.general.bestassemblyfile = sample.general.assemblyfile
             else:
                 sample.general.bestassemblyfile = 'NA'
             # Set the name of the filtered assembly file
