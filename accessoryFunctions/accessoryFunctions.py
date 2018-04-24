@@ -475,9 +475,9 @@ class GenObject(object):
                     or all(self.datastore[key]):
                 return '{},'.format(self.datastore[key])
             else:
-                return '-,'
+                return 'ND,'
         except KeyError:
-            return '-,'
+            return 'ND,'
 
 
 class MetadataObject(object):
