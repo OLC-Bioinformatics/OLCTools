@@ -22,8 +22,9 @@ class Compress(object):
                             or re.search("^baitedtargets", item) or re.search("_combined.csv$", item) \
                             or re.search("^scaffolds", item) or re.search(".fastg$", item) or re.search(".gfa$", item) \
                             or re.search(".bai$", item) or 'coregenome' in path or 'prophages' in path:
-                        # Keep the baitedtargets.fa files
-                        if item != 'baitedtargets.fa' and not re.search("coregenome", item):
+                        # Keep the baitedtargets.fa, core genome, and merged metagenome files
+                        if item != 'baitedtargets.fa' and not re.search("coregenome", item) \
+                                and not re.search("paired", item):
                             # Remove the unnecessary files
                             try:
                                 os.remove(os.path.join(path, item))

@@ -1,7 +1,6 @@
 #!/usr/bin/env python
-from accessoryFunctions.accessoryFunctions import make_path
+from accessoryFunctions.accessoryFunctions import make_path, printtime
 from glob import glob
-import time
 import os
 __author__ = 'adamkoziol'
 
@@ -10,8 +9,7 @@ class FastqMover(object):
 
     def movefastq(self):
         """Find .fastq files for each sample and move them to an appropriately named folder"""
-        # from accessoryFunctions import relativesymlink
-        print("\r[{:}] Moving fastq files".format(time.strftime("%H:%M:%S")))
+        printtime('Moving FASTQ files', self.start)
         # Iterate through each sample
         for sample in self.metadata.runmetadata.samples:
             # Retrieve the output directory
@@ -47,4 +45,5 @@ class FastqMover(object):
     def __init__(self, inputobject):
         self.metadata = inputobject
         self.path = inputobject.path
+        self.start = inputobject.starttime
         self.movefastq()

@@ -54,14 +54,14 @@ class Reporter(object):
             data += GenObject.returnattr(sample.sixteens_full, 'sixteens_match')
             # rMLST_Result
             try:
-                data += GenObject.returnattr(sample.rmlst, 'sequencetype') if sample.rmlst.matches == 53 else '-,'
+                data += GenObject.returnattr(sample.rmlst, 'sequencetype') if sample.rmlst.matches == 53 else 'ND,'
             except KeyError:
-                data += '-,'
+                data += 'ND,'
             # MLST_Result
             try:
-                data += GenObject.returnattr(sample.mlst, 'sequencetype') if sample.mlst.matches == 7 else '-,'
+                data += GenObject.returnattr(sample.mlst, 'sequencetype') if sample.mlst.matches == 7 else 'ND,'
             except KeyError:
-                data += '-,'
+                data += 'ND,'
             # MLST_gene_X_alleles
             try:
                 # Create a set of all the genes present in the results (gene name split from allele)
@@ -80,9 +80,10 @@ class Reporter(object):
                         data += allele_list[0] + ','
                 # If there are fewer than seven matching alleles, add a - for each missing result
                 if len(gene_set) < 7:
-                    data += (7 - len(gene_set)) * '-,'
+                    data += (7 - len(gene_set)) * 'ND,'
             except KeyError:
-                data += '-,-,-,-,-,-,-,'
+                # data += '-,-,-,-,-,-,-,'
+                data += 'ND,ND,ND,ND,ND,ND,ND,'
             # CoreGenesPresent
             data += GenObject.returnattr(sample.coregenome, 'coreresults')
             # E_coli_Serotype
@@ -94,11 +95,11 @@ class Reporter(object):
                             hpid=sample.serosippr.best_h_pid)
                 # Make sure that the string was populated with values rather than 'NA' or '-'
                 if serotype == '- (-):- (-),':
-                    data += '-,'
+                    data += 'ND,'
                 else:
                     data += serotype
             except KeyError:
-                data += '-,'
+                data += 'ND,'
             # SISTR_serovar_antigen
             data += GenObject.returnattr(sample.sistr, 'serovar_antigen').replace(',', ';').rstrip(';') + ','
             # SISTR_serovar_cgMLST
@@ -115,12 +116,17 @@ class Reporter(object):
             try:
                 data += ';'.join(sample.genesippr.report_output) + ','
             except KeyError:
-                data += '-,'
+                data += 'ND,'
             # Vtyper_Profile
             try:
-                data += ';'.join(sorted(sample.vtyper.profile)) + ','
+                # Since the vtyper attribute can be empty, check first
+                profile = sorted(sample.vtyper.profile)
+                if profile:
+                    data += ';'.join(profile) + ','
+                else:
+                    data += 'ND,'
             except KeyError:
-                data += '-,'
+                data += 'ND,'
             # AMR_Profile and resistant/sensitive status
             if sample.resfinder_assembled.pipelineresults:
                 # Profile
@@ -134,9 +140,13 @@ class Reporter(object):
                 data += 'Sensitive,'
             # Plasmid Result'
             try:
-                data += ';'.join(sorted(sample.plasmidextractor.plasmids)) + ','
+                plasmid_profile = sorted(sample.plasmidextractor.plasmids)
+                if plasmid_profile:
+                    data += ';'.join(plasmid_profile) + ','
+                else:
+                    data += 'ND,'
             except KeyError:
-                data += '-,'
+                data += 'ND,'
             # TotalPredictedGenes
             data += GenObject.returnattr(sample.prodigal, 'predictedgenestotal')
             # PredictedGenesOver3000bp
@@ -157,7 +167,7 @@ class Reporter(object):
             data += GenObject.returnattr(sample.run, 'forwardlength')
             # LengthReverseRead
             data += GenObject.returnattr(sample.run, 'reverselength')
-            # OtherNames
+            # Real time strain
             data += GenObject.returnattr(sample.run, 'Description')
             # Flowcell
             data += GenObject.returnattr(sample.run, 'flowcell')
@@ -170,7 +180,7 @@ class Reporter(object):
             # Append a new line to the end of the results for this sample
             data += '\n'
         # Replace any NA values with -
-        cleandata = data.replace('NA', '-')
+        cleandata = data.replace('NA', 'ND')
         with open(os.path.join(self.reportpath, 'combinedMetadata.csv'), 'w') as metadatareport:
             metadatareport.write(header)
             metadatareport.write(cleandata)
