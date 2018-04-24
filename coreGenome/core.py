@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 from accessoryFunctions.accessoryFunctions import MetadataObject, printtime
 from spadespipeline.GeneSeekr import GeneSeekr
+from Bio import SeqIO
 from csv import DictReader
 from glob import glob
 import operator
@@ -64,7 +65,7 @@ class CoreGenome(GeneSeekr):
 
     def reporter(self):
         header = 'Strain,ClosestRef,GenesPresent/Total,\n'
-        data = ''
+        data = str()
         for sample in self.metadata:
             try:
                 if sample[self.analysistype].blastresults != 'NA':
@@ -72,7 +73,13 @@ class CoreGenome(GeneSeekr):
                         # Write the sample name, closest ref genome, and the # of genes found / total # of genes
                         closestref = list(sample[self.analysistype].blastresults.items())[0][0]
                         coregenes = list(sample[self.analysistype].blastresults.items())[0][1][0]
-                        totalcore = list(sample[self.analysistype].blastresults.items())[0][1][1]
+                        # Find the closest reference file
+                        ref = glob(os.path.join(self.referencefilepath, self.analysistype, 'Listeria', '{fasta}*'
+                                                .format(fasta=closestref)))[0]
+                        # Determine the number of core genes present in the closest reference file
+                        totalcore = 0
+                        for _ in SeqIO.parse(ref, 'fasta'):
+                            totalcore += 1
                         # Add the data to the object
                         sample[self.analysistype].targetspresent = coregenes
                         sample[self.analysistype].totaltargets = totalcore
