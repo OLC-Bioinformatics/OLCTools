@@ -29,9 +29,21 @@ class Reporter(object):
             # SamplePurity
             data += GenObject.returnattr(sample.confinder, 'contam_status')
             # GenomeQAML prediction
-            data += GenObject.returnattr(sample.GenomeQAML, 'prediction')
+            prediction = GenObject.returnattr(sample.GenomeQAML, 'prediction')
+            if prediction != ',':
+                data += prediction
+            else:
+                try:
+                    description = sample.run.Description
+                    data += '{description},'.format(description=description)
+                except KeyError:
+                    data += 'ND,'
             # N50
-            data += GenObject.returnattr(sample.quality_features, 'n50')
+            n50 = GenObject.returnattr(sample.quality_features, 'n50')
+            if n50 != '-,':
+                data += n50
+            else:
+                data += 'ND,'
             # NumContigs
             data += GenObject.returnattr(sample.quality_features, 'num_contigs')
             # TotalLength
@@ -114,7 +126,10 @@ class Reporter(object):
             data += GenObject.returnattr(sample.sistr, 'serovar')
             # GeneSeekr_Profile
             try:
-                data += ';'.join(sample.genesippr.report_output) + ','
+                if sample.genesippr.report_output:
+                    data += ';'.join(sample.genesippr.report_output) + ','
+                else:
+                    data += 'ND,'
             except KeyError:
                 data += 'ND,'
             # Vtyper_Profile

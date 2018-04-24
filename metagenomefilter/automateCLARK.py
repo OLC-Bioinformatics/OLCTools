@@ -17,6 +17,22 @@ __author__ = 'adamkoziol'
 
 class CLARK(object):
 
+    def main(self):
+        """
+
+        """
+        # Set the targets
+        self.settargets()
+        # Classify the metagenome(s)
+        if self.clean_seqs:
+            self.clean_sequences()
+        self.lists()
+        self.classifymetagenome()
+        # Estimate the abundance
+        self.estimateabundance()
+        # Create reports
+        self.reports()
+
     def objectprep(self):
         """Create objects to store data and metadata for each sample. Also, perform necessary file manipulations"""
         # Move the files to subfolders and create objects
@@ -29,8 +45,6 @@ class CLARK(object):
             printtime('Using .fasta files for CLARK analysis', self.start)
             for sample in self.runmetadata.samples:
                 sample.general.combined = sample.general.fastqfiles[0]
-        # Set the targets
-        self.settargets()
 
     def settargets(self):
         """Set the targets to be used in the analyses. Involves the path of the database files, the database files to
@@ -42,10 +56,6 @@ class CLARK(object):
                                                                         self.database, self.rank)
         #
         subprocess.call(self.targetcall, shell=True, stdout=self.devnull, stderr=self.devnull)
-        # Classify the metagenome(s)
-        if self.clean_seqs:
-            self.clean_sequences()
-        self.classifymetagenome()
 
     def clean_sequences(self):
         """Removes reads/contigs that contain plasmids, and masks phage sequences."""
@@ -67,13 +77,6 @@ class CLARK(object):
     def classifymetagenome(self):
         """Run the classify metagenome of the CLARK package on the samples"""
         printtime('Classifying metagenomes', self.start)
-        # Prepare the lists to be used to classify the metagenomes
-        with open(self.filelist, 'w') as filelist:
-            with open(self.reportlist, 'w') as reportlist:
-                for sample in self.runmetadata.samples:
-                    if sample.general.combined != 'NA':
-                        filelist.write(sample.general.combined + '\n')
-                        reportlist.write(sample.general.combined.split('.')[0] + '\n')
         # Define the system call
         self.classifycall = 'cd {} && ./classify_metagenome.sh -O {} -R {} -n {}'.format(self.clarkpath,
                                                                                          self.filelist,
@@ -82,17 +85,39 @@ class CLARK(object):
         # Variable to store classification state
         classify = True
         for sample in self.runmetadata.samples:
-            # Define the name of the .csv classification file
-            sample.general.classification = sample.general.combined.split('.')[0] + '.csv'
-            # If the file exists, then set classify to False
-            if os.path.isfile(sample.general.classification):
-                classify = False
+            try:
+                # Define the name of the .csv classification file
+                sample.general.classification = sample.general.combined.split('.')[0] + '.csv'
+                # If the file exists, then set classify to False
+                if os.path.isfile(sample.general.classification):
+                    classify = False
+            except KeyError:
+                pass
         # Run the system call if the samples have not been classified
         if classify:
             # Run the call
             subprocess.call(self.classifycall, shell=True, stdout=self.devnull, stderr=self.devnull)
-        # Estimate the abundance
-        self.estimateabundance()
+
+    def lists(self):
+        """
+        Prepare the list of files to be processed
+        """
+        # Prepare the lists to be used to classify the metagenomes
+        with open(self.filelist, 'w') as filelist:
+            with open(self.reportlist, 'w') as reportlist:
+                for sample in self.runmetadata.samples:
+                    if self.extension == 'fastq':
+                        try:
+                            status = sample.run.Description
+                            if status == 'metagenome':
+                                filelist.write(sample.general.combined + '\n')
+                                reportlist.write(sample.general.combined.split('.')[0] + '\n')
+                        except KeyError:
+                            pass
+                    else:
+                        if sample.general.combined != 'NA':
+                            filelist.write(sample.general.combined + '\n')
+                            reportlist.write(sample.general.combined.split('.')[0] + '\n')
 
     def estimateabundance(self):
         """Estimate the abundance of taxonomic groups"""
@@ -106,25 +131,26 @@ class CLARK(object):
             # Start the threading
             threads.start()
         for sample in self.runmetadata.samples:
-            if sample.general.combined != 'NA':
-                # Set the name of the abundance report
-                sample.general.abundance = sample.general.combined.split('.')[0] + '_abundance.csv'
-                # if not hasattr(sample, 'commands'):
-                if not sample.commands.datastore:
-                    sample.commands = GenObject()
+            try:
+                if sample.general.combined != 'NA':
+                    # Set the name of the abundance report
+                    sample.general.abundance = sample.general.combined.split('.')[0] + '_abundance.csv'
+                    # if not hasattr(sample, 'commands'):
+                    if not sample.commands.datastore:
+                        sample.commands = GenObject()
 
-                # Define system calls
-                sample.commands.target = self.targetcall
-                sample.commands.classify = self.classifycall
-                sample.commands.abundancecall = \
-                    'cd {} && ./estimate_abundance.sh -D {} -F {} > {}'.format(self.clarkpath,
-                                                                               self.databasepath,
-                                                                               sample.general.classification,
-                                                                               sample.general.abundance)
-                self.abundancequeue.put(sample)
+                    # Define system calls
+                    sample.commands.target = self.targetcall
+                    sample.commands.classify = self.classifycall
+                    sample.commands.abundancecall = \
+                        'cd {} && ./estimate_abundance.sh -D {} -F {} > {}'.format(self.clarkpath,
+                                                                                   self.databasepath,
+                                                                                   sample.general.classification,
+                                                                                   sample.general.abundance)
+                    self.abundancequeue.put(sample)
+            except KeyError:
+                pass
         self.abundancequeue.join()
-        # Create reports
-        self.reports()
 
     def estimate(self):
         while True:
@@ -300,41 +326,42 @@ class CLARK(object):
                 if not os.path.isfile(self.report):
                     #
                     printtime('Performing CLARK analysis on {} files'.format(self.extension), self.start)
-                    if self.extension == 'fastq':
-                        fileprep.Fileprep(self)
-                    else:
+                    if self.extension != 'fastq':
                         for sample in self.runmetadata.samples:
                             sample.general.combined = sample.general.bestassemblyfile
-                    # Set the targets
-                    self.settargets()
+                    else:
+                        fileprep.Fileprep(self)
+                    # Run the pipeline
+                    self.main()
                     # Clean up the files and create/delete attributes to be consistent with pipeline Metadata objects
                     for sample in self.runmetadata.samples:
-                        # Create a GenObject to store metadata when this script is run as part of the pipeline
-                        clarkextension = 'clark{}'.format(self.extension)
-                        setattr(sample, clarkextension, GenObject())
-                        # Create a folder to store all the CLARK files
-                        sample[clarkextension].outputpath = os.path.join(sample.general.outputdirectory, 'CLARK')
-                        make_path(sample[clarkextension].outputpath)
-                        # Move the files to the CLARK folder
-                        try:
-                            move(sample.general.abundance,
-                                 os.path.join(sample[clarkextension].outputpath,
-                                              os.path.basename(sample.general.abundance)))
-                            move(sample.general.classification,
-                                 os.path.join(sample[clarkextension].outputpath,
-                                              os.path.basename(sample.general.classification)))
-                        except KeyError:
-                            pass
-                        # Set the CLARK-specific attributes
-                        sample[clarkextension].abundance = sample.general.abundance
-                        sample[clarkextension].classification = sample.general.classification
-                        sample[clarkextension].combined = sample.general.combined
-                        if self.extension == 'fastq':
-                            # Remove the combined .fastq files
+                        if sample.general.bestassemblyfile != 'NA':
+                            # Create a GenObject to store metadata when this script is run as part of the pipeline
+                            clarkextension = 'clark{}'.format(self.extension)
+                            setattr(sample, clarkextension, GenObject())
+                            # Create a folder to store all the CLARK files
+                            sample[clarkextension].outputpath = os.path.join(sample.general.outputdirectory, 'CLARK')
+                            make_path(sample[clarkextension].outputpath)
+                            # Move the files to the CLARK folder
                             try:
-                                os.remove(sample.general.combined)
-                            except OSError:
+                                move(sample.general.abundance,
+                                     os.path.join(sample[clarkextension].outputpath,
+                                                  os.path.basename(sample.general.abundance)))
+                                move(sample.general.classification,
+                                     os.path.join(sample[clarkextension].outputpath,
+                                                  os.path.basename(sample.general.classification)))
+                            except (KeyError, FileNotFoundError):
                                 pass
+                            # Set the CLARK-specific attributes
+                            sample[clarkextension].abundance = sample.general.abundance
+                            sample[clarkextension].classification = sample.general.classification
+                            sample[clarkextension].combined = sample.general.combined
+                            if self.extension == 'fastq':
+                                # Remove the combined .fastq files
+                                try:
+                                    os.remove(sample.general.combined)
+                                except OSError:
+                                    pass
                         # Remove all the attributes from .general
                         map(lambda x: delattr(sample.general, x), ['abundance', 'classification', 'combined'])
                         # Remove the text files lists of files and reports created by CLARK
@@ -347,11 +374,13 @@ class CLARK(object):
                 self.report = os.path.join(self.reportpath, 'abundance.xlsx')
                 # Create the objects
                 self.objectprep()
+                self.main()
         except AttributeError:
             self.runmetadata = MetadataObject()
             self.report = os.path.join(self.reportpath, 'abundance.xlsx')
             # Create the objects
             self.objectprep()
+            self.main()
         # Optionally filter the .fastq reads based on taxonomic assignment
         if args.filter:
             filtermetagenome.PipelineInit(self)
@@ -365,8 +394,8 @@ if __name__ == '__main__':
     # Extract the path of the current script from the full path + file name
     homepath = os.path.split(os.path.abspath(__file__))[0]
     # Find the commit of the script by running a command to change to the directory containing the script and run
-    # a git command to return the short version of the commit hash
-    commit = subprocess.Popen('cd {} && git rev-parse --short HEAD'.format(homepath),
+    # a git command to return the final tag
+    commit = subprocess.Popen('cd {} && git tag | tail -n 1'.format(homepath),
                               shell=True, stdout=subprocess.PIPE).communicate()[0].rstrip()
     # Parser for arguments
     parser = ArgumentParser(description='Automates CLARK metagenome software')
@@ -421,7 +450,7 @@ if __name__ == '__main__':
 
 class PipelineInit(object):
 
-    def __init__(self, inputobject):
+    def __init__(self, inputobject, extension='fasta'):
         # Create an object to mimic the command line arguments necessary for the script
         args = MetadataObject()
         args.path = inputobject.path
@@ -438,6 +467,6 @@ class PipelineInit(object):
         args.runmetadata = inputobject.runmetadata
         args.clean_seqs = False
         args.reffilepath = inputobject.reffilepath
-        args.runmetadata.extension = 'fasta'
+        args.runmetadata.extension = extension
         # Run CLARK
         CLARK(args, inputobject.commit, inputobject.starttime, inputobject.homepath)

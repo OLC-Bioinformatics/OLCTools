@@ -112,12 +112,12 @@ class Skesa(object):
         total number of reads, and the number of reads that could be paired
         :param sample: metadata sample object flagged as a metagenome
         """
+        # Set the assembly file to 'NA' as assembly is not desirable for metagenomes
+        sample.general.assemblyfile = 'NA'
         # Can only merge paired-end
         if len(sample.general.fastqfiles) == 2:
             outpath = os.path.join(sample.general.outputdirectory, 'merged_reads')
             make_path(outpath)
-            # Set the assembly file to 'NA' as assembly is not desirable for metagenomes
-            sample.general.assemblyfile = 'NA'
             # Merge path - keep all the merged FASTQ files in one directory
             merge_path = os.path.join(self.path, 'merged_reads')
             make_path(merge_path)
@@ -195,20 +195,24 @@ class Skesa(object):
         attribute to 'NA'
         """
         for sample in self.metadata:
-            # Set the name of the unfiltered spades assembly output file
-            if os.path.isfile(sample.general.assemblyfile):
-                size = os.path.getsize(sample.general.assemblyfile)
-                # Ensure that the assembly isn't just an empty file
-                if size == 0:
-                    sample.general.bestassemblyfile = 'NA'
+            try:
+                # Set the name of the unfiltered spades assembly output file
+                if os.path.isfile(sample.general.assemblyfile):
+                    size = os.path.getsize(sample.general.assemblyfile)
+                    # Ensure that the assembly isn't just an empty file
+                    if size == 0:
+                        sample.general.bestassemblyfile = 'NA'
+                    else:
+                        sample.general.bestassemblyfile = sample.general.assemblyfile
                 else:
-                    sample.general.bestassemblyfile = sample.general.assemblyfile
-            else:
+                    sample.general.bestassemblyfile = 'NA'
+                # Set the name of the filtered assembly file
+                filteredfile = os.path.join(sample.general.outputdirectory, '{}.fasta'.format(sample.name))
+                # Add the name and path of the filtered file to the metadata
+                sample.general.filteredfile = filteredfile
+            except KeyError:
+                sample.general.assemblyfile = 'NA'
                 sample.general.bestassemblyfile = 'NA'
-            # Set the name of the filtered assembly file
-            filteredfile = os.path.join(sample.general.outputdirectory, '{}.fasta'.format(sample.name))
-            # Add the name and path of the filtered file to the metadata
-            sample.general.filteredfile = filteredfile
 
     def __init__(self, inputobject):
         self.metadata = inputobject.runmetadata.samples
@@ -223,4 +227,5 @@ class Skesa(object):
         self.assemblequeue = Queue(maxsize=self.threads)
         self.threadlock = threading.Lock()
         self.reportpath = inputobject.reportpath
+        make_path(self.reportpath)
         printtime('Assembling sequences', self.start)
