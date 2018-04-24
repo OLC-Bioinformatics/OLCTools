@@ -74,8 +74,14 @@ class CoreGenome(GeneSeekr):
                         closestref = list(sample[self.analysistype].blastresults.items())[0][0]
                         coregenes = list(sample[self.analysistype].blastresults.items())[0][1][0]
                         # Find the closest reference file
-                        ref = glob(os.path.join(self.referencefilepath, self.analysistype, 'Listeria', '{fasta}*'
-                                                .format(fasta=closestref)))[0]
+                        try:
+                            ref = glob(os.path.join(self.referencefilepath, self.analysistype, 'Listeria', '{fasta}*'
+                                                    .format(fasta=closestref)))[0]
+                        except IndexError:
+                            # Replace underscores with dashes to find files
+                            closestref = closestref.replace('_', '-')
+                            ref = glob(os.path.join(self.referencefilepath, self.analysistype, 'Listeria', '{fasta}*'
+                                                    .format(fasta=closestref)))[0]
                         # Determine the number of core genes present in the closest reference file
                         totalcore = 0
                         for _ in SeqIO.parse(ref, 'fasta'):
