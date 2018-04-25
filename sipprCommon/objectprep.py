@@ -36,19 +36,22 @@ class Objectprep(object):
     def __init__(self, inputobject):
         self.path = inputobject.path
         self.starttime = inputobject.starttime
-        self.customsamplesheet = inputobject.customsamplesheet
-        self.bcltofastq = inputobject.bcltofastq
-        self.miseqpath = inputobject.miseqpath
-        self.miseqfolder = inputobject.miseqfolder
-        self.fastqdestination = inputobject.fastqdestination
-        self.forwardlength = inputobject.forwardlength
-        self.reverselength = inputobject.reverselength
-        self.numreads = 2 if self.reverselength != 0 else 1
-        self.customsamplesheet = inputobject.customsamplesheet
         self.sequencepath = inputobject.sequencepath
-        self.homepath = inputobject.homepath
-        self.commit = inputobject.commit
-        self.copy = inputobject.copy
+        try:
+            self.customsamplesheet = inputobject.customsamplesheet
+            self.bcltofastq = inputobject.bcltofastq
+            self.miseqpath = inputobject.miseqpath
+            self.miseqfolder = inputobject.miseqfolder
+            self.fastqdestination = inputobject.fastqdestination
+            self.forwardlength = inputobject.forwardlength
+            self.reverselength = inputobject.reverselength
+            self.numreads = 2 if self.reverselength != 0 else 1
+            self.customsamplesheet = inputobject.customsamplesheet
+            self.homepath = inputobject.homepath
+            self.commit = inputobject.commit
+            self.copy = inputobject.copy
+        except AttributeError:
+            self.bcltofastq = False
         try:
             self.debug = inputobject.debug
         except AttributeError:

@@ -527,7 +527,10 @@ class ResSippr(GeneSippr):
         except AttributeError:
             self.reverselength = 'full'
         self.numreads = 2 if self.reverselength != 0 else 1
-        self.customsamplesheet = args.customsamplesheet
+        try:
+            self.customsamplesheet = args.customsamplesheet
+        except AttributeError:
+            self.customsamplesheet = False
         self.logfile = args.logfile
         # Set the custom cutoff value
         self.cutoff = float(cutoff)
