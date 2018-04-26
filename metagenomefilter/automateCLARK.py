@@ -324,15 +324,28 @@ class CLARK(object):
                 self.report = os.path.join(self.reportpath, '{}'.format('abundance{}.xlsx'.format(self.extension)))
                 # Only re-run the CLARK analyses if the CLARK report doesn't exist. All files created by CLARK
                 if not os.path.isfile(self.report):
-                    #
                     printtime('Performing CLARK analysis on {} files'.format(self.extension), self.start)
                     if self.extension != 'fastq':
                         for sample in self.runmetadata.samples:
                             sample.general.combined = sample.general.bestassemblyfile
+                        # Run the pipeline
+                        self.main()
                     else:
-                        fileprep.Fileprep(self)
-                    # Run the pipeline
-                    self.main()
+                        # Only perform FASTQ analyses if the sample is declared to be a metagenome
+                        metagenome = False
+                        for sample in self.runmetadata.samples:
+                            try:
+                                status = sample.run.Description
+                                print(status)
+                            except KeyError:
+                                status = 'unknown'
+                            if status == 'metagenome':
+                                metagenome = True
+                        # If any of the samples are metagenomes, run the CLARK analysis on the raw files
+                        if metagenome:
+                            fileprep.Fileprep(self)
+                            # Run the pipeline
+                            self.main()
                     # Clean up the files and create/delete attributes to be consistent with pipeline Metadata objects
                     for sample in self.runmetadata.samples:
                         if sample.general.bestassemblyfile != 'NA':
@@ -353,14 +366,17 @@ class CLARK(object):
                             except (KeyError, FileNotFoundError):
                                 pass
                             # Set the CLARK-specific attributes
-                            sample[clarkextension].abundance = sample.general.abundance
-                            sample[clarkextension].classification = sample.general.classification
-                            sample[clarkextension].combined = sample.general.combined
+                            try:
+                                sample[clarkextension].abundance = sample.general.abundance
+                                sample[clarkextension].classification = sample.general.classification
+                                sample[clarkextension].combined = sample.general.combined
+                            except KeyError:
+                                pass
                             if self.extension == 'fastq':
                                 # Remove the combined .fastq files
                                 try:
                                     os.remove(sample.general.combined)
-                                except OSError:
+                                except (OSError, KeyError):
                                     pass
                         # Remove all the attributes from .general
                         map(lambda x: delattr(sample.general, x), ['abundance', 'classification', 'combined'])
