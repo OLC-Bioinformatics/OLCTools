@@ -715,7 +715,6 @@ class GeneSeekr(object):
                         columnwidth[col] = alignmentcorrect
                     worksheet.set_column(col, col, columnwidth[col])
                     col += 1
-                    multiple = True
                 # Set the width of the row to be the number of lines (number of newline characters) * 12
                 worksheet.set_row(row, max(totallines) * 11)
                 # Increase the row counter for the next strain's data

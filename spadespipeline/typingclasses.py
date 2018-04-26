@@ -789,7 +789,7 @@ class ResFinder(GeneSeekr):
                             data.append(record.format('fasta'))
                             if self.align:
                                 # Add '-'s for the empty results, as there are no alignments for exact matches
-                                data.extend(['-', '-', '-', '-', '-'])
+                                data.extend(['100', '-', '-', '-', '-'])
                     # If there are no blast results for the target, add a '-'
                     except (KeyError, TypeError):
                         data.append('-')
