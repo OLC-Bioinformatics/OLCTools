@@ -35,7 +35,10 @@ class Reporter(object):
             else:
                 try:
                     description = sample.run.Description
-                    data += '{description},'.format(description=description)
+                    if description == 'metagenome':
+                        data += '{description},'.format(description=description)
+                    else:
+                        data += '{status},'.format(status=sample.run.status)
                 except KeyError:
                     data += 'ND,'
             # N50
