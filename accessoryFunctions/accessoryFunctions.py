@@ -444,7 +444,6 @@ class GenObject(object):
     """Object to store static variables"""
     def __init__(self, x=None):
         start = x if x else {}
-        # start = (lambda y: y if y else {})(x)
         super(GenObject, self).__setattr__('datastore', start)
 
     def __getattr__(self, key):
@@ -470,6 +469,10 @@ class GenObject(object):
         del self.datastore[key]
 
     def returnattr(self, key):
+        """
+        Returns a string of either datastore[key], or 'ND' if datastore[key] doesn't exist formatted for a CSV report
+        :param key: Dictionary key to be used to return the value from datastore[key]
+        """
         try:
             if self.datastore[key] or self.datastore[key] == 0 or self.datastore[key] is False \
                     or all(self.datastore[key]):
@@ -478,6 +481,21 @@ class GenObject(object):
                 return 'ND,'
         except KeyError:
             return 'ND,'
+
+    def isattr(self, key):
+        """
+        Checks to see if an attribute exists. If it does, returns True, otherwise returns False
+        :param key: Dictionary key to be checked for presence in the datastore
+        :return: True/False depending on whether an attribute exists
+        """
+        try:
+            if self.datastore[key] or self.datastore[key] == 0 or self.datastore[key] is False \
+                    or all(self.datastore[key]):
+                return True
+            else:
+                return False
+        except KeyError:
+            return False
 
 
 class MetadataObject(object):
