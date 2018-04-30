@@ -374,7 +374,8 @@ class CLARK(object):
                             if self.extension == 'fastq':
                                 # Remove the combined .fastq files
                                 try:
-                                    os.remove(sample[clarkextension].combined)
+                                    if type(sample[clarkextension].combined) is list:
+                                        os.remove(sample[clarkextension].combined)
                                 except (OSError, KeyError):
                                     pass
                         # Remove all the attributes from .general
