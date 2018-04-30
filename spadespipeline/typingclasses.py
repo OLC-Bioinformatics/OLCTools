@@ -750,6 +750,11 @@ class ResFinder(GeneSeekr):
                     data.append(result['query_id'])
                     data.append('...'.join([str(result['low']), str(result['high'])]))
                     try:
+                        # Populate the attribute storing the resfinder results
+                        sample[self.analysistype].pipelineresults.append(
+                            '{rgene} ({pid}%) {rclass}'.format(rgene=finalgene,
+                                                               pid=percentid,
+                                                               rclass=resistance))
                         # Only if the alignment option is selected, for inexact results, add alignments
                         if self.align and percentid != 100.00:
 
@@ -768,11 +773,6 @@ class ResFinder(GeneSeekr):
                             record = SeqRecord(sample[self.analysistype].dnaseq[name],
                                                id='{}_{}'.format(sample.name, name),
                                                description='')
-                            # Populate the attribute storing the resfinder results
-                            sample[self.analysistype].pipelineresults.append(
-                                '{rgene} ({pid}%) {rclass}'.format(rgene=finalgene,
-                                                                   pid=percentid,
-                                                                   rclass=resistance))
                             # Add the alignment, and the location of mismatches for both nucleotide and amino
                             # acid sequences
                             data.extend([record.format('fasta'),
