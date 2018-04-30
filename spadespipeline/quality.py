@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 from accessoryFunctions.accessoryFunctions import GenObject, MetadataObject, printtime, make_path, \
     run_subprocess, write_to_logfile
+import spadespipeline.metadataprinter as metadataprinter
 try:
     from confindr import confindr
 except ImportError:
@@ -124,6 +125,8 @@ class Quality(object):
             else:
                 # Update metadata objects with error
                 self.error(sample, 'files_too_small')
+        # Print the metadata to file
+        metadataprinter.MetadataPrinter(self)
         # Overwrite self.metadata with objects that do not fail the validation
         self.metadata = validated_reads
 
@@ -135,7 +138,7 @@ class Quality(object):
         :param message: error message to add to the sample.run.Description attribute
         """
         # Set the .fastqfiles attribute to 'NA' to remove this strain from the analyses
-        sample.general.fastqfiles = 'NA'
+        sample.general.fastqfiles = ['NA']
         # Ensure that the run attribute exists
         if GenObject.isattr(sample, 'run'):
             # If the Description attribute exists, overwrite it, otherwise create and populate it

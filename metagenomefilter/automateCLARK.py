@@ -336,7 +336,6 @@ class CLARK(object):
                         for sample in self.runmetadata.samples:
                             try:
                                 status = sample.run.Description
-                                print(status)
                             except KeyError:
                                 status = 'unknown'
                             if status == 'metagenome':
@@ -375,7 +374,7 @@ class CLARK(object):
                             if self.extension == 'fastq':
                                 # Remove the combined .fastq files
                                 try:
-                                    os.remove(sample.general.combined)
+                                    os.remove(sample[clarkextension].combined)
                                 except (OSError, KeyError):
                                     pass
                         # Remove all the attributes from .general
