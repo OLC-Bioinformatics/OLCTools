@@ -69,12 +69,34 @@ class Reporter(object):
             data += GenObject.returnattr(sample.sixteens_full, 'sixteens_match')
             # rMLST_Result
             try:
-                data += GenObject.returnattr(sample.rmlst, 'sequencetype') if sample.rmlst.matches == 53 else 'ND,'
+                # If the number of matches to the closest reference profile is 53, return the profile number
+                if sample.rmlst.matches == 53:
+                    data += GenObject.returnattr(sample.rmlst, 'sequencetype')
+                else:
+                    # Create a set of all the genes present in the results (gene name split from allele)
+                    rmlst_gene_set = {gene.split('_')[0] for gene in sample.rmlst.results}
+                    # If there are a full set of 53 genes, but no profile match, then this is a new profile
+                    if len(rmlst_gene_set) == 53:
+                        data += 'new,'
+                    # Otherwise the profile is set to ND
+                    else:
+                        data += 'ND,'
             except KeyError:
                 data += 'ND,'
             # MLST_Result
             try:
-                data += GenObject.returnattr(sample.mlst, 'sequencetype') if sample.mlst.matches == 7 else 'ND,'
+                if sample.mlst.matches == 7:
+                    data += GenObject.returnattr(sample.mlst, 'sequencetype')
+                else:
+                    # Create a set of all the genes present in the results (gene name split from allele)
+                    mlst_gene_set = {gene.split('_')[0] for gene in sample.mlst.results}
+                    # If there are all the genes present, but no perfect match to a reference profile, state that
+                    # the profile is new
+                    if len(mlst_gene_set) == 7:
+                        data += 'new,'
+                    # Otherwise indicate that the profile is ND
+                    else:
+                        data += 'ND,'
             except KeyError:
                 data += 'ND,'
             # MLST_gene_X_alleles
