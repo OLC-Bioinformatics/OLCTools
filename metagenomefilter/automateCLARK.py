@@ -82,6 +82,9 @@ class CLARK(object):
                                                                                          self.filelist,
                                                                                          self.reportlist,
                                                                                          self.cpus)
+        # If the 'light' database is requested, append --light to the end of the command
+        if self.light:
+            self.classifycall += ' --light'
         # Variable to store classification state
         classify = True
         for sample in self.runmetadata.samples:
@@ -309,6 +312,7 @@ class CLARK(object):
         self.datapath = str()
         self.reportpath = os.path.join(self.path, 'reports')
         self.clean_seqs = args.clean_seqs
+        self.light = args.light
         if self.clean_seqs:
             try:
                 self.reffilepath = args.reffilepath
@@ -449,6 +453,9 @@ if __name__ == '__main__':
                         action='store_true',
                         help='If enabled, removes plasmid sequences and masks phage sequences. Only usable if you '
                              'have access to the OLC NAS.')
+    parser.add_argument('-l', '--light',
+                        default=False,
+                        help='Run CLARK in light mode for systems with lower RAM')
     # Get the arguments into an object
     arguments = parser.parse_args()
 
@@ -466,7 +473,7 @@ if __name__ == '__main__':
 
 class PipelineInit(object):
 
-    def __init__(self, inputobject, extension='fasta'):
+    def __init__(self, inputobject, extension='fasta', light=False):
         # Create an object to mimic the command line arguments necessary for the script
         args = MetadataObject()
         args.path = inputobject.path
@@ -484,5 +491,6 @@ class PipelineInit(object):
         args.clean_seqs = False
         args.reffilepath = inputobject.reffilepath
         args.runmetadata.extension = extension
+        args.light = light
         # Run CLARK
         CLARK(args, inputobject.commit, inputobject.starttime, inputobject.homepath)
