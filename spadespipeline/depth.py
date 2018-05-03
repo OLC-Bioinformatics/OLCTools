@@ -398,13 +398,13 @@ if __name__ == '__main__':
         def associate(self):
             # Get the sequences in the sequences folder into a list. Note that they must have a file extension that
             # begins with .fa
-            self.strains = [fasta for fasta in sorted(glob('{}*.fa*'.format(self.assemblypath)))
+            self.strains = [fasta for fasta in sorted(glob(os.path.join(self.assemblypath, '*.fa*')))
                             if '.fastq' not in fasta]
             for strain in self.strains:
                 # Extract the name of the strain from the path and file extension
                 strainname = os.path.split(strain)[1].split('.')[0]
                 # Find the corresponding fastq files for each strain
-                fastq = sorted(glob('{}{}*fastq*'.format(self.fastqpath, strainname)))
+                fastq = sorted(glob(os.path.join(self.fastqpath, '{}*fastq*'.format(strainname))))
                 # Ensure that fastq files are present for each assembly
                 assert fastq, 'Cannot find fastq files for strain {}'.format(strainname)
                 # Create the object
