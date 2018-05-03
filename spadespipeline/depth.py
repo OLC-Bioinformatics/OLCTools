@@ -242,18 +242,21 @@ class QualiMap(object):
             threads.start()
         for sample in self.metadata:
             if sample.general.bestassemblyfile != 'NA':
-                # Set the name of the unfiltered assembly output file
-                sample.general.contigsfile = sample.general.assemblyfile
-                sample.mapping.pilondir = os.path.join(sample.general.QualimapResults, 'pilon')
-                make_path(sample.mapping.pilondir)
-                # Create the command line command
-                sample.mapping.piloncmd = 'pilon --genome {} --bam {} --fix bases --threads {} ' \
-                                          '--outdir {} --changes --mindepth 0.25' \
-                    .format(sample.general.contigsfile,
-                            sample.mapping.BamFile,
-                            self.threads,
-                            sample.mapping.pilondir)
-                self.pilonqueue.put(sample)
+                if sample.general.polish:
+                    # Set the name of the unfiltered assembly output file
+                    sample.general.contigsfile = sample.general.assemblyfile
+                    sample.mapping.pilondir = os.path.join(sample.general.QualimapResults, 'pilon')
+                    make_path(sample.mapping.pilondir)
+                    # Create the command line command
+                    sample.mapping.piloncmd = 'pilon --genome {} --bam {} --fix bases --threads {} ' \
+                                              '--outdir {} --changes --mindepth 0.25' \
+                        .format(sample.general.contigsfile,
+                                sample.mapping.BamFile,
+                                self.threads,
+                                sample.mapping.pilondir)
+                    self.pilonqueue.put(sample)
+                else:
+                    sample.general.contigsfile = sample.general.assemblyfile
         self.pilonqueue.join()
 
     def pilonthreads(self):
@@ -329,8 +332,6 @@ class QualiMap(object):
             if os.path.isfile(sample.general.filteredfile):
                 # Set the assemblies path
                 sample.general.bestassembliespath = os.path.join(self.path, 'BestAssemblies')
-                # Make the path (if necessary)
-                make_path(sample.general.bestassembliespath)
                 # Set the name of the file in the best assemblies folder
                 bestassemblyfile = os.path.join(sample.general.bestassembliespath, '{}.fasta'.format(sample.name))
                 # Add the name and path of the best assembly file to the metadata
