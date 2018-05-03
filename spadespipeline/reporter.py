@@ -42,15 +42,15 @@ class Reporter(object):
                 except KeyError:
                     data += 'ND,'
             # N50
-            n50 = GenObject.returnattr(sample.quality_features, 'n50')
+            n50 = GenObject.returnattr(sample.quality_features_polished, 'n50')
             if n50 != '-,':
                 data += n50
             else:
                 data += 'ND,'
             # NumContigs
-            data += GenObject.returnattr(sample.quality_features, 'num_contigs')
+            data += GenObject.returnattr(sample.quality_features_polished, 'num_contigs')
             # TotalLength
-            data += GenObject.returnattr(sample.quality_features, 'genome_length')
+            data += GenObject.returnattr(sample.quality_features_polished, 'genome_length')
             # MeanInsertSize
             data += GenObject.returnattr(sample.mapping, 'MeanInsertSize')
             # InsertSizeSTD
@@ -60,7 +60,7 @@ class Reporter(object):
             # CoverageDepthSTD
             data += GenObject.returnattr(sample.mapping, 'StdCoveragedata')
             # PercentGC
-            data += GenObject.returnattr(sample.quality_features, 'gc')
+            data += GenObject.returnattr(sample.quality_features_polished, 'gc')
             # MASH_ReferenceGenome
             data += GenObject.returnattr(sample.mash, 'closestrefseq')
             # MASH_NumMatchingHashes
@@ -237,9 +237,9 @@ class Reporter(object):
         for sample in self.metadata:
             data = OrderedDict([
                 ('SampleName', sample.name),
-                ('N50', str(sample.quality_features.n50)),
-                ('NumContigs', str(sample.quality_features.num_contigs)),
-                ('TotalLength', str(sample.quality_features.genome_length)),
+                ('N50', str(sample.quality_features_polished.n50)),
+                ('NumContigs', str(sample.quality_features_polished.num_contigs)),
+                ('TotalLength', str(sample.quality_features_polished.genome_length)),
                 ('MeanInsertSize', sample.mapping.MeanInsertSize),
                 ('AverageCoverageDepth', sample.mapping.MeanCoveragedata.split("X")[0]),
                 ('ReferenceGenome', sample.mash.closestrefseq),
@@ -254,7 +254,7 @@ class Reporter(object):
                             hset=';'.join(sample.serosippr.h_set))),
                 ('geneSeekrProfile', ';'.join(result for result, pid in sorted(sample.genesippr.results.items()))),
                 ('vtyperProfile', ';'.join(sorted(sample.vtyper.profile))),
-                ('percentGC', str(sample.quality_features.gc)),
+                ('percentGC', str(sample.quality_features_polished.gc)),
                 ('TotalPredictedGenes', str(sample.prodigal.predictedgenestotal)),
                 ('predictedgenesover3000bp', str(sample.prodigal.predictedgenesover3000bp)),
                 ('predictedgenesover1000bp', str(sample.prodigal.predictedgenesover1000bp)),
