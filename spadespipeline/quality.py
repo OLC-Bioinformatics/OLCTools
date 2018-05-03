@@ -579,6 +579,7 @@ class QualityFeatures(object):
         self.find_genome_length()
         self.find_num_contigs()
         self.find_n50()
+        self.perform_pilon()
         self.clear_attributes()
 
     def fasta_records(self):
@@ -661,27 +662,44 @@ class QualityFeatures(object):
                     sample[self.analysistype].n50 = contig_length
                     break
 
+    def perform_pilon(self):
+        """
+        Determine if pilon polishing should be attempted. Do not perform polishing if confindr determines that the
+        sample is contaminated or if there are > 500 contigs
+        """
+        for sample in self.metadata:
+            try:
+                if sample[self.analysistype].num_contigs > 500 or sample.confinder.contam_status == 'Contaminated':
+                    sample.general.polish = False
+                else:
+                    sample.general.polish = True
+            except KeyError:
+                sample.general.polish = True
+
     def clear_attributes(self):
         """
-        Remove the record_dict attribute from the object, as SeqRecords are not JSON-serializable
+        Remove the record_dict attribute from the object, as SeqRecords are not JSON-serializable. Also remove
+        the contig_lengths and longest_contig attributes, as they are large lists that make the .json file ugly
         """
         for sample in self.metadata:
             try:
                 delattr(sample[self.analysistype], 'record_dict')
+                delattr(sample[self.analysistype], 'contig_lengths')
+                delattr(sample[self.analysistype], 'longest_contig')
             except KeyError:
                 pass
 
-    def __init__(self, inputobject):
+    def __init__(self, inputobject, analysis):
         self.metadata = inputobject.runmetadata.samples
         self.start = inputobject.starttime
-        self.analysistype = 'quality_features'
+        self.analysistype = 'quality_features_{analysis}'.format(analysis=analysis)
 
 
 class GenomeQAML(object):
 
     def main(self):
         """
-
+        Run the methods
         """
         self.run_qaml()
         self.parse_qaml()
