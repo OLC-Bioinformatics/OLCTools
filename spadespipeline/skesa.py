@@ -5,6 +5,7 @@ from subprocess import CalledProcessError
 from threading import Thread
 from queue import Queue
 import threading
+import shutil
 import os
 __author__ = 'adamkoziol'
 
@@ -191,11 +192,13 @@ class Skesa(object):
 
     def best_assemblyfile(self):
         """
-        Determine whether the contigs.fasta output file from SPAdes is present. If not, set the .bestassembly
+        Determine whether the contigs.fasta output file from the assembler is present. If not, set the .bestassembly
         attribute to 'NA'
         """
         for sample in self.metadata:
             try:
+                # Set the name of the filtered assembly file
+                filtered_outputfile = os.path.join(self.path, 'raw_assemblies', '{}.fasta'.format(sample.name))
                 # Set the name of the unfiltered spades assembly output file
                 if os.path.isfile(sample.general.assemblyfile):
                     size = os.path.getsize(sample.general.assemblyfile)
@@ -204,12 +207,11 @@ class Skesa(object):
                         sample.general.bestassemblyfile = 'NA'
                     else:
                         sample.general.bestassemblyfile = sample.general.assemblyfile
+                        shutil.copyfile(sample.general.bestassemblyfile, filtered_outputfile)
                 else:
                     sample.general.bestassemblyfile = 'NA'
-                # Set the name of the filtered assembly file
-                filteredfile = os.path.join(sample.general.outputdirectory, '{}.fasta'.format(sample.name))
                 # Add the name and path of the filtered file to the metadata
-                sample.general.filteredfile = filteredfile
+                sample.general.filteredfile = filtered_outputfile
             except KeyError:
                 sample.general.assemblyfile = 'NA'
                 sample.general.bestassemblyfile = 'NA'
@@ -227,5 +229,7 @@ class Skesa(object):
         self.assemblequeue = Queue(maxsize=self.threads)
         self.threadlock = threading.Lock()
         self.reportpath = inputobject.reportpath
+        make_path(os.path.join(self.path, 'BestAssemblies'))
+        make_path(os.path.join(self.path, 'raw_assemblies'))
         make_path(self.reportpath)
         printtime('Assembling sequences', self.start)
