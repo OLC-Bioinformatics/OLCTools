@@ -471,12 +471,15 @@ class GenObject(object):
     def returnattr(self, key):
         """
         Returns a string of either datastore[key], or 'ND' if datastore[key] doesn't exist formatted for a CSV report
+        Replace any commas with semicolons.
         :param key: Dictionary key to be used to return the value from datastore[key]
         """
         try:
             if self.datastore[key] or self.datastore[key] == 0 or self.datastore[key] is False \
                     or all(self.datastore[key]):
-                return '{},'.format(self.datastore[key])
+                # Return the string of the value with any commas replaced by semicolons. Append a comma to the
+                # end of the string for the CSV format
+                return '{},'.format(str(self.datastore[key]).replace(',', ';'))
             else:
                 return 'ND,'
         except KeyError:
