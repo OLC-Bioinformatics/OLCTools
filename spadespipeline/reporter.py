@@ -115,7 +115,7 @@ class Reporter(object):
                     # Otherwise add the only allele
                     else:
                         data += allele_list[0] + ','
-                # If there are fewer than seven matching alleles, add a - for each missing result
+                # If there are fewer than seven matching alleles, add a ND for each missing result
                 if len(gene_set) < 7:
                     data += (7 - len(gene_set)) * 'ND,'
             except KeyError:
@@ -138,15 +138,15 @@ class Reporter(object):
             except KeyError:
                 data += 'ND,'
             # SISTR_serovar_antigen
-            data += GenObject.returnattr(sample.sistr, 'serovar_antigen').replace(',', ';').rstrip(';') + ','
+            data += GenObject.returnattr(sample.sistr, 'serovar_antigen').rstrip(';')
             # SISTR_serovar_cgMLST
             data += GenObject.returnattr(sample.sistr, 'serovar_cgmlst')
             # SISTR_serogroup
             data += GenObject.returnattr(sample.sistr, 'serogroup')
             # SISTR_h1
-            data += GenObject.returnattr(sample.sistr, 'h1').replace(',', ';').rstrip(';') + ','
+            data += GenObject.returnattr(sample.sistr, 'h1').rstrip(';')
             # SISTR_h2
-            data += GenObject.returnattr(sample.sistr, 'h2').replace(',', ';').rstrip(';') + ','
+            data += GenObject.returnattr(sample.sistr, 'h2').rstrip(';')
             # SISTR_serovar
             data += GenObject.returnattr(sample.sistr, 'serovar')
             # GeneSeekr_Profile
