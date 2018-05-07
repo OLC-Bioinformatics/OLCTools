@@ -1,6 +1,6 @@
 #!/usr/bin/env python 3
 from accessoryFunctions.accessoryFunctions import printtime
-from interop import py_interop_run_metrics, py_interop_run, py_interop_summary
+from interop import py_interop_run_metrics, py_interop_run, py_interop_summary, py_interop_comm
 import os
 
 __author__ = 'adamkoziol'
@@ -13,8 +13,15 @@ class PhiX(object):
         interop_folder = os.path.join(self.path, 'InterOp')
         # Determine if the InterOp folder is present
         if os.path.isdir(interop_folder):
-            # Extract the relevant information
-            self.interop_parse()
+            # Try to extract the relevant information
+            try:
+                self.interop_parse()
+            # interop.py_interop_comm.file_not_found_exception: RunParameters.xml required for legacy run folders with
+            # missing channel names
+            except py_interop_comm.file_not_found_exception:
+                for sample in self.metadata:
+                    sample.run.error_rate = 'NA'
+                    sample.run.phix_aligned = 'NA'
         else:
             # Create attributes reflecting the lack of the InterOp folder
             for sample in self.metadata:
