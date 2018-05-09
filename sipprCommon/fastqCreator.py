@@ -20,7 +20,6 @@ class CreateFastq(object):
     def createfastq(self):
         """Uses bcl2fastq to create .fastq files from a MiSeqRun"""
         from time import sleep
-        from subprocess import call
         # Initialise samplecount
         samplecount = 0
         # If the fastq destination folder is not provided, make the default value of :path/:miseqfoldername
@@ -109,22 +108,20 @@ class CreateFastq(object):
             # Define the bcl2fastq system call for the unit test
             bclcall = "bcl2fastq --input-dir {basecalls} " \
                       "--output-dir {outdir} --sample-sheet {samplesheet} " \
-                      "--barcode-mismatches 0 -r 4 -p {cpus} -w 4 -R {runfolder} --use-bases-mask {mask} " \
+                      "--barcode-mismatches 0 -r 1 -p 1 -w 1 -R {runfolder} --use-bases-mask {mask} " \
                       "--tiles s_1_1101 --minimum-trimmed-read-length 1" \
                 .format(basecalls=os.path.join(self.miseqfolder, 'Data', 'Intensities', 'BaseCalls'),
                         outdir=self.fastqdestination,
                         samplesheet=projectsamplesheet,
-                        cpus=self.cpus,
                         runfolder=self.miseqfolder,
                         mask=basemask)
         else:
             bclcall = "bcl2fastq --input-dir {basecalls} " \
                       "--output-dir {outdir} --sample-sheet {samplesheet} " \
-                      "--barcode-mismatches 1 -r 4 -p {cpus} -w 4 -R {runfolder} --use-bases-mask {mask}"\
+                      "--barcode-mismatches 1 -r 1 -p 1 -w 1 -R {runfolder} --use-bases-mask {mask}"\
                 .format(basecalls=os.path.join(self.miseqfolder, 'Data', 'Intensities', 'BaseCalls'),
                         outdir=self.fastqdestination,
                         samplesheet=projectsamplesheet,
-                        cpus=self.cpus,
                         runfolder=self.miseqfolder,
                         mask=basemask)
         if not os.path.isdir(self.projectpath):
