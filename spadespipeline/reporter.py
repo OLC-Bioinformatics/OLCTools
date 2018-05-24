@@ -27,7 +27,7 @@ class Reporter(object):
             # Analyst
             data += GenObject.returnattr(sample.run, 'InvestigatorName')
             # SamplePurity
-            data += GenObject.returnattr(sample.confinder, 'contam_status')
+            data += GenObject.returnattr(sample.confindr, 'contam_status')
             # GenomeQAML prediction
             prediction = GenObject.returnattr(sample.GenomeQAML, 'prediction')
             if prediction != ',':
