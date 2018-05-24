@@ -174,7 +174,7 @@ class Quality(object):
                 elif '.gz' in sample.general.trimmedfastqfiles[0]:
                     reader = 'gunzip --to-stdout'
                 else:
-                    'bunzip2 --stdout'
+                    reader = 'bunzip2 --stdout'
                 # Try except loop to allow for missing samples
                 try:
                     fastqfiles = sample.general.trimmedfastqfiles
@@ -376,17 +376,24 @@ class Quality(object):
             # Signal to trimqueue that job is done
             self.trimqueue.task_done()
 
-    def contamination_finder(self):
+    def contamination_finder(self, input_path=None, report_path=None):
         """
         Helper function to get confindr integrated into the assembly pipeline
         """
         printtime('Calculating contamination in reads', self.start)
-        reportpath = os.path.join(self.path, 'confindr')
+        if input_path:
+            input_dir = input_path
+        else:
+            input_dir = self.path
+        if report_path:
+            reportpath = report_path
+        else:
+            reportpath = os.path.join(input_path, 'confindr')
         report = os.path.join(reportpath, 'confindr_report.csv')
         if not os.path.isfile(report):
             # Create an object to store attributes to pass to confinder
             args = MetadataObject
-            args.input_directory = self.path
+            args.input_directory = input_dir
             args.output_name = reportpath
             args.databases = os.path.join(self.reffilepath, 'ConFindr', 'databases')
             args.forward_id = '_R1'
@@ -416,27 +423,28 @@ class Quality(object):
         # Find the results for each of the samples
         for sample in self.metadata:
             # Create a GenObject to store the results
-            sample.confinder = GenObject()
+            sample.confindr = GenObject()
             # Iterate through the dictionary to find the outputs for each sample
             for line in confindr_results:
                 # If the current line corresponds to the sample of interest
                 if sample.name in line:
                     # Set the values using the appropriate keys as the attributes
-                    sample.confinder.genus = confindr_results[line]['Genus']
-                    sample.confinder.num_contaminated_snvs = confindr_results[line]['NumContamSNVs']
-                    sample.confinder.unique_kmers = confindr_results[line]['NumUniqueKmers']
+                    sample.confindr.genus = confindr_results[line]['Genus']
+                    sample.confindr.num_contaminated_snvs = confindr_results[line]['NumContamSNVs']
+                    sample.confindr.unique_kmers = confindr_results[line]['NumUniqueKmers']
                     try:
-                        sample.confinder.cross_contamination = confindr_results[line]['CrossContamination']
+                        sample.confindr.cross_contamination = confindr_results[line]['CrossContamination']
                     except KeyError:
-                        sample.confinder.cross_contamination = str()
-                    sample.confinder.contam_status = confindr_results[line]['ContamStatus']
-                    if sample.confinder.contam_status is True:
-                        sample.confinder.contam_status = 'Contaminated'
-                    elif sample.confinder.contam_status is False:
-                        sample.confinder.contam_status = 'Clean'
+                        sample.confindr.cross_contamination = str()
+                    sample.confindr.contam_status = confindr_results[line]['ContamStatus']
+                    if sample.confindr.contam_status is True:
+                        sample.confindr.contam_status = 'Contaminated'
+                    elif sample.confindr.contam_status is False:
+                        sample.confindr.contam_status = 'Clean'
         # Copy the report to the folder containing all reports for the pipeline
         try:
-            shutil.copyfile(report, os.path.join(self.path, 'reports', 'confindr_report.csv'))
+            if not report_path:
+                shutil.copyfile(report, os.path.join(input_dir, 'reports', 'confindr_report.csv'))
         except IOError:
             pass
 
@@ -669,7 +677,7 @@ class QualityFeatures(object):
         """
         for sample in self.metadata:
             try:
-                if sample[self.analysistype].num_contigs > 500 or sample.confinder.contam_status == 'Contaminated':
+                if sample[self.analysistype].num_contigs > 500 or sample.confindr.contam_status == 'Contaminated':
                     sample.general.polish = False
                 else:
                     sample.general.polish = True
