@@ -15,6 +15,8 @@ from glob import glob
 import threading
 import pandas
 import shutil
+import sys
+import io
 import os
 __author__ = 'adamkoziol'
 
@@ -376,20 +378,24 @@ class Quality(object):
             # Signal to trimqueue that job is done
             self.trimqueue.task_done()
 
-    def contamination_finder(self, input_path=None, report_path=None):
+    def contamination_finder(self, input_path=None, report_path=None, portal_log=None):
         """
         Helper function to get confindr integrated into the assembly pipeline
         """
-        printtime('Calculating contamination in reads', self.start)
-        if input_path:
+        if portal_log is not None:
+            printtime('Calculating contamination in reads', self.start, output=portal_log)
+        else:
+            printtime('Calculating contamination in reads', self.start)
+        if input_path is not None:
             input_dir = input_path
         else:
             input_dir = self.path
-        if report_path:
+        if report_path is not None:
             reportpath = report_path
         else:
             reportpath = os.path.join(input_path, 'confindr')
         report = os.path.join(reportpath, 'confindr_report.csv')
+
         if not os.path.isfile(report):
             # Create an object to store attributes to pass to confinder
             args = MetadataObject
@@ -410,13 +416,16 @@ class Quality(object):
             make_path(reportpath)
             # Open the output report file.
             with open(os.path.join(report), 'w') as f:
-                f.write('Sample,Genus,NumContamSNVs,NumUniqueKmers,ContamStatus\n')
+                f.write('Strain,Genus,NumContamSNVs,NumUniqueKmers,ContamStatus\n')
             for sample in self.metadata:
                 if len(sample.general.trimmedcorrectedfastqfiles) == 2:
                     confindr.find_contamination(sample.general.trimmedcorrectedfastqfiles, args)
                 elif len(sample.general.trimmedcorrectedfastqfiles) == 1:
                     confindr.find_contamination_unpaired(args, sample.general.trimmedcorrectedfastqfiles[0])
-            printtime('Contamination detection complete!', self.start)
+            if portal_log:
+                printtime('Contamination detection complete!', self.start, output=portal_log)
+            else:
+                printtime('Contamination detection complete!', self.start)
         # Load the confindr report into a dictionary using pandas
         # https://stackoverflow.com/questions/33620982/reading-csv-file-as-dictionary-using-pandas
         confindr_results = pandas.read_csv(report, index_col=0).T.to_dict()
@@ -441,12 +450,18 @@ class Quality(object):
                         sample.confindr.contam_status = 'Contaminated'
                     elif sample.confindr.contam_status is False:
                         sample.confindr.contam_status = 'Clean'
-        # Copy the report to the folder containing all reports for the pipeline
-        try:
-            if not report_path:
-                shutil.copyfile(report, os.path.join(input_dir, 'reports', 'confindr_report.csv'))
-        except IOError:
-            pass
+        # Re-write the output to be consistent with the rest of the pipeline
+        with open(os.path.join(reportpath, 'confindr_report.csv'), 'w') as csv:
+            data = 'Strain,Genus,NumContamSNVs,NumUniqueKmers,ContamStatus\n'
+            for sample in self.metadata:
+                data += '{str},{genus},{numcontamsnv},{numuniqkmer},{status}\n'.format(
+                    str=sample.name,
+                    genus=sample.confindr.genus,
+                    numcontamsnv=sample.confindr.num_contaminated_snvs,
+                    numuniqkmer=sample.confindr.unique_kmers,
+                    status=sample.confindr.contam_status
+                )
+            csv.write(data)
 
     def estimate_genome_size(self):
         """
