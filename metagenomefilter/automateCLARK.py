@@ -78,13 +78,11 @@ class CLARK(object):
         """Run the classify metagenome of the CLARK package on the samples"""
         printtime('Classifying metagenomes', self.start)
         # Define the system call
-        self.classifycall = 'cd {} && ./classify_metagenome.sh -O {} -R {} -n {}'.format(self.clarkpath,
-                                                                                         self.filelist,
-                                                                                         self.reportlist,
-                                                                                         self.cpus)
-        # If the 'light' database is requested, append --light to the end of the command
-        if self.light:
-            self.classifycall += ' --light'
+        self.classifycall = 'cd {} && ./classify_metagenome.sh -O {} -R {} -n {} --light'\
+            .format(self.clarkpath,
+                    self.filelist,
+                    self.reportlist,
+                    self.cpus)
         # Variable to store classification state
         classify = True
         for sample in self.runmetadata.samples:
@@ -123,7 +121,9 @@ class CLARK(object):
                             reportlist.write(sample.general.combined.split('.')[0] + '\n')
 
     def estimateabundance(self):
-        """Estimate the abundance of taxonomic groups"""
+        """
+        Estimate the abundance of taxonomic groups
+        """
         printtime('Estimating abundance of taxonomic groups', self.start)
         # Create and start threads
         for i in range(self.cpus):
@@ -166,7 +166,9 @@ class CLARK(object):
             self.abundancequeue.task_done()
 
     def reports(self):
-        """Create reports from the abundance estimation"""
+        """
+        Create reports from the abundance estimation
+        """
         printtime('Creating CLARK report for {} files'.format(self.runmetadata.extension), self.start)
         # Create a workbook to store the report. Using xlsxwriter rather than a simple csv format, as I want to be
         # able to have appropriately sized, multi-line cells
