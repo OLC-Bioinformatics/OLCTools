@@ -60,12 +60,9 @@ class QualiMap(object):
                                                        bt2=sagen.bowtie2results)
                 sample.mapping.BamFile = sagen.bowtie2results + "_sorted.bam"
                 # SAMtools sort v1.3 has different run parameters
-                if self.samversion < "1.3":
-                    samsort = SamtoolsSortCommandline(input="-", out_prefix=sample.mapping.BamFile)
-                else:
-                    samsort = SamtoolsSortCommandline(input=sample.mapping.BamFile,
-                                                      o=True,
-                                                      out_prefix="-")
+                samsort = SamtoolsSortCommandline(input=sample.mapping.BamFile,
+                                                  o=True,
+                                                  out_prefix="-")
                 samtools = [SamtoolsViewCommandline(b=True, S=True, input_file="-"), samsort]
                 indict = {'D': 5, 'R': 1, 'num_mismatches': 0, 'seed_length': 22, 'i_func': "S,0,2.50"}
                 #  Update the dictionary with the appropriate parameters for paired- vs. single-ended assemblies
