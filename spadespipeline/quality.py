@@ -393,7 +393,7 @@ class Quality(object):
         if report_path is not None:
             reportpath = report_path
         else:
-            reportpath = os.path.join(input_path, 'confindr')
+            reportpath = os.path.join(input_dir, 'confindr')
         report = os.path.join(reportpath, 'confindr_report.csv')
 
         if not os.path.isfile(report):
