@@ -213,55 +213,49 @@ class ResistanceNotes(object):
     @staticmethod
     def notes(targetpath):
         """
-        Populates resistance dictionaries for different styles of gene:resistance entries
+        Populates resistance dictionary with resistance class: base gene name
         :param targetpath: Directory in which the notes.txt file is located
-        :return: the three resistance dictionaries
+        :return: the resistance dictionaries
         """
-        # Create a set of all the gene names without alleles or accessions e.g. sul1_18_AY260546 becomes sul1
+        # Create a set of all the resistance classes and the base names
         genedict = dict()
         altgenedict = dict()
-        revaltgenedict = dict()
         # Load the notes file to a dictionary
         notefile = os.path.join(targetpath, 'notes.txt')
         with open(notefile, 'r') as notes:
+            res_class = str()
             for line in notes:
-                # Ignore comment lines - they will break the parsing
+                # Create entries for each class - these are on lines beginning with '#' e.g. #Rifampicin resistance
                 if line.startswith('#'):
-                    continue
-                # Split the line on colons e.g. QnrB53:Quinolone resistance: has three variables after the split:
-                # gene(QnrB53), resistance(Quinolone resistance), and _(\n) (unless there is an alternate name)
-                gene, resistance, alternate = line.split(':')
-                # Set up the resistance dictionary
-                genedict[gene] = resistance
-                # strA:Aminoglycoside resistance:Alternate name; aph(3'')-Ib - yields gene:resistance of aph(3'')-Ib
-                # Aminoglycoside resistance
-                if 'Alternate name' in line:
-                    try:
-                        altgene = alternate.split(';')[1].rstrip().lstrip()
-                    except IndexError:
-                        # blaGES-8:Beta-lactam resistance:Alternate name IBC-2
-                        altgene = alternate.split()[-1].rstrip()
-                    # Populate the dictionaries
-                    genedict[altgene] = resistance
-                    altgenedict[gene] = altgene
-                    revaltgenedict[altgene] = gene
-                # cfr genes are grouped together in the notes.txt file
-                if 'cfr' in line:
-                    genedict['{}B'.format(gene)] = resistance
-                    genedict['{}(C)'.format(gene)] = resistance
-                # ant(3'')-Ih-aac(6')-IId:Aminoglycoside resistance: in notes
-                # >ant(3'')_Ia_1_X02340 in multi-FASTA
-                if 'ant(3'')' in line:
-                    gene = gene.split('-')[0]
-                    genedict[gene] = resistance
-        return genedict, altgenedict, revaltgenedict
+                    res_class = line.split(' resistance')[0].lstrip('#').replace(':', '').rstrip()
+                    # Initialise the dictionary as a set for the resistance class
+                    genedict[res_class] = set()
+                else:
+                    # aac(6')-III:Aminoglycoside resistance: yields a base gene name of aac
+                    gene = line.split(':')[0].split('(')[0].split('-')[0].rstrip()
+                    # Aminoglycoside resistance
+                    if 'Alternate name' in line:
+                        # Extract the full gene name e.g. aac(6')-III:Aminoglycoside resistance: yields aac(6')-III
+                        full_gene = line.split(':')[0]
+                        # There are two formats for the alternate name in the file. Account for both
+                        try:
+                            alternate = line.split(';')[1].rstrip().lstrip()
+                        except IndexError:
+                            alternate = line.split('name ')[1].rstrip().lstrip()
+                        # Populate the dictionaries
+                        genedict[res_class].add(alternate)
+                        altgenedict[full_gene] = alternate
+                    else:
+                        genedict[res_class].add(gene)
+        return genedict, altgenedict
 
     @staticmethod
     def gene_name(name):
         """
         Split the FASTA header string into its components, including gene name, allele, and accession
         :param name: FASTA header
-        :return:
+        :return: gname, genename, accession, allele: name of gene. Often the same as genename, but for certain entries
+        it is longer, full gene name, accession, and allele extracted from the FASTA header
         """
         if 'Van' in name or 'mcr' in name or 'aph' in name or 'ddlA' in name or 'ant' in name:
             try:
@@ -371,7 +365,7 @@ class ResistanceNotes(object):
         return gname, genename, accession, allele
 
     @staticmethod
-    def resistance(gname, genename, genedict, altgenedict, revaltgenedict):
+    def resistance(gname, genename, genedict, altgenedict):
         """
         Extracts the resistance phenotype from the dictionaries using the gene name
         :param gname: Name of gene. Often the same as genename, but for certain entries it is longer
@@ -379,30 +373,31 @@ class ResistanceNotes(object):
         :param genename: Name of gene e.g. blaOKP
         :param genedict: Dictionary of gene:resistance
         :param altgenedict: Dictionary of gene alternate name:resistance
-        :param revaltgenedict: Dictionary of gene alternate name: gene
-        :return: finalgene: gene name to be used in the report, the resistance phenotype
+        :return: finalgene, finalresistance: gene name and associated resistance phenotype to be used in the report
         """
-        # If the gene name is present in the altgenedict dictionary, adjust the string to output
-        # to include the alternate name in parentheses e.g. strA (aph(3'')-Ib
-        try:
-            finalgene = '{namegene} ({genealt})'.format(namegene=genename,
-                                                        genealt=altgenedict[genename])
-        except KeyError:
-            # Similar to above except with revaltdict
-            try:
-                finalgene = '{namegene} ({genealt})'.format(namegene=revaltgenedict[genename],
-                                                            genealt=genename)
-            except KeyError:
-                finalgene = genename
-        # Extract the resistance from the genedict dictionary
-        try:
-            res = genedict[genename]
-        except KeyError:
-            try:
-                res = genedict[gname]
-            except KeyError:
-                res = genedict[gname]
-        return finalgene, res
+        # Use the same string splitting method as above to re-create the base name of the gene from the gene name
+        # e.g. aph(3'')-Ib yields aph
+        gene = gname.split('(')[0].split('-')[0]
+        # Set the final gene name as the genename variable - unless there is an alternative name (see below)
+        finalgene = genename
+        # Initialise the finalresistance variable
+        finalresistance = str()
+        # Iterate through all the resistance classes, and gene sets associated with each resistance class
+        for resistance, gene_set in genedict.items():
+            # Determine if the gene is present in the resistance class-associated gene set
+            if gene in gene_set or genename in gene_set:
+                # Set the resistance to return as the current resistance class
+                finalresistance = resistance
+                # Determine if there is an alternative name for this gene in the notes.txt file
+                try:
+                    alt_gene = altgenedict[gname]
+                    # Set the final name of the gene to be gene name (alternative name)
+                    finalgene = '{namegene} ({genealt})'.format(namegene=genename,
+                                                                genealt=alt_gene)
+                # Otherwise use the gene name
+                except KeyError:
+                    finalgene = genename
+        return finalgene, finalresistance
 
 
 class Serotype(SeroSippr):
