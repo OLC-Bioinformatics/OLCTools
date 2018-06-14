@@ -1,9 +1,10 @@
 #!/usr/bin/env python
-from glob import glob
+from accessoryFunctions.accessoryFunctions import make_path, printtime, GenObject, run_subprocess, write_to_logfile
 import sipprCommon.runMetadata as runMetadata
 from sipprCommon.offhours import Offhours
-from accessoryFunctions.accessoryFunctions import make_path, printtime, GenObject, run_subprocess, write_to_logfile
+from time import sleep
 import multiprocessing
+from glob import glob
 import os
 # Import ElementTree - try first to import the faster C version, if that doesn't
 # work, try to import the regular version
@@ -19,7 +20,6 @@ class CreateFastq(object):
 
     def createfastq(self):
         """Uses bcl2fastq to create .fastq files from a MiSeqRun"""
-        from time import sleep
         # Initialise samplecount
         samplecount = 0
         # If the fastq destination folder is not provided, make the default value of :path/:miseqfoldername
@@ -27,7 +27,7 @@ class CreateFastq(object):
         # Make the path
         make_path(self.fastqdestination)
         # Initialise variables for storing index information
-        index = ''
+        index = str()
         indexlength = int()
         # A list of all projects supplied in the Sample_Project field in the SampleSheet.csv - these will be replaced
         projectlist = list()
