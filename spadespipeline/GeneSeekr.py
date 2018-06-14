@@ -564,7 +564,7 @@ class GeneSeekr(object):
         target_dir = str()
         for folder in self.targetfolders:
             target_dir = folder
-        genedict, altgenedict, revaltgenedict = ResistanceNotes.notes(target_dir)
+        genedict, altgenedict = ResistanceNotes.notes(target_dir)
         # Create a workbook to store the report. Using xlsxwriter rather than a simple csv format, as I want to be
         # able to have appropriately sized, multi-line cells
         workbook = xlsxwriter.Workbook(os.path.join(self.reportpath, '{}.xlsx'.format(self.analysistype)))
@@ -586,7 +586,7 @@ class GeneSeekr(object):
         for sample in self.metadata:
             sample[self.analysistype].sampledata = list()
             # Process the sample only if the script could find targets
-            if sample[self.analysistype].blastresults != 'NA':
+            if sample[self.analysistype].blastresults != 'NA' and sample[self.analysistype].blastresults:
                 for result in sample[self.analysistype].blastresults:
                     # Set the name to avoid writing out the dictionary[key] multiple times
                     name = result['subject_id']
@@ -596,8 +596,7 @@ class GeneSeekr(object):
                     data = list()
                     # Determine the name of the gene to use in the report and the resistance using the resistance
                     # method
-                    finalgene, resistance = ResistanceNotes.resistance(gname, genename, genedict, altgenedict,
-                                                                       revaltgenedict)
+                    finalgene, resistance = ResistanceNotes.resistance(gname, genename, genedict, altgenedict)
                     # Append the necessary values to the data list
                     data.append(finalgene)
                     data.append(allele)
@@ -648,7 +647,6 @@ class GeneSeekr(object):
                     except (KeyError, TypeError):
                         data.append('-')
                     sample[self.analysistype].sampledata.append(data)
-
         if 'nt_sequence' not in headers:
             headers.append('nt_sequence')
             # Write the header to the spreadsheet
@@ -668,6 +666,7 @@ class GeneSeekr(object):
         # Write out the data to the spreadsheet
         for sample in self.metadata:
             if not sample[self.analysistype].sampledata:
+                worksheet.write(row, col, sample.name, courier)
                 # Increment the row and reset the column to zero in preparation of writing results
                 row += 1
                 col = 0
