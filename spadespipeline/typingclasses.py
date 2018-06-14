@@ -563,7 +563,7 @@ class Resistance(ResSippr):
         Creates a report of the results
         """
         printtime('Creating {at} report'.format(at=self.analysistype), self.starttime)
-        genedict, altgenedict, revaltgenedict = ResistanceNotes.notes(self.targetpath)
+        genedict, altgenedict = ResistanceNotes.notes(self.targetpath)
         # Find unique gene names with the highest percent identity
         for sample in self.runmetadata.samples:
             try:
@@ -614,8 +614,7 @@ class Resistance(ResSippr):
                             try:
                                 # Determine the name of the gene to use in the report, as well as its associated
                                 # resistance phenotype
-                                finalgene, res = ResistanceNotes.resistance(gname, genename, genedict, altgenedict,
-                                                                            revaltgenedict)
+                                finalgene, res = ResistanceNotes.resistance(gname, genename, genedict, altgenedict)
                                 # Treat the initial vs subsequent results for each sample slightly differently - instead
                                 # of including the sample name, use an empty cell instead
                                 if multiple:
@@ -699,7 +698,7 @@ class ResFinder(GeneSeekr):
         Custom reports for ResFinder analyses. These reports link the gene(s) found to their resistance phenotypes
         """
         # Initialise resistance dictionaries from the notes.txt file
-        genedict, altgenedict, revaltgenedict = ResistanceNotes.notes(self.targetpath)
+        genedict, altgenedict = ResistanceNotes.notes(self.targetpath)
         # Create a workbook to store the report. Using xlsxwriter rather than a simple csv format, as I want to be
         # able to have appropriately sized, multi-line cells
         workbook = xlsxwriter.Workbook(os.path.join(self.reportpath, '{}.xlsx'.format(self.analysistype)))
@@ -733,8 +732,7 @@ class ResFinder(GeneSeekr):
                     data = list()
                     # Determine the name of the gene to use in the report and the resistance using the resistance
                     # method
-                    finalgene, resistance = ResistanceNotes.resistance(gname, genename, genedict, altgenedict,
-                                                                       revaltgenedict)
+                    finalgene, resistance = ResistanceNotes.resistance(gname, genename, genedict, altgenedict)
                     # Append the necessary values to the data list
                     data.append(finalgene)
                     data.append(allele)
