@@ -275,7 +275,7 @@ class Reporter(object):
                 row += ','.join([key for key, value in data.items()])
             row += '\n'
             row += ','.join([value for key, value in data.items()])
-        cleanrow = row.replace('NA', '-')
+        cleanrow = row.replace('NA', '').replace(',-,', ',,')
         with open(os.path.join(self.reportpath, 'legacy_combinedMetadata.csv'), 'w') as metadatareport:
             metadatareport.write(cleanrow)
 
