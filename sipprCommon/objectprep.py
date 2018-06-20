@@ -17,17 +17,18 @@ class Objectprep(object):
             if self.customsamplesheet:
                 assert os.path.isfile(self.customsamplesheet), 'Cannot find custom sample sheet as specified {}' \
                     .format(self.customsamplesheet)
-            #
+            # Create the FASTQ files
             self.samples = fastqCreator.CreateFastq(self)
-            for key, value in vars(self.samples).items():
-                if key == 'metadata':
-                    self.forward = vars(value)['header'].forwardlength
-                    self.reverse = vars(value)['header'].reverselength
-                    self.header = vars(value)['header'].datastore
-                elif key == 'samples':
-                    self.index = value[0].run.modifiedindex
-                    self.run = [x.run.datastore for x in value]
-
+            # Create a dictionary of the object
+            samples_dict = vars(self.samples)
+            # Extract the required information from the dictionary
+            self.index = samples_dict['index']
+            self.index_length = samples_dict['indexlength']
+            self.forward = samples_dict['forwardlength']
+            self.reverse = samples_dict['reverselength']
+            self.forwardlength = samples_dict['forward']
+            self.reverselength = samples_dict['reverse']
+            self.header = samples_dict['header']
         else:
             self.samples = createObject.ObjectCreation(self)
 
@@ -48,6 +49,7 @@ class Objectprep(object):
             self.homepath = inputobject.homepath
             self.commit = inputobject.commit
             self.copy = inputobject.copy
+            self.demultiplex = inputobject.demultiplex
         except AttributeError:
             self.bcltofastq = False
         try:
@@ -62,5 +64,6 @@ class Objectprep(object):
         self.forward = str()
         self.reverse = str()
         self.index = str()
+        self.index_length = int()
         self.header = dict()
         self.run = dict()
