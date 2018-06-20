@@ -1,6 +1,8 @@
 #!/usr/bin/env python
-from accessoryFunctions.accessoryFunctions import *
-
+from accessoryFunctions.accessoryFunctions import GenObject, MetadataObject
+from linecache import getline
+import copy
+import os
 # Import ElementTree - try first to import the faster C version, if that doesn't
 # work, try to import the regular version
 try:
@@ -40,7 +42,6 @@ class Metadata(object):
     def parsesamplesheet(self):
         """Parses the sample sheet (SampleSheet.csv) to determine certain values
         important for the creation of the assembly report"""
-        import copy
         # Open the sample sheet
         with open(self.samplesheet, "r") as samplesheet:
             # Iterate through the sample sheet
@@ -99,11 +100,11 @@ class Metadata(object):
         the copied tables from the Indexing QC tab of the run on Basespace"""
         # metadata = GenObject()
         # If the default file GenerateFASTQRunStatistics.xml is present, parse it
-        if os.path.isfile("{}GenerateFASTQRunStatistics.xml".format(self.path)):
+        if os.path.isfile(os.path.join(self.path, "GenerateFASTQRunStatistics.xml")):
             # Create a list of keys for which values are to be extracted
             datalist = ["SampleNumber", "SampleID", "SampleName", "NumberOfClustersPF"]
             # Load the file as an xml ElementTree object
-            runstatistics = ElementTree.ElementTree(file="{}GenerateFASTQRunStatistics.xml".format(self.path))
+            runstatistics = ElementTree.ElementTree(file=os.path.join(self.path, "GenerateFASTQRunStatistics.xml"))
             # Iterate through all the elements in the object
             # .iterfind() allow for the matching and iterating though matches
             # This is stored as a float to allow subsequent calculations
@@ -136,12 +137,11 @@ class Metadata(object):
                     run.instrument = self.instrument
                 except IndexError:
                     pass
-        elif os.path.isfile("{}indexingQC.txt".format(self.path)):
-            from linecache import getline
+        elif os.path.isfile(os.path.join(self.path, 'indexingQC.txt')):
             # Grab the first element from the second line in the file
-            tclusterspf = float(getline("{}indexingQC.txt".format(self.path), 2).split("\t")[0])
+            tclusterspf = float(getline(os.path.join(self.path, "indexingQC.txt"), 2).split("\t")[0])
             # Open the file and extract the relevant data
-            with open("{}indexingQC.txt".format(self.path)) as indexqc:
+            with open(os.path.join("indexingQC.txt")) as indexqc:
                 # Iterate through the file
                 for line in indexqc:
                     # Once "Index" is encountered, iterate through the rest of the file
@@ -208,7 +208,7 @@ class Metadata(object):
             assert os.path.isfile(self.samplesheet), u'Could not find CustomSampleSheet as entered: {0!r:s}'\
                 .format(self.samplesheet)
         else:
-            self.samplesheet = "{}SampleSheet.csv".format(self.path)
+            self.samplesheet = os.path.join(self.path, "SampleSheet.csv")
         # Extract data from SampleSheet.csv
         self.parsesamplesheet()
 
