@@ -394,41 +394,33 @@ class Quality(object):
             reportpath = report_path
         else:
             reportpath = os.path.join(input_dir, 'confindr')
-        report = os.path.join(reportpath, 'confindr_report.csv')
-
-        if not os.path.isfile(report):
-            # Create an object to store attributes to pass to confinder
-            args = MetadataObject
-            args.input_directory = input_dir
-            args.output_name = reportpath
-            args.databases = os.path.join(self.reffilepath, 'ConFindr', 'databases')
-            args.forward_id = '_R1'
-            args.reverse_id = '_R2'
-            args.threads = self.cpus
-            args.kmer_size = 31
-            args.number_subsamples = 3
-            args.subsample_depth = 20
-            args.kmer_cutoff = 2
+        confindr_report = os.path.join(input_dir, 'confindr', 'confindr_report.csv')
+        pipeline_report = os.path.join(reportpath, 'confindr_report.csv')
+        # Only proceed if the confindr report doesn't exist
+        if not os.path.isfile(confindr_report):
+            # # Create an object to store attributes to pass to confinder
+            # Clear and recreate the output folder
             try:
-                shutil.rmtree(args.output_name)
+                shutil.rmtree(reportpath)
             except IOError:
                 pass
             make_path(reportpath)
-            # Open the output report file.
-            with open(os.path.join(report), 'w') as f:
-                f.write('Strain,Genus,NumContamSNVs,NumUniqueKmers,ContamStatus\n')
-            for sample in self.metadata:
-                if len(sample.general.trimmedcorrectedfastqfiles) == 2:
-                    confindr.find_contamination(sample.general.trimmedcorrectedfastqfiles, args)
-                elif len(sample.general.trimmedcorrectedfastqfiles) == 1:
-                    confindr.find_contamination_unpaired(args, sample.general.trimmedcorrectedfastqfiles[0])
+            # Run confindr
+            systemcall = 'confindr.py -i {input_dir} -o {output_dir} -d {database_dir}'\
+                .format(input_dir=input_dir,
+                        output_dir=os.path.join(input_dir, 'confindr'),
+                        database_dir=os.path.join(self.reffilepath, 'ConFindr', 'databases'))
+            # Run the call
+            out, err = run_subprocess(systemcall)
+            write_to_logfile(systemcall, systemcall, self.logfile, None, None, None, None)
+            write_to_logfile(out, err, self.logfile, None, None, None, None)
             if portal_log:
                 printtime('Contamination detection complete!', self.start, output=portal_log)
             else:
                 printtime('Contamination detection complete!', self.start)
         # Load the confindr report into a dictionary using pandas
         # https://stackoverflow.com/questions/33620982/reading-csv-file-as-dictionary-using-pandas
-        confindr_results = pandas.read_csv(report, index_col=0).T.to_dict()
+        confindr_results = pandas.read_csv(confindr_report, index_col=0).T.to_dict()
         # Find the results for each of the samples
         for sample in self.metadata:
             # Create a GenObject to store the results
@@ -451,7 +443,7 @@ class Quality(object):
                     elif sample.confindr.contam_status is False:
                         sample.confindr.contam_status = 'Clean'
         # Re-write the output to be consistent with the rest of the pipeline
-        with open(os.path.join(reportpath, 'confindr_report.csv'), 'w') as csv:
+        with open(pipeline_report, 'w') as csv:
             data = 'Strain,Genus,NumContamSNVs,NumUniqueKmers,ContamStatus\n'
             for sample in self.metadata:
                 data += '{str},{genus},{numcontamsnv},{numuniqkmer},{status}\n'.format(
