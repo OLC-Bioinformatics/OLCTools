@@ -400,8 +400,12 @@ class CLARK(object):
         except AttributeError:
             self.runmetadata = MetadataObject()
             self.report = os.path.join(self.reportpath, 'abundance.xlsx')
+            self.extension = args.extension
             # Create the objects
             self.objectprep()
+            # Set the run description to 'metagenome' in order to process the samples
+            for sample in self.runmetadata.samples:
+                sample.run.Description = 'metagenome'
             self.main()
         # Optionally filter the .fastq reads based on taxonomic assignment
         if args.filter:
@@ -456,8 +460,11 @@ if __name__ == '__main__':
                         help='If enabled, removes plasmid sequences and masks phage sequences. Only usable if you '
                              'have access to the OLC NAS.')
     parser.add_argument('-l', '--light',
-                        default=False,
+                        default=True,
                         help='Run CLARK in light mode for systems with lower RAM')
+    parser.add_argument('-e', '--extension',
+                        default='fastq',
+                        help='Extension of file type to process. Must be either "fasta" or "fastq". Default is "fastq"')
     # Get the arguments into an object
     arguments = parser.parse_args()
 
