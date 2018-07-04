@@ -125,16 +125,23 @@ class Reporter(object):
             data += GenObject.returnattr(sample.coregenome, 'coreresults')
             # E_coli_Serotype
             try:
-                serotype = '{oset} ({opid}):{hset} ({hpid}),'\
-                    .format(oset=';'.join(sample.serosippr.o_set),
-                            opid=sample.serosippr.best_o_pid,
-                            hset=';'.join(sample.serosippr.h_set),
-                            hpid=sample.serosippr.best_h_pid)
-                # Make sure that the string was populated with values rather than 'NA' or '-'
-                if serotype == '- (-):- (-),':
-                    data += 'ND,'
+                # If no O-type was found, set the output to be O-untypeable
+                if ';'.join(sample.serosippr.o_set) == '-':
+                    otype = 'O-untypeable'
                 else:
-                    data += serotype
+                    otype = '{oset} ({opid})'.format(oset=';'.join(sample.serosippr.o_set),
+                                                     opid=sample.serosippr.best_o_pid)
+                # Same as above for the H-type
+                if ';'.join(sample.serosippr.h_set) == '-':
+                    htype = 'H-untypeable'
+
+                else:
+                    htype = '{hset} ({hpid})'.format(hset=';'.join(sample.serosippr.h_set),
+                                                     hpid=sample.serosippr.best_h_pid)
+                serotype = '{otype}:{htype}'.format(otype=otype,
+                                                    htype=htype)
+                # Add the serotype to the data string unless neither O-type not H-type were found; add ND instead
+                data += serotype if serotype != 'O-untypeable:H-untypeable' else 'ND'
             except KeyError:
                 data += 'ND,'
             # SISTR_serovar_antigen
