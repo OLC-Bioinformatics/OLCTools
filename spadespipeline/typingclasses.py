@@ -313,6 +313,10 @@ class ResistanceNotes(object):
                                                    v1=version1,
                                                    v2=version2)
                     genename = gname
+                elif 'CMY' in name:
+                    # >blaCMY_12_1_Y16785 yields gname, genename: blaCMY, allele: 12
+                    gname, allele, version, accession = name.split('_')
+                    genename = gname
                 elif name == "aac(3)_Ib_aac(6')_Ib_1_AF355189":
                     # >aac(3)_Ib_aac(6')_Ib_1_AF355189 yields gname, genename: aac(3)-Ib-aac(6')-Ib, allele:1,
                     # accession: AF355189
