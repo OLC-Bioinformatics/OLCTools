@@ -636,7 +636,7 @@ class GeneSeekr(object):
                                          sample[self.analysistype].ntindex[name]
                                          ])
                         else:
-                            record = SeqRecord(Seq(result['subject_sequence'], IUPAC.unambiguous_dna),
+                            record = SeqRecord(Seq(result['query_sequence'], IUPAC.unambiguous_dna),
                                                id='{}_{}'.format(sample.name, name),
                                                description='')
                             data.append(record.format('fasta'))
