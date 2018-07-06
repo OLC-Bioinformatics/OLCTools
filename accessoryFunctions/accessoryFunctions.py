@@ -454,8 +454,12 @@ class GenObject(object):
             return self.datastore[key]
 
     def __setattr__(self, key, value):
+
         if value:
-            self.datastore[key] = value
+            try:
+                self.datastore[key] = value
+            except TypeError:
+                print('!', key, value)
         elif type(value) != int:
             if value is False or all(value):
                 self.datastore[key] = value
@@ -500,6 +504,12 @@ class GenObject(object):
         except KeyError:
             return False
 
+    def __getitem__(self, key):
+        """
+        Make GenObjects subscriptable in order to allow for nested GenObject
+        """
+        return getattr(self, key)
+
 
 class MetadataObject(object):
     """Object to store static variables"""
@@ -525,17 +535,67 @@ class MetadataObject(object):
 
     def dump(self):
         """Prints only the nested dictionary values; removes __methods__ and __members__ attributes"""
-        metadata = {}
-        for attr in self.datastore:
-            metadata[attr] = {}
+        metadata = dict()
+        for attr in sorted(self.datastore):
+            # Initialise the attribute (e.g. sample.general) key in the metadata dictionary
+            metadata[attr] = dict()
+            # Ignore attributes that begin with '__'
             if not attr.startswith('__'):
-                if isinstance(self.datastore[attr], str):
+                # If self.datastore[attribute] is a primitive datatype, populate the metadata dictionary with
+                # the attr: self.datastore[attr] pair
+                # e.g. attr: name,  self.datastore[attr]: 2013-SEQ-0072
+                if isinstance(self.datastore[attr], str) or \
+                        isinstance(self.datastore[attr], list) or \
+                        isinstance(self.datastore[attr], dict) or \
+                        isinstance(self.datastore[attr], int):
                     metadata[attr] = self.datastore[attr]
                 else:
-                    try:
-                        metadata[attr] = self.datastore[attr].datastore
-                    except AttributeError:
-                        print('dumperror', attr)
+                    # Otherwise, recursively convert GenObjects to nested dictionaries
+                    metadata.update(self.nested_genobject(metadata, attr, self.datastore))
+        return metadata
+
+    def nested_genobject(self, metadata, attr, datastore):
+        """
+        Allow for the printing of nested GenObjects
+        :param metadata: Nested dictionary containing the metadata. Will be further populated by this method
+        :param attr: Current attribute being evaluated. Must be a GenObject e.g. sample.general
+        :param datastore: The dictionary of the current attribute. Will be converted to nested dictionaries
+        :return: Updated nested metadata dictionary with all GenObjects safely converted to dictionaries
+        """
+        # Iterate through all the key: value pairs of the current datastore[attr] datastore
+        # e.g. reverse_reads <accessoryFunctions.accessoryFunctions.GenObject object at 0x7fe153b725f8>
+        for key, value in sorted(datastore[attr].datastore.items()):
+            # If the type(value) is a GenObject, then JSON serialization will not work
+            if 'GenObject' in str(type(value)):
+                # Initialise the nested attribute: key nested dictionary within the metadata dictionary
+                # e.g. attr: 100_100, key: reverse_reads
+                metadata[attr][key] = dict()
+                # Iterate through the nested keys and nested values within the value datastore
+                # e.g. nested_key: length, nested_value: 100
+                for nested_key, nested_datastore in sorted(value.datastore.items()):
+                    # Create an additional dictionary layer within the metadata dictionary
+                    metadata[attr][key][nested_key] = dict()
+                    # If the type(nested_datastore) is a GenObject, recursively run this method to update the
+                    # metadata dictionary, supply the newly created nested dictionary: metadata[attr][key] as
+                    # the input metadata dictionary, the nested key as the input attribute, and the datastore of
+                    # value as the input datastore
+                    # e.g. key: 100_100,
+                    # datastore: <accessoryFunctions.accessoryFunctions.GenObject object at 0x7fc526001e80>
+                    if 'GenObject' in str(type(nested_datastore)):
+                        metadata[attr][key].update(
+                            self.nested_genobject(metadata[attr][key], nested_key, value.datastore))
+                    # If the nested datastore is not a GenObject, populate the nested metadata dictionary with
+                    # the attribute, key, nested key, and nested datastore
+                    # e.g. attr: 100_100, key: reverse_reads, nested_key: length, nested_datastore: 100
+                    else:
+                        metadata[attr][key][nested_key] = nested_datastore
+            # Non-GenObjects can (usually) be added to the metadata dictionary without issues
+            else:
+                try:
+                    metadata[attr][key] = value
+                except AttributeError:
+                    print('dumperror', attr)
+        # Return the metadata
         return metadata
 
 
