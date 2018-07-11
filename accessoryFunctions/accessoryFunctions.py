@@ -440,6 +440,33 @@ def relativesymlink(src_file, dest_file):
             raise
 
 
+def relative_symlink(src_file, output_dir):
+    """
+    Create relative symlinks files - use the relative path from the desired output directory to the storage path
+    e.g. ../../2013-SEQ-0072/simulated/40/50_150/simulated_trimmed/2013-SEQ-0072_simulated_40_50_150_R1.fastq.gz
+    is the relative path to the output_dir. The link name is the base name of the source file joined to the desired
+    output directory e.g. output_dir/2013-SEQ-0072/2013-SEQ-0072_simulated_40_50_150_R1.fastq.gz
+    https://stackoverflow.com/questions/9793631/creating-a-relative-symlink-in-python-without-using-os-chdir
+    :param src_file: Source file to be symbolically linked
+    :param output_dir: Destination folder for the link
+    """
+    try:
+        os.symlink(
+            os.path.relpath(
+                src_file,
+                output_dir),
+            os.path.join(
+                output_dir,
+                os.path.basename(
+                    src_file
+                )
+            )
+        )
+    # Ignore FileExistsErrors
+    except FileExistsError:
+        pass
+
+
 class GenObject(object):
     """Object to store static variables"""
     def __init__(self, x=None):
@@ -509,6 +536,12 @@ class GenObject(object):
         Make GenObjects subscriptable in order to allow for nested GenObject
         """
         return getattr(self, key)
+
+    def __setitem__(self, key, value):
+        """
+        Allow item assignment for GenObjects
+        """
+        self.datastore[key] = value
 
 
 class MetadataObject(object):
