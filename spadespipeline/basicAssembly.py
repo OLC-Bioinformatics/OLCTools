@@ -42,9 +42,7 @@ class Basic(object):
             metadata.run = GenObject()
             # Populate the .fastqfiles category of :self.metadata
             metadata.general.fastqfiles = [fastq for fastq in sorted(
-                glob(os.path.join(outputdir, '{}*.fastq*'.format(metadata.name)))) if 'trimmed' not in fastq and
-                                           'normalised' not in fastq and 'corrected' not in fastq and
-                                           'paired' not in fastq and 'unpaired' not in fastq]
+                glob(os.path.join(outputdir, '{}*.fastq*'.format(metadata.name))))]
             # Add the output directory to the metadata
             metadata.general.outputdirectory = outputdir
             metadata.general.logout = os.path.join(self.path, metadata.name, '{}_log_out.txt'.format(metadata.name))
