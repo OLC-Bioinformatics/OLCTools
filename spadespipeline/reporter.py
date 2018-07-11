@@ -138,10 +138,10 @@ class Reporter(object):
                 else:
                     htype = '{hset} ({hpid})'.format(hset=';'.join(sample.serosippr.h_set),
                                                      hpid=sample.serosippr.best_h_pid)
-                serotype = '{otype}:{htype}'.format(otype=otype,
+                serotype = '{otype}:{htype},'.format(otype=otype,
                                                     htype=htype)
                 # Add the serotype to the data string unless neither O-type not H-type were found; add ND instead
-                data += serotype if serotype != 'O-untypeable:H-untypeable' else 'ND'
+                data += serotype if serotype != 'O-untypeable:H-untypeable,' else 'ND,'
             except KeyError:
                 data += 'ND,'
             # SISTR_serovar_antigen
