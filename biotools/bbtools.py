@@ -42,7 +42,8 @@ def bbmap(reference, forward_in, out_bam, reverse_in='NA', returncmd=False, **kw
         return out, err
 
 
-def bbduk_trim(forward_in, forward_out, reverse_in='NA', reverse_out='NA', returncmd=False, **kwargs):
+def bbduk_trim(forward_in, forward_out, reverse_in='NA', reverse_out='NA',
+               trimq=20, k=25, minlength=50, forcetrimleft=15, hdist=1, returncmd=False, **kwargs):
     """
     Wrapper for using bbduk to quality trim reads. Contains arguments used in OLC Assembly Pipeline, but these can
     be overwritten by using keyword parameters.
@@ -68,28 +69,43 @@ def bbduk_trim(forward_in, forward_out, reverse_in='NA', reverse_out='NA', retur
                 reverse_out = forward_out.replace('_R1', '_R2')
             else:
                 raise ValueError('If you do not specify reverse_out, forward_out must contain R1.\n\n')
-        cmd = 'bbduk.sh in1={f_in} in2={r_in} out1={f_out} out2={r_out} qtrim=w trimq=20 k=25 minlength=50 ' \
-              'forcetrimleft=15 ref=adapters overwrite hdist=1 tpe tbo{optn}'\
+        cmd = 'bbduk.sh in1={f_in} in2={r_in} out1={f_out} out2={r_out} qtrim=w trimq={trimq} k={k} ' \
+              'minlength={minlength} forcetrimleft={forcetrimleft} ref=adapters overwrite hdist={hdist} tpe tbo{optn}'\
             .format(f_in=forward_in,
                     r_in=reverse_in,
                     f_out=forward_out,
                     r_out=reverse_out,
+                    trimq=trimq,
+                    k=k,
+                    minlength=minlength,
+                    forcetrimleft=forcetrimleft,
+                    hdist=hdist,
                     optn=options)
-    elif reverse_in == 'NA':
-        cmd = 'bbduk.sh in={f_in} out={f_out} qtrim=w trimq=20 k=25 minlength=50 forcetrimleft=15' \
-              ' ref=adapters overwrite hdist=1 tpe tbo{optn}'\
+    elif reverse_in == 'NA' or reverse_in is None:
+        cmd = 'bbduk.sh in={f_in} out={f_out} qtrim=w trimq={trimq} k={k} minlength={minlength} ' \
+              'forcetrimleft={forcetrimleft} ref=adapters overwrite hdist={hdist} tpe tbo{optn}'\
             .format(f_in=forward_in,
                     f_out=forward_out,
+                    trimq=trimq,
+                    k=k,
+                    minlength=minlength,
+                    forcetrimleft=forcetrimleft,
+                    hdist=hdist,
                     optn=options)
     else:
         if reverse_out == 'NA':
             raise ValueError('Reverse output reads must be specified.')
-        cmd = 'bbduk.sh in1={f_in} in2={r_in} out1={f_out} out2={r_out} qtrim=w trimq=20 k=25 minlength=50 ' \
-              'forcetrimleft=15 ref=adapters overwrite hdist=1 tpe tbo{optn}'\
+        cmd = 'bbduk.sh in1={f_in} in2={r_in} out1={f_out} out2={r_out} qtrim=w trimq={trimq} k={k} ' \
+              'minlength={minlength} forcetrimleft={forcetrimleft} ref=adapters overwrite hdist={hdist} tpe tbo{optn}' \
             .format(f_in=forward_in,
                     r_in=reverse_in,
                     f_out=forward_out,
                     r_out=reverse_out,
+                    trimq=trimq,
+                    k=k,
+                    minlength=minlength,
+                    forcetrimleft=forcetrimleft,
+                    hdist=hdist,
                     optn=options)
     out, err = accessoryfunctions.run_subprocess(cmd)
     if returncmd:
@@ -421,7 +437,18 @@ def validate_reads(forward_in, returncmd=False, reverse_in='NA'):
         return out, err
 
 
-def reformat_reads(forward_in, forward_out, returncmd=False, reverse_in='NA', reverse_out='NA'):
+def reformat_reads(forward_in, forward_out, returncmd=False, reverse_in='NA', reverse_out='NA', **kwargs):
+    """
+
+    :param forward_in:
+    :param forward_out:
+    :param returncmd:
+    :param reverse_in:
+    :param reverse_out:
+    :param kwargs:
+    :return:
+    """
+    options = kwargs_to_string(kwargs)
     if os.path.isfile(forward_in.replace('_R1', '_R2')) and reverse_in == 'NA' and '_R1' in forward_in:
         reverse_in = forward_in.replace('_R1', '_R2')
         if reverse_out == 'NA':
@@ -429,15 +456,28 @@ def reformat_reads(forward_in, forward_out, returncmd=False, reverse_in='NA', re
                 reverse_out = forward_out.replace('_R1', '_R2')
             else:
                 raise ValueError('If you do not specify reverse_out, forward_out must contain _R1.\n\n')
-        cmd = 'reformat.sh in1={} in2={} out1={} out2={} tossbrokenreads=t ow=t'\
-            .format(forward_in, reverse_in, forward_out, reverse_out)
-    elif reverse_in == 'NA':
-        cmd = 'reformat.sh in={} out={} tossbrokenreads=t ow=t'.format(forward_in, forward_out)
+        cmd = 'reformat.sh in1={forward_in} in2={reverse_in} out1={forward_out} out2={reverse_out} ' \
+              'tossbrokenreads=t ow=t{options}'\
+            .format(forward_in=forward_in,
+                    reverse_in=reverse_in,
+                    forward_out=forward_out,
+                    reverse_out=reverse_out,
+                    options=options)
+    elif reverse_in == 'NA' or reverse_in is None:
+        cmd = 'reformat.sh in={forward_in} out={forward_out} tossbrokenreads=t ow=t{options}'\
+            .format(forward_in=forward_in,
+                    forward_out=forward_out,
+                    options=options)
     else:
         if reverse_out == 'NA':
             raise ValueError('Reverse output reads must be specified.')
-        cmd = 'reformat.sh in1={} in2={} out1={} out2={} tossbrokenreads=t ow=t'\
-            .format(forward_in, reverse_in, forward_out, reverse_out)
+        cmd = 'reformat.sh in1={forward_in} in2={reverse_in} out1={forward_out} out2={reverse_out} ' \
+              'tossbrokenreads=t ow=t{options}'\
+            .format(forward_in=forward_in,
+                    reverse_in=reverse_in,
+                    forward_out=forward_out,
+                    reverse_out=reverse_out,
+                    options=options)
     if not os.path.isfile(forward_out):
         out, err = accessoryfunctions.run_subprocess(cmd)
     else:
@@ -465,6 +505,49 @@ def repair_reads(forward_in, forward_out, returncmd=False, reverse_in='NA', reve
         cmd = 'repair.sh in1={} in2={} out1={} out2={} tossbrokenreads=t repair=t overwrite=t'\
             .format(forward_in, reverse_in, forward_out, reverse_out)
     if not os.path.isfile(forward_out):
+        out, err = accessoryfunctions.run_subprocess(cmd)
+    else:
+        out = str()
+        err = str()
+    if returncmd:
+        return out, err, cmd
+    else:
+        return out, err
+
+
+def randomreads(reference, length, reads, out_fastq, paired=False, returncmd=False, **kwargs):
+    """
+    Wrapper for bbmap. Assumes that bbmap executable is in your $PATH.
+    :param reference: Reference fasta. Won't be written to disk by default. If you want it to be, add nodisk='t' as an arg.
+    :param length: Length of reads to simulate
+    :param reads: Number of reads to simulate
+    :param out_fastq: Output file. Should end in .fastq or .fastq.gz
+    :param paired: Create paired FASTQ files rather than single
+    :param returncmd: If set to true, function will return the cmd string passed to subprocess as a third value.
+    :param kwargs: Other arguments to give to bbmap in parameter=argument format. See documentation for full list.
+    :return: out and err (and cmd if specified): stdout string and stderr string from running bbmap.
+    """
+    options = kwargs_to_string(kwargs)
+    # If the paired option is selected, set the name of the reverse reads to be the same as the forward reads
+    # but replace _R1 with _R2
+    if paired:
+        out_fastq2 = out_fastq.replace('_R1', '_R2')
+        # Create the call to randomreads - use paired=t
+        cmd = 'randomreads.sh ref={ref} out={out} out2={out2} length={length} reads={reads} paired=t{options}'\
+            .format(ref=reference,
+                    out=out_fastq,
+                    out2=out_fastq2,
+                    length=length,
+                    reads=reads,
+                    options=options)
+    else:
+        cmd = 'randomreads.sh ref={ref} out={out} length={length} reads={reads}{options}'\
+            .format(ref=reference,
+                    out=out_fastq,
+                    length=length,
+                    reads=reads,
+                    options=options)
+    if not os.path.isfile(out_fastq):
         out, err = accessoryfunctions.run_subprocess(cmd)
     else:
         out = str()
