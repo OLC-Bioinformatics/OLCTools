@@ -2,9 +2,6 @@
 from accessoryFunctions.accessoryFunctions import printtime, run_subprocess, write_to_logfile, make_path
 from biotools import bbtools
 from subprocess import CalledProcessError
-from threading import Thread
-from queue import Queue
-import threading
 import shutil
 import os
 __author__ = 'adamkoziol'
@@ -13,18 +10,13 @@ __author__ = 'adamkoziol'
 class Skesa(object):
 
     def main(self):
-        self.assemble_threads()
+        self.skesa_assemble()
         self.best_assemblyfile()
 
-    def assemble_threads(self):
-        # Only make as many threads are there are samples with fastq files
-        for i in range(self.cpus):
-            # Send the threads to the merge method. :args is empty as I'm using
-            threads = Thread(target=self.assemble, args=())
-            # Set the daemon to true - something to do with thread management
-            threads.setDaemon(True)
-            # Start the threading
-            threads.start()
+    def skesa_assemble(self):
+        """
+        Run skesa to assemble genomes
+        """
         for sample in self.metadata:
             # Initialise the assembly command
             sample.commands.assemble = str()
@@ -57,7 +49,7 @@ class Skesa(object):
                             sample.commands.assemble = 'skesa --fastq {fastqfiles} --cores {threads} --gz {gz} ' \
                                                        '--use_paired_ends --contigs_out {contigs}'\
                                 .format(fastqfiles=','.join(fastqfiles),
-                                        threads=self.threads,
+                                        threads=self.cpus,
                                         gz=gz,
                                         contigs=sample.general.assemblyfile)
                         # Same as above, but use single read settings for the assembler
@@ -65,7 +57,7 @@ class Skesa(object):
                             sample.commands.assemble = 'skesa --fastq {fastqfiles} --cores {threads} --gz {gz} ' \
                                                        '--contigs_out {contigs}'\
                                 .format(fastqfiles=','.join(fastqfiles),
-                                        threads=self.threads,
+                                        threads=self.cpus,
                                         gz=gz,
                                         contigs=sample.general.assemblyfile)
                 # If there are no fastq files, populate the metadata appropriately
@@ -78,18 +70,9 @@ class Skesa(object):
                 sample.general.assemblyfastq = 'NA'
                 sample.general.trimmedcorrectedfastqfiles = 'NA'
                 sample.general.bestassemblyfile = 'NA'
-            if sample.commands.assemble:
-                # Put the arguments to pass to the assemble method into the queue
-                self.assemblequeue.put(sample)
-        self.assemblequeue.join()
-
-    def assemble(self):
-        while True:
-            sample = self.assemblequeue.get()
-            if not os.path.isfile(sample.general.assemblyfile):
+            if sample.commands.assemble and not os.path.isfile(sample.general.assemblyfile):
                 # Run the assembly
                 out, err = run_subprocess(sample.commands.assemble)
-                self.threadlock.acquire()
                 write_to_logfile(sample.commands.assemble,
                                  sample.commands.assemble,
                                  self.logfile,
@@ -104,8 +87,6 @@ class Skesa(object):
                                  sample.general.logerr,
                                  None,
                                  None)
-                self.threadlock.release()
-            self.assemblequeue.task_done()
 
     def merge(self, sample):
         """
@@ -220,14 +201,8 @@ class Skesa(object):
         self.metadata = inputobject.runmetadata.samples
         self.start = inputobject.starttime
         self.cpus = inputobject.cpus
-        try:
-            self.threads = int(self.cpus / len(self.metadata)) if self.cpus / len(self.metadata) > 1 else 1
-        except TypeError:
-            self.threads = self.cpus
         self.path = inputobject.path
         self.logfile = inputobject.logfile
-        self.assemblequeue = Queue(maxsize=self.threads)
-        self.threadlock = threading.Lock()
         self.reportpath = inputobject.reportpath
         make_path(os.path.join(self.path, 'BestAssemblies'))
         make_path(os.path.join(self.path, 'raw_assemblies'))
