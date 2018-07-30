@@ -824,7 +824,7 @@ class GeneSeekr(object):
         self.plusdict = defaultdict(make_dict)
         self.dqueue = Queue(maxsize=self.cpus)
         self.blastqueue = Queue(maxsize=self.cpus)
-        self.geneseekr()
+        # self.geneseekr()
 
 
 def sequencenames(contigsfile):
@@ -967,7 +967,8 @@ if __name__ == '__main__':
             self.unique = self.runmetadata.unique
             self.logfile = self.runmetadata.logfile
             # Run the analyses
-            GeneSeekr(self)
+            geneseekr = GeneSeekr(self)
+            geneseekr.geneseekr()
 
     # Run the class
     MetadataInit()
@@ -979,9 +980,12 @@ class PipelineInit(object):
             if sample.general.bestassemblyfile != 'NA':
                 setattr(sample, self.analysistype, GenObject())
                 if self.genusspecific:
+                    try:
+                        genus = sample.general.closestrefseqgenus
+                    except AttributeError:
+                        genus = sample.general.referencegenus
                     # Allow Shigella to use the same targets as Escherichia
-                    genus = sample.general.referencegenus if sample.general.referencegenus != 'Shigella' \
-                        else 'Escherichia'
+                    genus = genus if genus != 'Shigella' else 'Escherichia'
                     targetpath = os.path.join(self.referencefilepath, self.analysistype, genus)
                 else:
                     targetpath = os.path.join(self.referencefilepath, self.analysistype)
