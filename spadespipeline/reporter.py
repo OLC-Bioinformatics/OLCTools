@@ -28,19 +28,6 @@ class Reporter(object):
             data += GenObject.returnattr(sample.run, 'InvestigatorName')
             # SamplePurity
             data += GenObject.returnattr(sample.confindr, 'contam_status')
-            # GenomeQAML prediction
-            prediction = GenObject.returnattr(sample.GenomeQAML, 'prediction')
-            if prediction != ',':
-                data += prediction
-            else:
-                try:
-                    description = sample.run.Description
-                    if description == 'metagenome':
-                        data += '{description},'.format(description=description)
-                    else:
-                        data += '{status},'.format(status=sample.run.status)
-                except KeyError:
-                    data += 'ND,'
             # N50
             n50 = GenObject.returnattr(sample.quality_features_polished, 'n50')
             if n50 != '-,':
@@ -73,16 +60,10 @@ class Reporter(object):
                 if sample.rmlst.matches == 53:
                     data += GenObject.returnattr(sample.rmlst, 'sequencetype')
                 else:
-                    # Create a set of all the genes present in the results (gene name split from allele)
-                    rmlst_gene_set = {gene.split('_')[0] for gene in sample.rmlst.results}
-                    # If there are a full set of 53 genes, but no profile match, then this is a new profile
-                    if len(rmlst_gene_set) == 53:
-                        data += 'new,'
-                    # Otherwise the profile is set to ND
-                    else:
-                        data += 'ND,'
+                    # Otherwise the profile is set to new
+                    data += 'new,'
             except KeyError:
-                data += 'ND,'
+                data += 'new,'
             # MLST_Result
             try:
                 if sample.mlst.matches == 7:
@@ -409,8 +390,9 @@ class Reporter(object):
         self.reportpath = inputobject.reportpath
         self.starttime = inputobject.starttime
         # Define the headers to be used in the metadata report
+        # 'AssemblyQuality',
         self.headers = ['SeqID', 'SampleName', 'Genus', 'SequencingDate', 'Analyst', 'SamplePurity',
-                        'AssemblyQuality', 'N50', 'NumContigs', 'TotalLength', 'MeanInsertSize', 'InsertSizeSTD',
+                        'N50', 'NumContigs', 'TotalLength', 'MeanInsertSize', 'InsertSizeSTD',
                         'AverageCoverageDepth', 'CoverageDepthSTD', 'PercentGC', 'MASH_ReferenceGenome',
                         'MASH_NumMatchingHashes', '16S_result', 'rMLST_Result', 'MLST_Result', 'MLST_gene_1_allele',
                         'MLST_gene_2_allele', 'MLST_gene_3_allele', 'MLST_gene_4_allele', 'MLST_gene_5_allele',
