@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-from accessoryFunctions.accessoryFunctions import filer, MetadataObject, GenObject, make_path
+from accessoryFunctions.accessoryFunctions import filer, MetadataObject, GenObject, make_path, relative_symlink
 from spadespipeline import metadataReader
 from glob import glob
 import subprocess
-import errno
 import os
 
 __author__ = 'adamkoziol'
@@ -27,22 +26,16 @@ class Basic(object):
             make_path(outputdir)
             # Get the fastq files specific to the fastqname
             specificfastq = glob(os.path.join(self.path, '{}*.fastq*'.format(fastqname)))
-            # Link the files to the output folder
-            try:
-                # Link the .gz files to :self.path/:filename
-                list(map(lambda x: os.symlink('../{}'.format(os.path.basename(x)),
-                                              '{}/{}'.format(outputdir, os.path.basename(x))), specificfastq))
-            # Except os errors
-            except OSError as exception:
-                # If there is an exception other than the file exists, raise it
-                if exception.errno != errno.EEXIST:
-                    raise
             # Initialise the general and run categories
             metadata.general = GenObject()
             metadata.run = GenObject()
-            # Populate the .fastqfiles category of :self.metadata
-            metadata.general.fastqfiles = [fastq for fastq in sorted(
-                glob(os.path.join(outputdir, '{}*.fastq*'.format(metadata.name))))]
+            # Create the .fastqfiles category of :self.metadata
+            metadata.general.fastqfiles = list()
+            # Link the files to the output folder
+            for fastq in sorted(specificfastq):
+                relative_symlink(fastq,
+                                 outputdir)
+                metadata.general.fastqfiles.append(os.path.join(outputdir, os.path.basename(fastq)))
             # Add the output directory to the metadata
             metadata.general.outputdirectory = outputdir
             metadata.general.logout = os.path.join(self.path, metadata.name, '{}_log_out.txt'.format(metadata.name))

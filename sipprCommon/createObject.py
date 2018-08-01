@@ -1,7 +1,6 @@
 #!/usr/bin/env python
-from accessoryFunctions.accessoryFunctions import make_path, filer, MetadataObject, GenObject
+from accessoryFunctions.accessoryFunctions import make_path, filer, GenObject, MetadataObject, relative_symlink
 from glob import glob
-import errno
 import os
 __author__ = 'adamkoziol'
 
@@ -22,27 +21,17 @@ class ObjectCreation(object):
             # Make the destination folder
             make_path(outputdir)
             # Get the fastq files specific to the fastqname
-            specificfastq = glob(os.path.join(self.path,'{}*.fastq*'.format(fastqname)))
-            # Make relative symlinks to the files in :self.path
-            try:
-                for fastq in specificfastq:
-                    # Get the basename of the file
-                    fastqfile = os.path.split(fastq)[-1]
-                    # Set the destination fastq path as the base name plus the destination folder
-                    destinationfastq = os.path.join(outputdir, fastqfile)
-                    # Symlink the files
-                    os.symlink('../{}'.format(fastqfile), destinationfastq)
-            # Except os errors
-            except OSError as exception:
-                # If there is an exception other than the file exists, raise it
-                if exception.errno != errno.EEXIST:
-                    raise
+            specificfastq = glob(os.path.join(self.path, '{}*.fastq*'.format(fastqname)))
             # Initialise the general and run categories
             metadata.general = GenObject()
             metadata.run = GenObject()
-            # Populate the .fastqfiles category of :self.metadata
-            metadata.general.fastqfiles = [fastq for fastq in glob(
-                os.path.join(outputdir, '{}*.fastq*'.format(fastqname))) if 'trimmed' not in fastq]
+            # Create the .fastqfiles category of :self.metadata
+            metadata.general.fastqfiles = list()
+            # Link the files to the output folder
+            for fastq in sorted(specificfastq):
+                relative_symlink(fastq,
+                                 outputdir)
+                metadata.general.fastqfiles.append(os.path.join(outputdir, os.path.basename(fastq)))
             # Add the output directory to the metadata
             metadata.general.outputdirectory = outputdir
             metadata.run.outputdirectory = outputdir

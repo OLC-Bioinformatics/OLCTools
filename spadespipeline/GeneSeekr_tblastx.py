@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 from accessoryFunctions.accessoryFunctions import printtime, run_subprocess, write_to_logfile, make_path, \
     combinetargets, MetadataObject, GenObject, make_dict
-from Bio.Blast.Applications import NcbiblastnCommandline
+from spadespipeline.GeneSeekr import GeneSeekr
+from Bio.Blast.Applications import NcbitblastxCommandline
 from Bio.Application import ApplicationError
 from Bio.pairwise2 import format_alignment
 from Bio.SeqRecord import SeqRecord
@@ -25,7 +26,7 @@ import re
 __author__ = 'adamkoziol'
 
 
-class GeneSeekr(object):
+class GeneSeekr_tblastx(GeneSeekr):
 
     def geneseekr(self):
         # Make blast databases (if necessary)
@@ -33,7 +34,7 @@ class GeneSeekr(object):
         self.makedbthreads()
         # Run the blast analyses
         printtime('Running {} blast analyses'.format(self.analysistype), self.start)
-        self.blastnthreads()
+        self.blastxthreads()
         if self.unique:
             self.filterunique()
         if self.analysistype == 'resfinder':
@@ -48,129 +49,7 @@ class GeneSeekr(object):
             delattr(sample[self.analysistype], "targets")
         printtime('{} analyses complete'.format(self.analysistype), self.start)
 
-    def filterunique(self):
-        """
-        Filters multiple BLAST hits in a common region of the genome. Leaves only the best hit
-        """
-        for sample in self.metadata:
-            # Initialise variables
-            sample[self.analysistype].blastresults = list()
-            resultdict = dict()
-            rowdict = dict()
-            try:
-                # Iterate through all the contigs, which had BLAST hits
-                for contig in sample[self.analysistype].queryranges:
-                    # Find all the locations in each contig that correspond to the BLAST hits
-                    for location in sample[self.analysistype].queryranges[contig]:
-                        # Extract the BLAST result dictionary for the contig
-                        for row in sample[self.analysistype].results[contig]:
-                            # Initialise variable to reduce the number of times row['value'] needs to be typed
-                            contig = row['query_id']
-                            high = row['high']
-                            low = row['low']
-                            percentidentity = row['percentidentity']
-                            # Join the two ranges in the location list with a comma
-                            locstr = ','.join([str(x) for x in location])
-                            # Create a set of the location of all the base pairs between the low and high (-1) e.g.
-                            # [6, 10] would give 6, 7, 8, 9, but NOT 10. This turns out to be useful, as there are
-                            # genes located back-to-back in the genome e.g. strB and strA, with locations of 2557,3393
-                            # and 3393,4196, respectively. By not including 3393 in the strB calculations, I don't
-                            # have to worry about this single bp overlap
-                            loc = set(range(low, high))
-                            # Use a set intersection to determine whether the current result overlaps with location
-                            # This will allow all the hits to be grouped together based on their location
-                            if loc.intersection(set(range(location[0], location[1]))):
-                                # Populate the grouped hits for each location
-                                try:
-                                    resultdict[contig][locstr].append(percentidentity)
-                                    rowdict[contig][locstr].append(row)
-                                # Initialise and populate the lists of the nested dictionary
-                                except KeyError:
-                                    try:
-                                        resultdict[contig][locstr] = list()
-                                        resultdict[contig][locstr].append(percentidentity)
-                                        rowdict[contig][locstr] = list()
-                                        rowdict[contig][locstr].append(row)
-                                    # As this is a nested dictionary, it needs to be initialised here
-                                    except KeyError:
-                                        resultdict[contig] = dict()
-                                        resultdict[contig][locstr] = list()
-                                        resultdict[contig][locstr].append(percentidentity)
-                                        rowdict[contig] = dict()
-                                        rowdict[contig][locstr] = list()
-                                        rowdict[contig][locstr].append(row)
-            except KeyError:
-                pass
-            # Find the best hit for each location based on percent identity
-            for contig in resultdict:
-                # Do not allow the same gene to be added to the dictionary more than once
-                genes = list()
-                for location in resultdict[contig]:
-                    # Initialise a variable to determine whether there is already a best hit found for the location
-                    multiple = False
-                    # Iterate through the BLAST results to find the best hit
-                    for row in rowdict[contig][location]:
-                        # Add the best hit to the .blastresults attribute of the object
-                        if row['percentidentity'] == max(resultdict[contig][location]) and not multiple \
-                                and row['subject_id'] not in genes:
-                            sample[self.analysistype].blastresults.append(row)
-                            genes.append(row['subject_id'])
-                            multiple = True
-
-    def makedbthreads(self):
-        """
-        Setup and create threads for class
-        """
-        # Find all the target folders in the analysis and add them to the targetfolders set
-        for sample in self.metadata:
-            if sample[self.analysistype].combinedtargets != 'NA':
-                self.targetfolders.add(sample[self.analysistype].targetpath)
-        # Create and start threads for each fasta file in the list
-        for i in range(len(self.targetfolders)):
-            # Send the threads to makeblastdb
-            threads = Thread(target=self.makeblastdb, args=())
-            # Set the daemon to true - something to do with thread management
-            threads.setDaemon(True)
-            # Start the threading
-            threads.start()
-        # Make blast databases for MLST files (if necessary)
-        for targetdir in self.targetfolders:
-            # List comprehension to remove any previously created database files from list
-            self.targetfiles = glob(os.path.join(targetdir, '*.fasta'))
-            try:
-                _ = self.targetfiles[0]
-            except IndexError:
-                self.targetfiles = glob(os.path.join(targetdir, '*.fasta'))
-            for targetfile in self.targetfiles:
-                # Read the sequences from the target file to a dictionary
-                self.records[targetfile] = SeqIO.to_dict(SeqIO.parse(targetfile, 'fasta'))
-                # Add the fasta file to the queue
-                self.dqueue.put(targetfile)
-        self.dqueue.join()  # wait on the dqueue until everything has been processed
-
-    def makeblastdb(self):
-        """Makes blast database files from targets as necessary"""
-        while True:  # while daemon
-            fastapath = self.dqueue.get()  # grabs fastapath from dqueue
-            # remove the path and the file extension for easier future globbing
-            db = os.path.splitext(fastapath)[0]
-            nhr = '{}.nhr'.format(db)  # add nhr for searching
-            # fnull = open(os.devnull, 'w')  # define /dev/null
-            if not os.path.isfile(str(nhr)):  # if check for already existing dbs
-                # Create the databases
-                # TODO use MakeBLASTdb class
-                threadlock = threading.Lock()
-                command = 'makeblastdb -in {} -parse_seqids -max_file_sz 2GB -dbtype nucl -out {}'.format(fastapath, db)
-                # subprocess.call(shlex.split('makeblastdb -in {} -parse_seqids -max_file_sz 2GB -dbtype nucl -out {}'
-                #                            .format(fastapath, db)), stdout=fnull, stderr=fnull)
-                out, err = run_subprocess(command)
-                threadlock.acquire()
-                write_to_logfile(command, command, self.logfile, None, None, None, None)
-                write_to_logfile(out, err, self.logfile, None, None, None, None)
-                threadlock.release()
-            self.dqueue.task_done()  # signals to dqueue job is done
-
-    def blastnthreads(self):
+    def blastxthreads(self):
         """Setup and create  threads for blastn and xml path"""
         # Create the threads for the BLAST analysis
         for i in range(self.cpus):
@@ -208,17 +87,18 @@ class GeneSeekr(object):
             # BLAST command line call. Note the mildly restrictive evalue, and the high number of alignments.
             # Due to the fact that all the targets are combined into one database, this is to ensure that all potential
             # alignments are reported. Also note the custom outfmt: the doubled quotes are necessary to get it work
-            blastn = NcbiblastnCommandline(query=assembly, db=db, evalue='1E-5', num_alignments=1000000,
-                                           num_threads=12,
-                                           outfmt="'6 qseqid sseqid positive mismatch gaps "
-                                                  "evalue bitscore slen length qstart qend qseq sstart send sseq'",
-                                           out=sample[self.analysistype].report)
+            blastx = NcbitblastxCommandline(query=assembly, db=db, evalue='1E-5', num_alignments=1000000,
+                                            num_threads=12,
+                                            outfmt="'6 qseqid sseqid positive mismatch gaps "
+                                                   "evalue bitscore slen length qstart qend qframe qseq "
+                                                   "sstart send sframe sseq'",
+                                            out=sample[self.analysistype].report)
             # Save the blast command in the metadata
-            sample[self.analysistype].blastcommand = str(blastn)
+            sample[self.analysistype].blastcommand = str(blastx)
             # Only run blast if the report doesn't exist
             if not os.path.isfile(sample[self.analysistype].report):
                 try:
-                    blastn()
+                    blastx()
                 except ApplicationError:
                     self.blastqueue.task_done()
                     self.blastqueue.join()
@@ -293,6 +173,7 @@ class GeneSeekr(object):
         sample[self.analysistype].results = dict()
         # Go through each BLAST result
         for row in blastdict:
+            print(row)
             # Calculate the percent identity and extract the bitscore from the row
             # Percent identity is the (length of the alignment - number of mismatches) / total subject length
             percentidentity = float('{:0.2f}'.format((float(row['positives'])) /
@@ -793,38 +674,14 @@ class GeneSeekr(object):
 
     def __init__(self, inputobject):
 
-        self.metadata = inputobject.runmetadata.samples
-        self.cutoff = inputobject.cutoff
-        self.start = inputobject.start
-        self.analysistype = inputobject.analysistype
-        self.reportpath = inputobject.reportdir
-        self.targetfolders = set()
-        self.targetfiles = list()
-        self.records = dict()
-        self.pipeline = inputobject.pipeline
-        self.referencefilepath = inputobject.referencefilepath
-        self.cpus = inputobject.threads
-        self.align = inputobject.align
-        self.logfile = inputobject.logfile
-        # self.resfinder = inputobject.resfinder
-        # self.virulencefinder = inputobject.virulencefinder
-        # If CGE-based analyses are specified, set self.unique to True, otherwise, use the arguments
-        if self.analysistype == 'resfinder':
-            self.unique = True
-        elif self.analysistype == 'virulence':
-            self.unique = True
-            self.cutoff = 80
-        else:
-            self.unique = inputobject.unique
+        super().__init__(inputobject)
+        print(vars(self))
         # Fields used for custom outfmt 6 BLAST output:
         self.fieldnames = ['query_id', 'subject_id', 'positives', 'mismatches', 'gaps',
                            'evalue', 'bit_score', 'subject_length', 'alignment_length',
-                           'query_start', 'query_end', 'query_sequence',
-                           'subject_start', 'subject_end', 'subject_sequence']
-        self.plusdict = defaultdict(make_dict)
-        self.dqueue = Queue(maxsize=self.cpus)
-        self.blastqueue = Queue(maxsize=self.cpus)
-        # self.geneseekr()
+                           'query_start', 'query_end', 'query_frame', 'query_sequence',
+                           'subject_start', 'subject_end', 'subject_frame', 'subject_sequence']
+        self.geneseekr()
 
 
 def sequencenames(contigsfile):
@@ -967,8 +824,7 @@ if __name__ == '__main__':
             self.unique = self.runmetadata.unique
             self.logfile = self.runmetadata.logfile
             # Run the analyses
-            geneseekr = GeneSeekr(self)
-            geneseekr.geneseekr()
+            GeneSeekr_tblastx(self)
 
     # Run the class
     MetadataInit()

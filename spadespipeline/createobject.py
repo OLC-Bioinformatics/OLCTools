@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-from accessoryFunctions.accessoryFunctions import filer, GenObject, make_path, MetadataObject, printtime
+from accessoryFunctions.accessoryFunctions import filer, GenObject, make_path, MetadataObject, printtime, \
+    relative_symlink
 from glob import glob
-import errno
 import os
 __author__ = 'adamkoziol'
 
@@ -35,23 +35,18 @@ class ObjectCreation(object):
             outputdir = os.path.join(self.sequencepath, name)
             # Make the destination folder
             make_path(outputdir)
-            # Get the fastq files specific to the fastqname
+            # Get the files specific to the sequence name
             specific = glob(os.path.join(self.sequencepath, '{}*{}*'.format(name, self.extension)))
-            # Link the files to the output folder
-            for fasta in specific:
-                try:
-                    os.symlink(fasta, os.path.join(outputdir, os.path.split(fasta)[1]))
-                # Except os errors
-                except OSError as exception:
-                    # If there is an exception other than the file exists, raise it
-                    if exception.errno != errno.EEXIST:
-                        raise
-            # Initialise the general and run categories
+            # Initialise the general and commands GenObjects
             metadata.general = GenObject()
             metadata.commands = GenObject()
-            # Populate the .fastqfiles category of :self.metadata
-            metadata.general.fastqfiles = [fastq for fastq in glob(os.path.join(
-                outputdir, '{}*{}*'.format(name, self.extension))) if 'trimmed' not in fastq]
+            # Create the .fastqfiles category of :self.metadata
+            metadata.general.fastqfiles = list()
+            # Link the files to the output folder
+            for fastq in sorted(specific):
+                relative_symlink(fastq,
+                                 outputdir)
+                metadata.general.fastqfiles.append(os.path.join(outputdir, os.path.basename(fastq)))
             # Add the output directory to the metadata
             metadata.general.outputdirectory = outputdir
             try:

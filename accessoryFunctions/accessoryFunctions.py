@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # noinspection PyProtectedMember
 from Bio.Application import _Option, AbstractCommandline, _Switch
-from Bio.Alphabet import generic_dna
+from Bio.Alphabet import generic_dna, generic_protein
 from Bio.SeqRecord import SeqRecord
 from Bio.Seq import Seq
 from Bio import SeqIO
@@ -670,7 +670,7 @@ class MakeBlastDB(AbstractCommandline):
         AbstractCommandline.__init__(self, cmd, **kwargs)
 
 
-def combinetargets(targets, targetpath):
+def combinetargets(targets, targetpath, mol_type='nt'):
     """
     Creates a set of all unique sequences in a list of supplied FASTA files. Properly formats headers and sequences
     to be compatible with local pipelines. Splits hybrid entries. Removes illegal characters.
@@ -705,7 +705,10 @@ def combinetargets(targets, targetpath):
                     # Replace and dashes in the record.id with underscores
                     hybridid = hybridid.replace('-', '_')
                     # Convert the string to a seq object
-                    hybridseq = Seq(seq, generic_dna)
+                    if mol_type == 'nt':
+                        hybridseq = Seq(seq, generic_dna)
+                    else:
+                        hybridseq = Seq(seq, generic_protein)
                     # Create a SeqRecord of the sequence - use the sequence object and id
                     hybridrecord = SeqRecord(hybridseq,
                                              description='',
