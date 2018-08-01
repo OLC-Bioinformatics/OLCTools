@@ -440,7 +440,7 @@ def relativesymlink(src_file, dest_file):
             raise
 
 
-def relative_symlink(src_file, output_dir):
+def relative_symlink(src_file, output_dir, output_name=None):
     """
     Create relative symlinks files - use the relative path from the desired output directory to the storage path
     e.g. ../../2013-SEQ-0072/simulated/40/50_150/simulated_trimmed/2013-SEQ-0072_simulated_40_50_150_R1.fastq.gz
@@ -449,7 +449,12 @@ def relative_symlink(src_file, output_dir):
     https://stackoverflow.com/questions/9793631/creating-a-relative-symlink-in-python-without-using-os-chdir
     :param src_file: Source file to be symbolically linked
     :param output_dir: Destination folder for the link
+    :param output_name: Optionally allow for the link to have a different name
     """
+    if output_name:
+        file_name = output_name
+    else:
+        file_name = os.path.basename(src_file)
     try:
         os.symlink(
             os.path.relpath(
@@ -457,9 +462,7 @@ def relative_symlink(src_file, output_dir):
                 output_dir),
             os.path.join(
                 output_dir,
-                os.path.basename(
-                    src_file
-                )
+                file_name
             )
         )
     # Ignore FileExistsErrors
