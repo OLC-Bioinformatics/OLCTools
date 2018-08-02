@@ -725,8 +725,12 @@ class ResFinder(GeneSeekr):
             # Create an attribute to store the string for the eventual pipeline report
             sample[self.analysistype].pipelineresults = list()
             sample[self.analysistype].sampledata = list()
+            try:
+                blastresults = sample[self.analysistype].blastresults
+            except KeyError:
+                blastresults = 'NA'
             # Process the sample only if the script could find targets
-            if sample[self.analysistype].blastresults != 'NA':
+            if blastresults != 'NA':
                 for result in sample[self.analysistype].blastresults:
                     # Set the name to avoid writing out the dictionary[key] multiple times
                     name = result['subject_id']
