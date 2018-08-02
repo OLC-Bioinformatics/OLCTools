@@ -124,14 +124,18 @@ class AnnotatedCore(object):
         # Iterate through all the samples, and process all Escherichia
         for sample in self.metadata:
             if sample.general.bestassemblyfile != 'NA':
+                # Create a set to store the names of all the core genes in this strain
+                sample[self.analysistype].coreset = set()
                 if sample.general.referencegenus == 'Escherichia':
                     # Add the Escherichia sample to the runmetadata
                     self.runmetadata.samples.append(sample)
-                    # Create a set to store the names of all the core genes in this strain
-                    sample[self.analysistype].coreset = set()
                     # Parse the BLAST report
-                    self.blastparser(sample[self.analysistype].report, sample)
-            # Create the report
+                    try:
+                        report = sample[self.analysistype].report
+                        self.blastparser(report, sample)
+                    except KeyError:
+                        sample[self.analysistype].coreset = list()
+        # Create the report
         self.reporter()
 
     def blastparser(self, report, sample):
@@ -176,9 +180,12 @@ class AnnotatedCore(object):
             report.write(data)
 
         for sample in self.metadata:
-            # Remove the messy blast results from the object
+            # Remove the messy blast results and set/list of core genes from the object
             try:
                 delattr(sample[self.analysistype], "blastresults")
+            except KeyError:
+                pass
+            try:
                 delattr(sample[self.analysistype], 'coreset')
             except KeyError:
                 pass
