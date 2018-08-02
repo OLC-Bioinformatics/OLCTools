@@ -15,8 +15,6 @@ from glob import glob
 import threading
 import pandas
 import shutil
-import sys
-import io
 import os
 __author__ = 'adamkoziol'
 
@@ -232,7 +230,7 @@ class Quality(object):
                 # Add the arguments to the queue
                 sample.commands.fastqc = fastqccall
                 self.qcqueue.put((sample, fastqccall, outdir, fastqcreads))
-        # Wait on the trimqueue until everything has been processed
+        # Wait on the queue until everything has been processed
         self.qcqueue.join()
 
     def fastqc(self):
@@ -278,15 +276,6 @@ class Quality(object):
     def trimquality(self):
         """Uses bbduk from the bbmap tool suite to quality and adapter trim"""
         printtime("Trimming fastq files", self.start)
-        # Create and start threads for each strain with fastq files
-        for sample in self.metadata:
-            if type(sample.general.fastqfiles) is list:
-                # Create and start threads for each fasta file in the list
-                threads = threading.Thread(target=self.bbduker, args=())
-                # Set the daemon to true - something to do with thread management
-                threads.setDaemon(True)
-                # Start the threading
-                threads.start()
         # Iterate through strains with fastq files to set variables to add to the multithreading queue
         for sample in self.metadata:
             # As the metadata can be populated with 'NA' (string) if there are no fastq files, only process if
@@ -299,84 +288,57 @@ class Quality(object):
                 # Define the name of the trimmed fastq files
                 cleanforward = os.path.join(outputdir, '{}_R1_trimmed.fastq.gz'.format(sample.name))
                 cleanreverse = os.path.join(outputdir, '{}_R2_trimmed.fastq.gz'.format(sample.name))
-                min_len = 50
-                if self.numreads == 2:
-                    # Separate system calls for paired and unpaired fastq files
-                    # http://seqanswers.com/forums/showthread.php?t=42776
-                    # BBduk 37.23 doesn't need the ktrim=l/mink=11 parameters, so they have been removed.
-                    if len(fastqfiles) == 2:
-                        # Incorporate read length into the minlength parameter - set it to 50 unless one or more of the
-                        # reads has a lower calculated length than 50
-                        try:
-                            lesser_length = min(int(sample.run.forwardlength), int(sample.run.reverselength))
-                            min_len = 50 if lesser_length >= 50 else lesser_length
-                            bbdukcall = "bbduk.sh -Xmx1g in1={in1} in2={in2} out1={out1} out2={out2} qtrim=w " \
-                                        "trimq=10 k=25 minlength={ml} ref=adapters tbo" \
-                                .format(in1=fastqfiles[0],
-                                        in2=fastqfiles[1],
-                                        out1=cleanforward,
-                                        out2=cleanreverse,
-                                        ml=min_len)
-                        except ValueError:
-                            bbdukcall = ''
-
-                    elif len(fastqfiles) == 1:
-                        try:
-                            lesser_length = int(sample.run.forwardlength)
-                        except ValueError:
-                            lesser_length = int(sample.run.reverselength)
-                        min_len = 50 if lesser_length >= 50 else lesser_length
-                        bbdukcall = "bbduk.sh -Xmx1g in={in1} out={out1} qtrim=w trimq=10 k=25 minlength={ml} " \
-                                    "ref=adapters" \
-                            .format(in1=fastqfiles[0],
-                                    out1=cleanforward,
-                                    ml=min_len)
+                # Incorporate read length into the minlength parameter - set it to 50 unless one or more of the
+                # reads has a lower calculated length than 50
+                try:
+                    lesser_length = min(int(sample.run.forwardlength), int(sample.run.reverselength))
+                except ValueError:
+                    lesser_length = int(sample.run.forwardlength)
+                min_len = 50 if lesser_length >= 50 else lesser_length
+                # Initialise a variable to store the number of bases to automatically trim from the beginning of
+                # each read, as these bases tend to have lower quality scores. If trimming the reads will cause
+                # the read length to fall below 50, set this value to 0
+                trim_left = 15 if lesser_length - 15 >= 50 else 0
+                # If, for some reason, only the reverse reads are present, use the appropriate output file name
+                if 'R2' in fastqfiles[0]:
+                    if not os.path.isfile(cleanreverse):
+                        out, \
+                            err, \
+                            bbdukcall = bbtools.bbduk_trim(forward_in=fastqfiles[0],
+                                                           reverse_in=None,
+                                                           forward_out=cleanreverse,
+                                                           trimq=10,
+                                                           minlength=min_len,
+                                                           forcetrimleft=trim_left,
+                                                           returncmd=True)
                     else:
-                        bbdukcall = ""
-                # Allows for exclusion of the reverse reads if desired
+                        bbdukcall = str()
+                        out = str()
+                        err = str()
                 else:
-                    bbdukcall = "bbduk.sh -Xmx1g in={in1} out={out1} qtrim=w trimq=10 k=25 minlength={ml} " \
-                                "ref=adapters"\
-                        .format(in1=fastqfiles[0],
-                                out1=cleanforward,
-                                ml=min_len)
-                    # There is a check to ensure that the trimmed reverse file is created. This will change the file
-                    # being looked for to the forward file
-                    cleanreverse = cleanforward
-                    if self.forwardlength != 'full':
-                        bbdukcall += ' forcetrimright={}'.format(str(self.forwardlength))
-                sample.commands.bbduk = bbdukcall
-                # Add the arguments to the queue
-                self.trimqueue.put((sample, bbdukcall, cleanreverse))
-        # Wait on the trimqueue until everything has been processed
-        self.trimqueue.join()
-        # Add all the trimmed files to the metadata
-        printtime('Fastq files trimmed', self.start)
-
-    def bbduker(self):
-        """Run bbduk system calls"""
-        while True:  # while daemon
-            # Unpack the variables from the queue
-            (sample, systemcall, reversename) = self.trimqueue.get()
-            # Check to see if the forward file already exists
-            if systemcall:
-                threadlock = threading.Lock()
-                if not os.path.isfile(reversename) and not os.path.isfile('{}.bz2'.format(reversename)):
-                    # Run the call
-                    out, err = run_subprocess(systemcall)
-                    threadlock.acquire()
-                    write_to_logfile(systemcall, systemcall, self.logfile, sample.general.logout, sample.general.logerr,
-                                     None, None)
-                    write_to_logfile(out, err, self.logfile, sample.general.logout, sample.general.logerr, None, None)
-                    threadlock.release()
-                # Define the output directory
-                outputdir = sample.general.outputdirectory
+                    if not os.path.isfile(cleanforward):
+                            out, \
+                                err, \
+                                bbdukcall = bbtools.bbduk_trim(forward_in=fastqfiles[0],
+                                                               forward_out=cleanforward,
+                                                               trimq=10,
+                                                               minlength=min_len,
+                                                               forcetrimleft=trim_left,
+                                                               returncmd=True)
+                    else:
+                        bbdukcall = str()
+                        out = str()
+                        err = str()
+                # Write the command, stdout, and stderr to the logfile
+                write_to_logfile(bbdukcall, bbdukcall, self.logfile, sample.general.logout, sample.general.logerr,
+                                 None, None)
+                write_to_logfile(out, err, self.logfile, sample.general.logout, sample.general.logerr, None, None)
                 # Add the trimmed fastq files to a list
-                trimmedfastqfiles = sorted(glob(os.path.join(outputdir, '*trimmed.fastq.gz')))
+                trimmedfastqfiles = sorted(glob(os.path.join(sample.general.outputdirectory, '*trimmed.fastq.gz')))
                 # Populate the metadata if the files exist
                 sample.general.trimmedfastqfiles = trimmedfastqfiles if trimmedfastqfiles else 'NA'
-            # Signal to trimqueue that job is done
-            self.trimqueue.task_done()
+        # Add all the trimmed files to the metadata
+        printtime('Fastq files trimmed', self.start)
 
     def contamination_finder(self, input_path=None, report_path=None, portal_log=None):
         """
@@ -483,14 +445,15 @@ class Quality(object):
             sample.general.trimmedcorrectedfastqfiles = [fastq.split('.fastq.gz')[0] + '_trimmed_corrected.fastq.gz'
                                                          for fastq in sorted(sample.general.fastqfiles)]
             try:
-                out, err, cmd = bbtools.tadpole(forward_in=sorted(sample.general.trimmedfastqfiles)[0],
-                                                forward_out=sample.general.trimmedcorrectedfastqfiles[0],
-                                                returncmd=True,
-                                                mode='correct',
-                                                threads=self.cpus)
-                # Set the command in the object
-                sample[self.analysistype].errorcorrectcmd = cmd
-                write_to_logfile(out, err, self.logfile, sample.general.logout, sample.general.logerr, None, None)
+                if not os.path.isfile(sample.general.trimmedcorrectedfastqfiles[0]):
+                    out, err, cmd = bbtools.tadpole(forward_in=sorted(sample.general.trimmedfastqfiles)[0],
+                                                    forward_out=sample.general.trimmedcorrectedfastqfiles[0],
+                                                    returncmd=True,
+                                                    mode='correct',
+                                                    threads=self.cpus)
+                    # Set the command in the object
+                    sample[self.analysistype].errorcorrectcmd = cmd
+                    write_to_logfile(out, err, self.logfile, sample.general.logout, sample.general.logerr, None, None)
             except CalledProcessError:
                 sample.general.trimmedcorrectedfastqfiles = sample.general.trimmedfastqfiles
             except KeyError:
@@ -563,7 +526,6 @@ class Quality(object):
             self.threads = self.cpus
         # self.devnull = open(os.devnull, 'wb')
         self.qcqueue = Queue(maxsize=self.cpus)
-        self.trimqueue = Queue(maxsize=self.cpus)
         self.correctqueue = Queue(maxsize=self.cpus)
         self.start = inputobject.starttime
         try:
