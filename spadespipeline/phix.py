@@ -34,20 +34,25 @@ class PhiX(object):
         the error rate
         """
         # Parse the files and load the data
-        run_metrics = py_interop_run_metrics.run_metrics()
-        valid_to_load = py_interop_run.uchar_vector(py_interop_run.MetricCount, 0)
-        py_interop_run_metrics.list_summary_metrics_to_load(valid_to_load)
-        run_metrics.read(self.path, valid_to_load)
-        summary = py_interop_summary.run_summary()
-        py_interop_summary.summarize_run_metrics(run_metrics, summary)
-        # PhiX error rate for run over all "usable cycles"
-        errorrate = summary.total_summary().error_rate()
-        # Percent aligned PhiX
-        pctaligned = summary.total_summary().percent_aligned()
-        # Add the error rate and the percent of reads that align to PhiX to the metadata object
-        for sample in self.metadata:
-            sample.run.error_rate = '{:.2f}'.format(errorrate)
-            sample.run.phix_aligned = '{:.2f}'.format(pctaligned)
+        try:
+            run_metrics = py_interop_run_metrics.run_metrics()
+            valid_to_load = py_interop_run.uchar_vector(py_interop_run.MetricCount, 0)
+            py_interop_run_metrics.list_summary_metrics_to_load(valid_to_load)
+            run_metrics.read(self.path, valid_to_load)
+            summary = py_interop_summary.run_summary()
+            py_interop_summary.summarize_run_metrics(run_metrics, summary)
+            # PhiX error rate for run over all "usable cycles"
+            errorrate = summary.total_summary().error_rate()
+            # Percent aligned PhiX
+            pctaligned = summary.total_summary().percent_aligned()
+            # Add the error rate and the percent of reads that align to PhiX to the metadata object
+            for sample in self.metadata:
+                sample.run.error_rate = '{:.2f}'.format(errorrate)
+                sample.run.phix_aligned = '{:.2f}'.format(pctaligned)
+        except:
+            for sample in self.metadata:
+                sample.run.error_rate = 'ND'
+                sample.run.phix_aligned = 'ND'
 
     def __init__(self, inputobject):
         self.path = inputobject.path
