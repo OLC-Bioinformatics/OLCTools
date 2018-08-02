@@ -1,0 +1,47 @@
+{% set name = "olctools" %}
+{% set version = "0.3.96" %}
+
+package:
+  name: "{{ name|lower }}"
+  version: "{{ version }}"
+
+source:
+  git_url: https://github.com/lowandrew/OLCTools
+
+build:
+  number: 0
+  script: "{{ PYTHON }} -m pip install . --no-deps --ignore-installed --no-cache-dir -vvv "
+
+requirements:
+  host:
+    - biopython
+    - illumina-interop
+    - pip
+    - pip
+    - python
+  run:
+    - biopython
+    - illumina-interop
+    - python
+
+test:
+  imports:
+    - accessoryFunctions
+    - biotools
+    - coreGenome
+    - metagenomefilter
+    - sipprCommon
+    - spadespipeline
+
+about:
+  home: https://github.com/lowandrew/OLCTools
+  license: MIT
+  license_family: OTHER
+  license_file: 
+  summary: 
+  doc_url: 
+  dev_url: 
+
+extra:
+  recipe-maintainers:
+    - your-github-id-here
