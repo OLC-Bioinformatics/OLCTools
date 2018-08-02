@@ -120,7 +120,7 @@ class Reporter(object):
                     htype = '{hset} ({hpid})'.format(hset=';'.join(sample.serosippr.h_set),
                                                      hpid=sample.serosippr.best_h_pid)
                 serotype = '{otype}:{htype},'.format(otype=otype,
-                                                    htype=htype)
+                                                     htype=htype)
                 # Add the serotype to the data string unless neither O-type not H-type were found; add ND instead
                 data += serotype if serotype != 'O-untypeable:H-untypeable,' else 'ND,'
             except KeyError:
@@ -155,6 +155,8 @@ class Reporter(object):
                     data += 'ND,'
             except KeyError:
                 data += 'ND,'
+            # Legacy Vtyper
+            data += GenObject.returnattr(sample.legacy_vtyper, 'toxinprofile')
             # AMR_Profile and resistant/sensitive status
             if sample.resfinder_assembled.pipelineresults:
                 # Profile
@@ -398,7 +400,7 @@ class Reporter(object):
                         'MLST_gene_2_allele', 'MLST_gene_3_allele', 'MLST_gene_4_allele', 'MLST_gene_5_allele',
                         'MLST_gene_6_allele', 'MLST_gene_7_allele', 'CoreGenesPresent', 'E_coli_Serotype',
                         'SISTR_serovar_antigen', 'SISTR_serovar_cgMLST', 'SISTR_serogroup', 'SISTR_h1', 'SISTR_h2',
-                        'SISTR_serovar', 'GeneSeekr_Profile', 'Vtyper_Profile', 'AMR_Profile',
+                        'SISTR_serovar', 'GeneSeekr_Profile', 'Vtyper_Profile', 'Legacy_Vtyper_Profile', 'AMR_Profile',
                         'AMR Resistant/Sensitive', 'PlasmidProfile', 'TotalPredictedGenes', 'PredictedGenesOver3000bp',
                         'PredictedGenesOver1000bp', 'PredictedGenesOver500bp', "PredictedGenesUnder500bp",
                         'NumClustersPF', 'PercentReadsPhiX', 'ErrorRate', 'LengthForwardRead', 'LengthReverseRead',
