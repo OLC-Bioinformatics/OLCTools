@@ -179,6 +179,9 @@ class GeneSeekr(object):
             threads.start()
         # Populate threads for each gene, genome combination
         for sample in self.metadata:
+            make_path(sample[self.analysistype].reportdir)
+            sample[self.analysistype].report = os.path.join(
+                sample[self.analysistype].reportdir, '{}.csv'.format(sample.name))
             if sample[self.analysistype].combinedtargets != 'NA':
                 # Add each fasta file combination to the threads
                 self.blastqueue.put((sample.general.bestassemblyfile, sample[self.analysistype].combinedtargets,
@@ -189,12 +192,8 @@ class GeneSeekr(object):
     def runblast(self):
         while True:  # while daemon
             (assembly, target, sample) = self.blastqueue.get()  # grabs fastapath from dqueue
-            genome = os.path.splitext(os.path.split(assembly)[1])[0]
             # Run the BioPython BLASTn module with the genome as query, fasta(target gene) as db.
             # Do not re-perform the BLAST search each time
-            make_path(sample[self.analysistype].reportdir)
-            sample[self.analysistype].report = os.path.join(
-                sample[self.analysistype].reportdir, '{}.csv'.format(genome))
             try:
                 size = os.path.getsize(sample[self.analysistype].report)
                 # If a report was created, but no results entered - program crashed, or no sequences passed thresholds,
