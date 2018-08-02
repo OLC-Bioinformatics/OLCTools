@@ -1,10 +1,16 @@
 #!/usr/bin/env python
-# from spadespipeline.OLCspades.accessoryFunctions import *
+from accessoryFunctions.accessoryFunctions import dotter, GenObject, make_dict, MetadataObject, make_path, printtime, \
+    run_subprocess, write_to_logfile
 import accessoryFunctions.metadataprinter as metadataprinter
-from spadespipeline.mMLST import *
-from accessoryFunctions.accessoryFunctions import *
+from spadespipeline import createobject
+from Bio import SeqIO
+from collections import defaultdict
+from threading import Lock, Thread
+from csv import DictReader
+from queue import Queue
 from glob import glob
-import threading
+import operator
+import os
 __author__ = 'adamkoziol'
 
 
@@ -32,7 +38,6 @@ class CoreTyper(object):
         self.reporter()
 
     def populate(self):
-        from spadespipeline import createobject
         # Move the files to subfolders and create objects
         if not self.pipeline:
             self.metadata = createobject.ObjectCreation(self)
@@ -96,7 +101,6 @@ class CoreTyper(object):
         """
         Use prokka to annotate each strain
         """
-        from spadespipeline import createobject
         # Move the files to subfolders and create objects
         self.runmetadata = createobject.ObjectCreation(self)
         # Fix headers
@@ -113,14 +117,13 @@ class CoreTyper(object):
         for sample in self.metadata.samples:
             # Create the prokka attribute in the metadata object
             setattr(sample, 'prokka', GenObject())
-            # docker run -v /path/to/sequences:/path/to/sequences coreGenome
-            # prokka 2014-SEQ-0275.fasta --force --genus Escherichia --species coli --usegenus --addgenes
-            # --prefix 2014-SEQ-0275 --locustag EC0275 --outputdir /path/to/sequences/2014-SEQ-0275/prokka
             sample.prokka.outputdir = os.path.join(sample.general.outputdirectory, 'prokka')
             if not os.path.isdir(sample.prokka.outputdir):
                 os.makedirs(sample.prokka.outputdir)
             # TODO Incorporate MASH/rMLST/user inputted genus, species results in the system call
             # Create the system call
+            # prokka 2014-SEQ-0275.fasta --force --genus Escherichia --species coli --usegenus --addgenes
+            # --prefix 2014-SEQ-0275 --locustag EC0275 --outputdir /path/to/sequences/2014-SEQ-0275/prokka
             sample.prokka.command = 'prokka {} ' \
                                     '--force ' \
                                     '--genus {} ' \
@@ -136,12 +139,11 @@ class CoreTyper(object):
         self.queue.join()
 
     def annotate(self):
-        from subprocess import call
         while True:
-            threadlock = threading.Lock()
+            threadlock = Lock()
             sample = self.queue.get()
             sample.prokka.outputdir = os.path.abspath(sample.prokka.outputdir)
-            if not os.path.isfile('{}/{}.gff'.format(sample.prokka.outputdir, sample.name)):
+            if not os.path.isfile(os.path.join(sample.prokka.outputdir, '{}.gff'.format(sample.name))):
                 # call(sample.prokka.command, shell=True, stdout=self.fnull, stderr=self.fnull)
                 out, err = run_subprocess(sample.prokka.command)
                 threadlock.acquire()
@@ -151,7 +153,7 @@ class CoreTyper(object):
             # List of the file extensions created with a prokka analysis
             files = ['err', 'faa', 'ffn', 'fna', 'fsa', 'gbk', 'gff', 'log', 'sqn', 'tbl', 'txt']
             # List of the files created for the sample by prokka
-            prokkafiles = glob('{}/*'.format(sample.prokka.outputdir))
+            prokkafiles = glob(os.path.join(sample.prokka.outputdir, '*'))
             # Find out which files have been created in the analysis
             for extension in files:
                 # If the file was created, set the file path/name as the data for the attribute
@@ -168,7 +170,6 @@ class CoreTyper(object):
         The contig ID must be twenty characters or fewer. The names of the headers created following SPAdes assembly
         are usually far too long. This renames them as the sample name
         """
-        # from Bio import SeqIO
         for sample in self.metadata.samples:
             # Create an attribute to store the path/file name of the fasta file with fixed headers
             sample.general.fixedheaders = sample.general.bestassemblyfile.replace('.fasta', '.ffn')
@@ -340,13 +341,12 @@ class CoreTyper(object):
         """
         Parse the results into a report
         """
-        from csv import DictReader
         # Initialise variables
         header = ''
         row = ''
         databasedict = dict()
         # Load the database sequence type into a dictionary
-        strainprofile = '{}/strainprofiles.txt'.format(self.profilelocation)
+        strainprofile = os.path.join(self.profilelocation, 'strainprofiles.txt')
         databaseprofile = DictReader(open(strainprofile))
         # Put the strain profile dictionary into a more easily searchable format
         for data in databaseprofile:
@@ -389,17 +389,12 @@ class CoreTyper(object):
         # Create the report folder
         make_path(self.reportpath)
         # Create the report containing all the data from all samples
-        with open('{}/{}.csv'.format(self.reportpath, self.analysistype), 'w') \
-                as combinedreport:
+        with open(os.path.join(self.reportpath, '{}.csv'.format(self.analysistype)), 'w') as combinedreport:
             # Write the results to this report
             combinedreport.write(header)
             combinedreport.write(row)
 
-    def databasestrain(self):
-        pass
-
     def __init__(self, inputobject):
-        from queue import Queue
         self.path = inputobject.path
         self.sequencepath = inputobject.sequencepath
         self.start = inputobject.start
@@ -425,8 +420,8 @@ class CoreTyper(object):
 
         self.reportpath = os.path.join(self.path, 'reports')
         # Class variables
-        self.genes = sorted(glob('{}/*.fasta'.format(self.coregenelocation)))
-        self.profile = glob('{}/*.txt'.format(self.profilelocation))
+        self.genes = sorted(glob(os.path.join(self.coregenelocation, '*.fasta')))
+        self.profile = glob(os.path.join(self.profilelocation, '*.txt'))
         self.analysistype = 'core'
         self.allelenames = sorted([os.path.basename(x).split('.')[0] for x in self.genes])
         self.alleledict = dict(zip(self.allelenames, self.genes))
@@ -436,7 +431,6 @@ class CoreTyper(object):
         self.cdsqueue = Queue()
         self.sequencequeue = Queue()
         self.allelequeue = Queue()
-        # self.fnull = open(os.devnull, 'wb')
         self.logfile = inputobject.logfile
         self.resultprofile = defaultdict(make_dict)
         # Perform typing
