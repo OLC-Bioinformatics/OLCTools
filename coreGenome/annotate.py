@@ -1,13 +1,17 @@
 #!/usr/bin/env python
-from accessoryFunctions.accessoryFunctions import *
+from accessoryFunctions.accessoryFunctions import GenObject, make_path, MetadataObject, printtime, run_subprocess, \
+    write_to_logfile
 import spadespipeline.metadataprinter as metadataprinter
+import spadespipeline.createobject as createobject
 from Bio.SeqRecord import SeqRecord
 from Bio.Seq import Seq
 from Bio import SeqIO
 from threading import Thread
-import threading
-from subprocess import call
+from queue import Queue
 from glob import glob
+import threading
+import operator
+import os
 __author__ = 'adamkoziol'
 
 
@@ -17,7 +21,7 @@ class Annotate(object):
         """
         Perform multi-threaded prokka annotations of each strain
         """
-        import spadespipeline.createobject as createobject
+
         # Move the files to subfolders and create objects
         self.runmetadata = createobject.ObjectCreation(self)
         # Fix headers
@@ -34,7 +38,6 @@ class Annotate(object):
         for sample in self.runmetadata.samples:
             # Create the prokka attribute in the metadata object
             setattr(sample, 'prokka', GenObject())
-            # docker run -v /path/to/sequences:/path/to/sequences coreGenome
             # prokka 2014-SEQ-0275.fasta --force --genus Escherichia --species coli --usegenus --addgenes
             # --prefix 2014-SEQ-0275 --locustag EC0275 --outputdir /path/to/sequences/2014-SEQ-0275/prokka
             sample.prokka.outputdir = os.path.join(sample.general.outputdirectory, 'prokka')
@@ -52,7 +55,6 @@ class Annotate(object):
                                     '--outdir {}' \
                 .format(self.sequencepath, self.sequencepath, self.dockerimage, sample.general.fixedheaders,
                         self.genus, self.species, sample.name, sample.name, sample.prokka.outputdir)
-            # sample.name.split('-')[-1]
             self.queue.put(sample)
         self.queue.join()
         # Create the core genome
@@ -62,7 +64,7 @@ class Annotate(object):
         while True:
             sample = self.queue.get()
             threadlock = threading.Lock()
-            if not os.path.isfile('{}/{}.gff'.format(sample.prokka.outputdir, sample.name)):
+            if not os.path.isfile(os.path.join(sample.prokka.outputdir, '{}.gff'.format(sample.name))):
                 # call(sample.prokka.command, shell=True, stdout=self.devnull, stderr=self.devnull)
                 out, err = run_subprocess(sample.prokka.command)
                 threadlock.acquire()
@@ -72,7 +74,7 @@ class Annotate(object):
             # List of the file extensions created with a prokka analysis
             files = ['err', 'faa', 'ffn', 'fna', 'fsa', 'gbk', 'gff', 'log', 'sqn', 'tbl', 'txt']
             # List of the files created for the sample by prokka
-            prokkafiles = glob('{}/*'.format(sample.prokka.outputdir))
+            prokkafiles = glob(os.path.join(sample.prokka.outputdir, '*'))
             # Find out which files have been created in the analysis
             for extension in files:
                 # If the file was created, set the file path/name as the data for the attribute
@@ -97,7 +99,6 @@ class Annotate(object):
             threads.setDaemon(True)
             # Start the threading
             threads.start()
-        # from Bio import SeqIO
         for sample in self.runmetadata.samples:
             # Create an attribute to store the path/file name of the fasta file with fixed headers
             sample.general.fixedheaders = sample.general.bestassemblyfile.replace('.fasta', '.ffn')
@@ -204,7 +205,7 @@ class Annotate(object):
             threads.start()
         for sample in self.runmetadata.samples:
             # Define the name of the file to store the CDS nucleotide sequences
-            sample.prokka.cds = '{}/{}.cds'.format(sample.prokka.outputdir, sample.name)
+            sample.prokka.cds = os.path.join(sample.prokka.outputdir, '{}.cds'.format(sample.name))
             self.corequeue.put(sample)
         self.corequeue.join()
         # Write the core .fasta files for each gene
@@ -262,7 +263,7 @@ class Annotate(object):
         for gene in sorted(self.genesequence):
             self.geneset.add(gene)
             # Set the name of the allele file
-            genefile = '{}/{}.fasta'.format(self.coregenelocation, gene)
+            genefile = os.path.join(self.coregenelocation, '{}.fasta'.format(gene))
             # If the file doesn't exist, create it
             if not os.path.isfile(genefile):
                 with open(genefile, 'w') as core:
@@ -295,8 +296,8 @@ class Annotate(object):
                         except KeyError:
                             self.corealleles[strain[:-6]] = {gene: count + 1}
         # Create a combined file of all the core genes to be used in typing strain(s) of interest
-        if not os.path.isfile('{}/core_combined.fasta'.format(self.coregenelocation)):
-            fastafiles = glob('{}/*.fasta'.format(self.coregenelocation))
+        if not os.path.isfile(os.path.join(self.coregenelocation, 'core_combined.fasta')):
+            fastafiles = glob(os.path.join(self.coregenelocation, '*.fasta'))
             # Run the method for each allele
             self.combinealleles(fastafiles)
         # Run the profiler
@@ -308,8 +309,8 @@ class Annotate(object):
         :param alleles: .fasta file for each core gene
         """
         printtime('Creating combined core allele file', self.start)
-        if not os.path.isfile('{}/core_combined.tfa'.format(self.coregenelocation)):
-            with open('{}/core_combined.tfa'.format(self.coregenelocation), 'w') as combinedfile:
+        if not os.path.isfile(os.path.join(self.coregenelocation, 'core_combined.tfa')):
+            with open(os.path.join(self.coregenelocation, 'core_combined.tfa'), 'w') as combinedfile:
                 # Open each allele file
                 for allele in sorted(alleles):
                     for record in SeqIO.parse(open(allele, "rU"), "fasta"):
@@ -351,7 +352,7 @@ class Annotate(object):
                 data += ',{}'.format(gene[1])
             data += '\n'
         # Write the profile
-        with open('{}/profile.txt'.format(self.profilelocation), 'w') as profile:
+        with open(os.path.join(self.profilelocation, 'profile.txt'), 'w') as profile:
             profile.write(header)
             profile.write(data)
         # Create a list of which strains correspond to the sequence types
@@ -361,8 +362,8 @@ class Annotate(object):
         """
         Link the sequence types to the strains. Create a .csv file of the linkages
         """
-        import operator
-        strainprofile = '{}/strainprofiles.txt'.format(self.profilelocation)
+
+        strainprofile = os.path.join(self.profilelocation, 'strainprofiles.txt')
         if not os.path.isfile(strainprofile):
             header = 'Strain,SequenceType\n'
             data = ''
@@ -380,7 +381,7 @@ class Annotate(object):
                 profile.write(data)
 
     def __init__(self, inputobject):
-        from queue import Queue
+
         self.path = inputobject.path
         self.sequencepath = inputobject.databasesequencepath
         self.start = inputobject.start
