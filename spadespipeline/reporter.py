@@ -300,7 +300,7 @@ class Reporter(object):
               INSERT OR IGNORE INTO Samples (name)
               VALUES ( ? )
             ''', (sample.name, ))
-            # Each header in the .json file represents a major category e.g. ARMI, geneseekr, commands, etc. and
+            # Each header in the .json file represents a major category e.g. ARMI, GeneSeekr, commands, etc. and
             # will be made into a separate table
             for header in sample.datastore.items():
                 # Set the table name
@@ -386,6 +386,17 @@ class Reporter(object):
             .replace('index', 'adapterIndex')
         return cleanedcolumn
 
+    def clean_object(self):
+        for sample in self.metadata:
+            try:
+                delattr(sample.coregenome, 'targetnames')
+            except KeyError:
+                pass
+            try:
+                delattr(sample.coregenome, 'targets')
+            except KeyError:
+                pass
+
     def __init__(self, inputobject):
         self.metadata = inputobject.runmetadata.samples
         self.commit = inputobject.commit
@@ -409,3 +420,4 @@ class Reporter(object):
         self.legacy_reporter()
         # Create a database to store all the metadata
         self.database()
+        self.clean_object()
