@@ -823,7 +823,6 @@ class GeneSeekr(object):
         self.plusdict = defaultdict(make_dict)
         self.dqueue = Queue(maxsize=self.cpus)
         self.blastqueue = Queue(maxsize=self.cpus)
-        # self.geneseekr()
 
 
 def sequencenames(contigsfile):
