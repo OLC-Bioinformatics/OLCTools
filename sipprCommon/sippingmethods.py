@@ -39,8 +39,6 @@ class Sippr(object):
         self.indexing()
         # Parse the results
         self.parsing()
-        # Clear out the large attributes that will difficult to handle objects
-        self.clear()
         # Filter out any sequences with cigar features such as internal soft-clipping from the results
         self.clipper()
 
@@ -673,12 +671,71 @@ class Sippr(object):
 
     def clear(self):
         """
-        Clear out the sequence attribute - this is a very large dictionary, and is a pain to print to/load from the
-        .json file
+        Clear out large attributes - they are a pain to print to, load from, or view in the .json file
         """
         for sample in self.runmetadata:
             try:
+                delattr(sample[self.analysistype], 'allelenames')
+            except KeyError:
+                pass
+            try:
+                delattr(sample[self.analysistype], 'alleles')
+            except KeyError:
+                pass
+            try:
+                delattr(sample[self.analysistype], 'averagedepth')
+            except KeyError:
+                pass
+            try:
+                delattr(sample[self.analysistype], 'avgdepth')
+            except KeyError:
+                pass
+            try:
+                delattr(sample[self.analysistype], 'faidict')
+            except KeyError:
+                pass
+            try:
+                delattr(sample[self.analysistype], 'gaplocations')
+            except KeyError:
+                pass
+            try:
+                delattr(sample[self.analysistype], 'maxcoverage')
+            except KeyError:
+                pass
+            try:
+                delattr(sample[self.analysistype], 'mincoverage')
+            except KeyError:
+                pass
+            try:
+                delattr(sample[self.analysistype], 'profiledata')
+            except KeyError:
+                pass
+            try:
+                delattr(sample[self.analysistype], 'resultsgap')
+            except KeyError:
+                pass
+            try:
+                delattr(sample[self.analysistype], 'resultssnp')
+            except KeyError:
+                pass
+            try:
+                delattr(sample[self.analysistype], 'sequences')
+            except KeyError:
+                pass
+            try:
                 delattr(sample[self.analysistype], 'sequence')
+            except KeyError:
+                pass
+            try:
+                delattr(sample[self.analysistype], 'snplocations')
+            except KeyError:
+                pass
+            try:
+                delattr(sample[self.analysistype], 'standarddev')
+            except KeyError:
+                pass
+            try:
+                delattr(sample[self.analysistype], 'totaldepth')
             except KeyError:
                 pass
 
