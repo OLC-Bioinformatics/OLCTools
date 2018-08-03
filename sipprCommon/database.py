@@ -38,7 +38,7 @@ class Database(object):
               INSERT OR IGNORE INTO Samples (name)
               VALUES ( ? )
             ''', (sample.name, ))
-            # Each header in the .json file represents a major category e.g. ARMI, geneseekr, commands, etc. and
+            # Each header in the .json file represents a major category e.g. ARMI, GeneSeekr, commands, etc. and
             # will be made into a separate table
             for header in sample.datastore.items():
                 # Allow for certain analyses, such as core genome, not being performed on all strains
