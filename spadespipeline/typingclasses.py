@@ -2,17 +2,17 @@
 from accessoryFunctions.accessoryFunctions import combinetargets, filer, GenObject, MetadataObject, printtime, \
     make_path, run_subprocess, write_to_logfile
 from accessoryFunctions.metadataprinter import MetadataPrinter
+from sipprverse_reporter.reports import Reports
 from spadespipeline.GeneSeekr import GeneSeekr
 from sipprCommon.objectprep import Objectprep
 from sipprCommon.sippingmethods import Sippr
 from genesippr.genesippr import GeneSippr
 from serosippr.serosippr import SeroSippr
-from sipprverse_reporter.reports import Reports
+from geneseekr.geneseekr import BLAST
 from Bio.Alphabet import IUPAC
 from Bio.Seq import Seq
 from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
-from csv import DictReader
 from glob import glob
 import xlsxwriter
 import threading
@@ -40,6 +40,7 @@ class GDCS(Sippr):
         # Create the report object
         report = Reports(self)
         report.gdcsreporter()
+        self.clear()
 
     def __init__(self, inputobject):
         self.reports = str()
@@ -444,8 +445,6 @@ class ShortKSippingMethods(Sippr):
         self.indexing()
         # Parse the results
         self.parsing()
-        # Clear out the large attributes that will difficult to handle objects
-        self.clear()
         # Filter out any sequences with cigar features such as internal soft-clipping from the results
         self.clipper()
 
@@ -661,6 +660,8 @@ class ResFinder(GeneSeekr):
         return sequences
 
     def strainer(self):
+        print('!')
+        quit()
         for sample in self.metadata:
             if sample.general.bestassemblyfile != 'NA':
                 setattr(sample, self.analysistype, GenObject())
@@ -909,36 +910,52 @@ class ResFinder(GeneSeekr):
         self.object_clean()
 
 
-class Prophages(GeneSeekr):
+class Prophages(BLAST):
 
-    def reporter(self):
+    def create_reports(self):
         with open(os.path.join(self.reportpath, 'prophages.csv'), 'w') as report:
             data = 'Strain,Gene,Host,PercentIdentity,PercentCovered,Contig,Location\n'
             # Set the required variables to load prophage data from a summary file
-            targetpath = os.path.join(self.referencefilepath, self.analysistype)
-            overview = glob(os.path.join(targetpath, '*.txt'))[0]
-            fieldnames = ['id_prophage', 'file_name', 'host', 'host_id', 'number_of_prophages_in_host',
-                          'start_position_of_prophage', 'end_position_of_prophage', 'length_of_prophage']
+            overview = glob(os.path.join(self.targetpath, '*.txt'))[0]
+            # fieldnames = ['id_prophage', 'file_name', 'host', 'host_id', 'number_of_prophages_in_host',
+            #               'start_position_of_prophage', 'end_position_of_prophage', 'length_of_prophage']
+            # A dictionary to store the parsed excel file in a more readable format
+            prophagedata = dict()
+            # Use pandas to read in the excel file, and subsequently convert the pandas data frame to a dictionary
+            # (.to_dict()). Only read the first fourteen columns (parse_cols=range(14)), as later columns are not
+            # relevant to this script
+            dictionary = pandas.read_csv(overview, sep='\t').to_dict()
+            # Iterate through the dictionary - each header from the excel file
+            for header in dictionary:
+                # Sample is the primary key, and value is the value of the cell for that primary key + header combination
+                for sample, value in dictionary[header].items():
+                    # Update the dictionary with the new data
+                    try:
+                        prophagedata[sample].update({header: value})
+                    # Create the nested dictionary if it hasn't been created yet
+                    except KeyError:
+                        prophagedata[sample] = dict()
+                        prophagedata[sample].update({header: value})
             for sample in self.metadata:
+                data += '{},'.format(sample.name)
                 # Create a set to ensure that genes are only entered into the report once
                 genes = set()
                 if sample.general.bestassemblyfile != 'NA':
                     # Open the prophage file as a dict - I do this here, as if I open it earlier, it looks like the
                     # file remains partially-read through for the next iteration. Something like prophagedata.seek(0)
                     # would probably work, but Dictreader objects don't have a .seek attribute
-                    prophagedata = DictReader(open(overview), fieldnames=fieldnames, dialect='excel-tab')
+                    # prophagedata = DictReader(open(overview), fieldnames=fieldnames, dialect='excel-tab')
                     try:
-                        if sample[self.analysistype].blastresults:
-                            data += '{},'.format(sample.name)
+                        if sample[self.analysistype].blastlist:
                             # Allow for formatting multiple hits for the same sample
                             multiple = False
-                            for result in sample[self.analysistype].blastresults:
+                            for result in sample[self.analysistype].blastlist:
                                 gene = result['subject_id']
                                 if gene not in genes:
                                     if multiple:
                                         data += ','
                                     # Iterate through the phage data in the dictionary
-                                    for phage in prophagedata:
+                                    for id, phage in prophagedata.items():
                                         if phage['id_prophage'] == gene:
                                             # Add the data to the row
                                             data += '{},{},{},{},{},{}..{}\n' \
@@ -954,29 +971,29 @@ class Prophages(GeneSeekr):
                                     # Set multiple to true for any additional hits for this sample
                                     multiple = True
                         else:
-                            data += '{}\n'.format(sample.name)
+                            data += '\n'
                     except KeyError:
-                        data += '{}\n'.format(sample.name)
+                        data += '\n'
                 else:
-                    data += '{}\n'.format(sample.name)
+                    data += '\n'
             report.write(data)
 
 
-class Univec(GeneSeekr):
+class Univec(BLAST):
 
-    def reporter(self):
+    def create_reports(self):
         with open(os.path.join(self.reportpath, 'univec.csv'), 'w') as report:
             data = 'Strain,Gene,Description,PercentIdentity,PercentCovered,Contig,Location\n'
             for sample in self.metadata:
+                data += '{},'.format(sample.name)
                 if sample.general.bestassemblyfile != 'NA':
                     # Create a set to ensure that genes are only entered into the report once
                     genes = set()
                     try:
-                        if sample[self.analysistype].blastresults:
-                            data += '{},'.format(sample.name)
+                        if sample[self.analysistype].blastlist:
                             # If multiple hits are returned for a sample, don't re-add the sample name on the next row
                             multiple = False
-                            for result in sample[self.analysistype].blastresults:
+                            for result in sample[self.analysistype].blastlist:
                                 gene = result['subject_id']
                                 # Parse the reference file in order to extract the description of the BLAST hits
                                 for entry in SeqIO.parse(sample[self.analysistype].combinedtargets, 'fasta'):
@@ -986,6 +1003,8 @@ class Univec(GeneSeekr):
                                         # e.g. for 'gnl|uv|X66730.1:1-2687-49 B.bronchiseptica plasmid pBBR1 genes for
                                         # mobilization and replication' only save the string after '2687-49'
                                         description = re.findall('\d+-\d+\s(.+)', entry.description)[0]
+                                        # Replace commas with semicolons
+                                        description = description.replace(',', ';')
                                         # Don't add the same gene more than once to the report
                                         if gene not in genes:
                                             if multiple:
@@ -1003,11 +1022,11 @@ class Univec(GeneSeekr):
                                             multiple = True
                                             genes.add(gene)
                         else:
-                            data += '{}\n'.format(sample.name)
+                            data += '\n'
                     except KeyError:
-                        data += '{}\n'.format(sample.name)
+                        data += '\n'
                 else:
-                    data += '{}\n'.format(sample.name)
+                    data += '\n'
             report.write(data)
 
 
