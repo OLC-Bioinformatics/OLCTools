@@ -660,8 +660,9 @@ class ResFinder(GeneSeekr):
         return sequences
 
     def strainer(self):
-        print('!')
-        quit()
+        # These appear to have been here for debugging purposes - need them gone.
+        # print('!')
+        # quit()
         for sample in self.metadata:
             if sample.general.bestassemblyfile != 'NA':
                 setattr(sample, self.analysistype, GenObject())
