@@ -298,7 +298,10 @@ class Quality(object):
                 # Initialise a variable to store the number of bases to automatically trim from the beginning of
                 # each read, as these bases tend to have lower quality scores. If trimming the reads will cause
                 # the read length to fall below 50, set this value to 0
-                trim_left = 15 if lesser_length - 15 >= 50 else 0
+                # CHANGE: Sept 6/2018 - forcetrimleft is bad and makes assemblies a fair bit worse. Previous versions
+                # of this did not use forcetrimleft, which was the intention. Not sure why this got changed back.
+                # Should always be set to 0.
+                trim_left = 0
                 # If, for some reason, only the reverse reads are present, use the appropriate output file name
                 if 'R2' in fastqfiles[0]:
                     if not os.path.isfile(cleanreverse):
