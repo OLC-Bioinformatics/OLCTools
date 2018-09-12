@@ -212,43 +212,30 @@ class PlasmidExtractor(object):
 class ResistanceNotes(object):
 
     @staticmethod
-    def notes(targetpath):
+    def classes(targetpath):
         """
-        Populates resistance dictionary with resistance class: base gene name
-        :param targetpath: Directory in which the notes.txt file is located
-        :return: the resistance dictionaries
+        Uses .tfa files included in the ResFinder database to determine the resistance class of gene matches
+        :param targetpath: Path to database files
+        :return: Dictionary of resistance class: gene set
         """
-        # Create a set of all the resistance classes and the base names
-        genedict = dict()
-        altgenedict = dict()
-        # Load the notes file to a dictionary
-        notefile = os.path.join(targetpath, 'notes.txt')
-        with open(notefile, 'r') as notes:
-            res_class = str()
-            for line in notes:
-                # Create entries for each class - these are on lines beginning with '#' e.g. #Rifampicin resistance
-                if line.startswith('#'):
-                    res_class = line.split(' resistance')[0].lstrip('#').replace(':', '').rstrip()
-                    # Initialise the dictionary as a set for the resistance class
-                    genedict[res_class] = set()
-                else:
-                    # aac(6')-III:Aminoglycoside resistance: yields a base gene name of aac
-                    gene = line.split(':')[0].split('(')[0].split('-')[0].rstrip()
-                    # Aminoglycoside resistance
-                    if 'Alternate name' in line:
-                        # Extract the full gene name e.g. aac(6')-III:Aminoglycoside resistance: yields aac(6')-III
-                        full_gene = line.split(':')[0]
-                        # There are two formats for the alternate name in the file. Account for both
-                        try:
-                            alternate = line.split(';')[1].rstrip().lstrip()
-                        except IndexError:
-                            alternate = line.split('name ')[1].rstrip().lstrip()
-                        # Populate the dictionaries
-                        genedict[res_class].add(alternate)
-                        altgenedict[full_gene] = alternate
-                    else:
-                        genedict[res_class].add(gene)
-        return genedict, altgenedict
+        # Initialise dictionary to store results
+        resistance_dict = dict()
+        # Find all the .tfa files in the folder
+        resistance_files = sorted(glob(os.path.join(targetpath, '*.tfa')))
+        # Iterate through each file
+        for fasta in resistance_files:
+            # Extract the resistance class from the file name and path
+            resistance_class = os.path.splitext(os.path.basename(fasta))[0]
+            # Initialise the resistance class as a set in the dictionary
+            resistance_dict[resistance_class] = set()
+            # Open the file
+            with open(fasta) as resistance:
+                # Iterate through the FASTA records
+                for record in SeqIO.parse(resistance, 'fasta'):
+                    # Add the gene name to the set
+                    resistance_dict[resistance_class].add(record.id)
+        return resistance_dict
+
 
     @staticmethod
     def gene_name(name):
@@ -370,39 +357,24 @@ class ResistanceNotes(object):
         return gname, genename, accession, allele
 
     @staticmethod
-    def resistance(gname, genename, genedict, altgenedict):
+    def resistance(genename, resistance_dict):
         """
-        Extracts the resistance phenotype from the dictionaries using the gene name
-        :param gname: Name of gene. Often the same as genename, but for certain entries it is longer
-        e.g. blaOKP-B-15 instead of blaOKP
-        :param genename: Name of gene e.g. blaOKP
-        :param genedict: Dictionary of gene:resistance
-        :param altgenedict: Dictionary of gene alternate name:resistance
-        :return: finalgene, finalresistance: gene name and associated resistance phenotype to be used in the report
+        Determine the resistance class of the gene by searching the sets of genes included in every resistance FASTA
+        file
+        :param genename: Header string returned from analyses
+        :param resistance_dict: Dictionary of resistance class: header
+        :return: resistance class of the gene
         """
-        # Use the same string splitting method as above to re-create the base name of the gene from the gene name
-        # e.g. aph(3'')-Ib yields aph
-        gene = gname.split('(')[0].split('-')[0]
-        # Set the final gene name as the genename variable - unless there is an alternative name (see below)
-        finalgene = genename
-        # Initialise the finalresistance variable
-        finalresistance = str()
-        # Iterate through all the resistance classes, and gene sets associated with each resistance class
-        for resistance, gene_set in genedict.items():
-            # Determine if the gene is present in the resistance class-associated gene set
-            if gene in gene_set or genename in gene_set:
-                # Set the resistance to return as the current resistance class
-                finalresistance = resistance
-                # Determine if there is an alternative name for this gene in the notes.txt file
-                try:
-                    alt_gene = altgenedict[gname]
-                    # Set the final name of the gene to be gene name (alternative name)
-                    finalgene = '{namegene} ({genealt})'.format(namegene=genename,
-                                                                genealt=alt_gene)
-                # Otherwise use the gene name
-                except KeyError:
-                    finalgene = genename
-        return finalgene, finalresistance
+        # Initialise a string to store the resistance class for the gene
+        resistance = str()
+        # Iterate through the dictionary of the resistance class: set of gene names
+        for resistance_class, gene_set in resistance_dict.items():
+            # If the gene is presence in the set
+            if genename in gene_set:
+                # Set the resistance class appropriately
+                resistance += resistance_class
+        # Return the calculated resistance class
+        return resistance
 
 
 class Serotype(SeroSippr):
@@ -566,7 +538,7 @@ class Resistance(ResSippr):
         Creates a report of the results
         """
         printtime('Creating {at} report'.format(at=self.analysistype), self.starttime)
-        genedict, altgenedict = ResistanceNotes.notes(self.targetpath)
+        resistance_classes = ResistanceNotes.classes(self.targetpath)
         # Find unique gene names with the highest percent identity
         for sample in self.runmetadata.samples:
             try:
@@ -617,7 +589,7 @@ class Resistance(ResSippr):
                             try:
                                 # Determine the name of the gene to use in the report, as well as its associated
                                 # resistance phenotype
-                                finalgene, res = ResistanceNotes.resistance(gname, genename, genedict, altgenedict)
+                                res = ResistanceNotes.resistance(name, resistance_classes)
                                 # Treat the initial vs subsequent results for each sample slightly differently - instead
                                 # of including the sample name, use an empty cell instead
                                 if multiple:
@@ -625,14 +597,14 @@ class Resistance(ResSippr):
                                 # Populate the results
                                 data += '{},{},{},{},{},{},{}\n'.format(
                                     res,
-                                    finalgene,
+                                    genename,
                                     allele,
                                     accession,
                                     identity,
                                     len(sample[self.analysistype].sequences[name]),
                                     sample[self.analysistype].avgdepth[name])
                                 sample[self.analysistype].pipelineresults.append(
-                                    '{rgene} ({pid}%) {rclass}'.format(rgene=finalgene,
+                                    '{rgene} ({pid}%) {rclass}'.format(rgene=genename,
                                                                        pid=identity,
                                                                        rclass=res)
                                 )
@@ -660,9 +632,6 @@ class ResFinder(GeneSeekr):
         return sequences
 
     def strainer(self):
-        # These appear to have been here for debugging purposes - need them gone.
-        # print('!')
-        # quit()
         for sample in self.metadata:
             if sample.general.bestassemblyfile != 'NA':
                 setattr(sample, self.analysistype, GenObject())
@@ -1096,7 +1065,6 @@ class Virulence(GeneSippr):
                         # If there are many results for a sample, don't write the sample name in each line of the report
                         multiple = False
                         for name, identity in sorted(sample[self.analysistype].results.items()):
-                            print(sample.name, name, identity)
                             try:
                                 # Split the name on colons: stx2A:63:AF500190:d; gene: stx2A, allele: 63, accession:
                                 # AF500190, subtype: d
