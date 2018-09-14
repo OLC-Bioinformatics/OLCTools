@@ -163,25 +163,28 @@ class AnnotatedCore(object):
         :param report: the name and path of the BLAST outputs
         :param sample: the sample object
         """
-        # Open the sequence profile file as a dictionary
-        blastdict = DictReader(open(report), fieldnames=self.fieldnames, dialect='excel-tab')
-        # Create a list of all the names of the database files - glob, remove path and extension
-        self.coregenomes = list(map(lambda x: os.path.basename(x).split('.')[0],
-                                    glob(os.path.join(self.reffilepath,
-                                                      self.analysistype,
-                                                      sample.general.referencegenus,
-                                                      '*.tfa'))))
-        # Go through each BLAST result
-        for row in blastdict:
-            # Calculate the percent identity and extract the bitscore from the row
-            # Percent identity is the (length of the alignment - number of mismatches) / total subject length
-            percentidentity = float('{:0.2f}'.format((float(row['positives']) - float(row['gaps'])) /
-                                                     float(row['subject_length']) * 100))
-            # Split off any | and - from the sample name
-            target = row['subject_id'].split('|')[0].split('-')[0]
-            # If the hit passes the cutoff threshold, add it to the set of core genes present
-            if percentidentity >= self.cutoff:
-                sample[self.analysistype].coreset.add(target)
+        try:
+            # Open the sequence profile file as a dictionary
+            blastdict = DictReader(open(report), fieldnames=self.fieldnames, dialect='excel-tab')
+            # Create a list of all the names of the database files - glob, remove path and extension
+            self.coregenomes = list(map(lambda x: os.path.basename(x).split('.')[0],
+                                        glob(os.path.join(self.reffilepath,
+                                                          self.analysistype,
+                                                          sample.general.referencegenus,
+                                                          '*.tfa'))))
+            # Go through each BLAST result
+            for row in blastdict:
+                # Calculate the percent identity and extract the bitscore from the row
+                # Percent identity is the (length of the alignment - number of mismatches) / total subject length
+                percentidentity = float('{:0.2f}'.format((float(row['positives']) - float(row['gaps'])) /
+                                                         float(row['subject_length']) * 100))
+                # Split off any | and - from the sample name
+                target = row['subject_id'].split('|')[0].split('-')[0]
+                # If the hit passes the cutoff threshold, add it to the set of core genes present
+                if percentidentity >= self.cutoff:
+                    sample[self.analysistype].coreset.add(target)
+        except FileNotFoundError:
+            pass
 
     def reporter(self):
         """
