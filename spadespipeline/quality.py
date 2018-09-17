@@ -397,7 +397,6 @@ class Quality(object):
                     # Set the values using the appropriate keys as the attributes
                     sample.confindr.genus = confindr_results[line]['Genus']
                     sample.confindr.num_contaminated_snvs = confindr_results[line]['NumContamSNVs']
-                    sample.confindr.unique_kmers = confindr_results[line]['NumUniqueKmers']
                     try:
                         sample.confindr.cross_contamination = confindr_results[line]['CrossContamination']
                     except KeyError:
@@ -411,11 +410,10 @@ class Quality(object):
         with open(pipeline_report, 'w') as csv:
             data = 'Strain,Genus,NumContamSNVs,NumUniqueKmers,ContamStatus\n'
             for sample in self.metadata:
-                data += '{str},{genus},{numcontamsnv},{numuniqkmer},{status}\n'.format(
+                data += '{str},{genus},{numcontamsnv},{status}\n'.format(
                     str=sample.name,
                     genus=sample.confindr.genus,
                     numcontamsnv=sample.confindr.num_contaminated_snvs,
-                    numuniqkmer=sample.confindr.unique_kmers,
                     status=sample.confindr.contam_status
                 )
             csv.write(data)
