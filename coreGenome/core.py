@@ -22,59 +22,62 @@ class CoreGenome(BLAST):
     @staticmethod
     def parser(metadata, analysistype, fieldnames, cutoff, program):
         for sample in metadata:
-            # Open the sequence profile file as a dictionary
-            blastdict = DictReader(open(sample[analysistype].report), fieldnames=fieldnames, dialect='excel-tab')
-            resultdict = dict()
-            # Initialise a dictionary to store all the target sequences
-            sample[analysistype].targetsequence = dict()
-            coregenomes = list()
-            # A set to store the number of core genes
-            coregenes = set()
-            # Create a list of all the names of the database files - glob, replace - with _, remove path and extension
-            for fasta in sample[analysistype].targets:
-                fastaname = os.path.basename(os.path.splitext(fasta)[0]).replace('-', '_')
-                fastaname = fastaname.split('.')[0]
-                coregenomes.append(fastaname)
-            # Go through each BLAST result
-            for row in blastdict:
-                # Create the subject length variable - if the sequences are DNA (e.g. blastn), use the subject
-                # length as usual; if the sequences are protein (e.g. tblastx), use the subject length / 3
-                if program == 'blastn' or program == 'blastp' or program == 'blastx':
-                    subject_length = float(row['subject_length'])
+            try:
+                # Open the sequence profile file as a dictionary
+                blastdict = DictReader(open(sample[analysistype].report), fieldnames=fieldnames, dialect='excel-tab')
+                resultdict = dict()
+                # Initialise a dictionary to store all the target sequences
+                sample[analysistype].targetsequence = dict()
+                coregenomes = list()
+                # A set to store the number of core genes
+                coregenes = set()
+                # Create a list of all the names of the database files - glob, replace - with _, remove path and extension
+                for fasta in sample[analysistype].targets:
+                    fastaname = os.path.basename(os.path.splitext(fasta)[0]).replace('-', '_')
+                    fastaname = fastaname.split('.')[0]
+                    coregenomes.append(fastaname)
+                # Go through each BLAST result
+                for row in blastdict:
+                    # Create the subject length variable - if the sequences are DNA (e.g. blastn), use the subject
+                    # length as usual; if the sequences are protein (e.g. tblastx), use the subject length / 3
+                    if program == 'blastn' or program == 'blastp' or program == 'blastx':
+                        subject_length = float(row['subject_length'])
 
-                else:
-                    subject_length = float(row['subject_length']) / 3
-                # Calculate the percent identity and extract the bitscore from the row
-                # Percent identity is the (length of the alignment - number of mismatches) / total subject length
-                percentidentity = float('{:0.2f}'.format((float(row['positives']) - float(row['gaps'])) /
-                                                         subject_length * 100))
-                # If the percent identity is greater than the cutoff
-                if percentidentity >= cutoff:
-                    # Split off any | from the sample name
-                    target = row['subject_id'].split('|')[0]
-                    # As there are variable numbers of _ in the name, try to split off the last one only if there are
-                    #  multiple and only keep the first part of the split if there is one _ in the name
-                    underscored = '_'.join(target.split('_')[:-1]) if len(target.split('_')) > 2 else target.split('_')[
-                        0]
-                    try:
-                        # Since the number of core genes is the same for each reference strain,
-                        # only need to determine it once
-                        if underscored == sorted(coregenomes)[0]:
-                            coregenes.add(target)
-                        # Update the dictionary with the target and the number of hits
-                        resultdict[underscored] += 1
-                    except (KeyError, IndexError):
-                        pass
-                    # Sort the dictionary on the number of hits - best at the top
-                topcore = sorted(resultdict.items(), key=operator.itemgetter(1), reverse=True)
-                # Initialise a dictionary attribute to store results
-                sample[analysistype].blastresults = dict()
-                # If there are no results, populate negative results
-                if not resultdict:
-                    sample[analysistype].blastresults = 'NA'
-                # If results, add a string of the best number of hits, and a string of the total number of genes
-                else:
-                    sample[analysistype].blastresults[topcore[0][0]] = (str(topcore[0][1]), str(len(coregenes)))
+                    else:
+                        subject_length = float(row['subject_length']) / 3
+                    # Calculate the percent identity and extract the bitscore from the row
+                    # Percent identity is the (length of the alignment - number of mismatches) / total subject length
+                    percentidentity = float('{:0.2f}'.format((float(row['positives']) - float(row['gaps'])) /
+                                                             subject_length * 100))
+                    # If the percent identity is greater than the cutoff
+                    if percentidentity >= cutoff:
+                        # Split off any | from the sample name
+                        target = row['subject_id'].split('|')[0]
+                        # As there are variable _ in the name, try to split off the last one only if there are
+                        #  multiple and only keep the first part of the split if there is one _ in the name
+                        underscored = '_'.join(target.split('_')[:-1]) if len(target.split('_')) > 2 else \
+                            target.split('_')[0]
+                        try:
+                            # Since the number of core genes is the same for each reference strain,
+                            # only need to determine it once
+                            if underscored == sorted(coregenomes)[0]:
+                                coregenes.add(target)
+                            # Update the dictionary with the target and the number of hits
+                            resultdict[underscored] += 1
+                        except (KeyError, IndexError):
+                            pass
+                        # Sort the dictionary on the number of hits - best at the top
+                    topcore = sorted(resultdict.items(), key=operator.itemgetter(1), reverse=True)
+                    # Initialise a dictionary attribute to store results
+                    sample[analysistype].blastresults = dict()
+                    # If there are no results, populate negative results
+                    if not resultdict:
+                        sample[analysistype].blastresults = 'NA'
+                    # If results, add a string of the best number of hits, and a string of the total number of genes
+                    else:
+                        sample[analysistype].blastresults[topcore[0][0]] = (str(topcore[0][1]), str(len(coregenes)))
+            except FileNotFoundError:
+                sample[analysistype].blastresults = 'NA'
         return metadata
 
     def create_reports(self):
