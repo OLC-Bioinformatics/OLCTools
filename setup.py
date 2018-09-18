@@ -10,5 +10,17 @@ setup(
     author="Andrew Low",
     author_email="andrew.low@inspection.gc.ca",
     url="https://github.com/lowandrew/OLCTools",
-    install_requires=['biopython', 'interop']
+    install_requires=['biopython',
+                      'interop',
+                      'sipprverse',
+                      'pandas',
+                      'numpy',
+                      'geneseekr',
+                      'psutil',
+                      'urllib3',
+                      'confindr',
+                      'pytest',
+                      'pysam',
+                      'xlsxwriter',
+                      'seaborn']
 )
