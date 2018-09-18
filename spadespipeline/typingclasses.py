@@ -1065,14 +1065,20 @@ class Virulence(GeneSippr):
                         # If there are many results for a sample, don't write the sample name in each line of the report
                         multiple = False
                         for name, identity in sorted(sample[self.analysistype].results.items()):
+                            # Check to see which delimiter is used to separate the gene name, allele, accession, and
+                            # subtype information in the header
+                            if ':' in name:
+                                delimiter = ':'
+                            else:
+                                delimiter = '_'
                             try:
-                                # Split the name on colons: stx2A:63:AF500190:d; gene: stx2A, allele: 63, accession:
-                                # AF500190, subtype: d
-                                genename, allele, accession, subtype = name.split(':')
+                                # Split the name on the delimiter: stx2A:63:AF500190:d; gene: stx2A, allele: 63,
+                                # accession: AF500190, subtype: d
+                                genename, allele, accession, subtype = name.split(delimiter)
                             # Treat samples without a subtype e.g. icaC:intercellular adhesion protein C: differently.
                             # Extract the allele as the 'subtype', and the gene name, and accession as above
                             except ValueError:
-                                genename, subtype, accession = name.split(':')
+                                genename, subtype, accession = name.split(delimiter)
                             # Retrieve the best identity for each gene
                             percentid = sample[self.analysistype].uniquegenes[genename]
                             # If the percent identity of the current gene matches the best percent identity, add it to
