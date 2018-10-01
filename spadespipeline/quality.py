@@ -408,7 +408,7 @@ class Quality(object):
                         sample.confindr.contam_status = 'Clean'
         # Re-write the output to be consistent with the rest of the pipeline
         with open(pipeline_report, 'w') as csv:
-            data = 'Strain,Genus,NumContamSNVs,NumUniqueKmers,ContamStatus\n'
+            data = 'Strain,Genus,NumContamSNVs,ContamStatus\n'
             for sample in self.metadata:
                 data += '{str},{genus},{numcontamsnv},{status}\n'.format(
                     str=sample.name,
