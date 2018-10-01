@@ -1,6 +1,9 @@
-biopython==1.71
+biopython==1.72
 coverage==4.5.1
-py==1.5.2
-pytest==3.5.0
-pytest-cov==2.5.1
+py==1.6.0
+pytest==3.8.1
+pytest-cov==2.6.0
 interop==1.1.4
+rauth==0.7.3
+Click==7.0
+numpy==1.15.2
