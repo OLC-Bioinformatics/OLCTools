@@ -9,6 +9,7 @@ from subprocess import Popen, PIPE, STDOUT
 from collections import defaultdict
 import subprocess
 import datetime
+import logging
 import shutil
 import errno
 import shlex
@@ -194,6 +195,21 @@ def make_path(inpath):
 def make_dict():
     """Makes Perl-style dictionaries"""
     return defaultdict(make_dict)
+
+
+def setup_logging(debug=False):
+    """
+    Create a logging object. Depending on whether debug is enabled or not, set the minimum logging level appropriately
+    :param debug: Boolean of whether DEBUG level messages should be displayed
+    :return: logging object with basicConfig set up
+    """
+    if debug:
+        logging.basicConfig(format='\033[1;94m %(asctime)s %(message)s \033[0m ',
+                            level=logging.DEBUG, datefmt='%Y-%m-%d %H:%M:%S')
+    else:
+        logging.basicConfig(format='\033[1;94m %(asctime)s %(message)s \033[0m ',
+                            level=logging.INFO, datefmt='%Y-%m-%d %H:%M:%S')
+    return logging
 
 
 def printtime(string, start, option=None, output=None):
