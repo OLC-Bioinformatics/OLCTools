@@ -197,19 +197,71 @@ def make_dict():
     return defaultdict(make_dict)
 
 
-def setup_logging(debug=False):
+class CustomLogs(logging.StreamHandler):
     """
-    Create a logging object. Depending on whether debug is enabled or not, set the minimum logging level appropriately
-    :param debug: Boolean of whether DEBUG level messages should be displayed
-    :return: logging object with basicConfig set up
+    Uses the logging module to create custom-coloured logs. The colours correspond to the level
+    Modified from:
+    http://uran198.github.io/en/python/2016/07/12/colorful-python-logging.html
+    https://plumberjack.blogspot.com/2010/12/colorizing-logging-output-in-terminals.html
     """
-    if debug:
-        logging.basicConfig(format='\033[1;94m %(asctime)s %(message)s \033[0m ',
-                            level=logging.DEBUG, datefmt='%Y-%m-%d %H:%M:%S')
-    else:
-        logging.basicConfig(format='\033[1;94m %(asctime)s %(message)s \033[0m ',
-                            level=logging.INFO, datefmt='%Y-%m-%d %H:%M:%S')
-    return logging
+    # Dictionary mapping logging level to colours
+    level_map = {
+        logging.DEBUG: '\033[1;92m',
+        logging.INFO: '\033[1;94m',
+        logging.ERROR: '\033[1;91m',
+        logging.WARNING: '\033[1;93m',
+        logging.CRITICAL: '\033[1;95m'
+    }
+
+    def emit(self, record):
+        try:
+            # Write the formatted record to the stream
+            self.stream.write(self.format(record))
+            self.stream.write(getattr(self, 'terminator', '\n'))
+            # Flush the output to terminal
+            self.flush()
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except:
+            self.handleError(record)
+
+    def colorize(self, message, record):
+        if record.levelno in self.level_map:
+            # Extract the colour corresponding to the current level
+            color = self.level_map[record.levelno]
+            # Add the colour to the message. Reset the formatting with '\x1b[0m'
+            message = ''.join((color, message, '\x1b[0m'))
+        return message
+
+    def format(self, record):
+
+        message = logging.StreamHandler.format(self, record)
+        parts = message.split('\n', 1)
+        # Add the custom formatted date to the message
+        parts[0] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' ' + parts[0]
+        parts[0] = self.colorize(parts[0], record)
+        # Reconstitute the message from its updated parts
+        message = '\n'.join(parts)
+        return message
+
+
+class SetupLogging(object):
+    """
+    Runs the CustomLogs class
+    """
+
+    def __init__(self, debug=False):
+        # Create a logging object
+        logger = logging.getLogger()
+        # Set whether debug level messages should be displayed
+        if debug:
+            logger.setLevel(logging.DEBUG)
+        else:
+            logger.setLevel(logging.INFO)
+        # Use CustomLogs to modify the handler
+        # Only add a handler if it hasn't been added by another script in the pipeline
+        if not logger.handlers:
+            logger.addHandler(CustomLogs())
 
 
 def printtime(string, start, option=None, output=None):
@@ -493,30 +545,26 @@ class GenObject(object):
         super(GenObject, self).__setattr__('datastore', start)
 
     def __getattr__(self, key):
-        if self.datastore[key] or self.datastore[key] == 0 or self.datastore[key] is False or all(self.datastore[key]):
+        if key in self.datastore:
             return self.datastore[key]
         else:
-            self.datastore[key] = 'NA'
-            return self.datastore[key]
+            raise AttributeError('The GenObject has not been initialised with the following key: {key}'
+                                 .format(key=key))
 
     def __setattr__(self, key, value):
-
-        if value:
-            try:
-                self.datastore[key] = value
-            except TypeError:
-                print('!', key, value)
-        elif type(value) != int:
-            if value is False or all(value):
-                self.datastore[key] = value
-        else:
-            if value >= 0:
-                self.datastore[key] = 0
-            else:
-                self.datastore[key] = "NA"
+        try:
+            self.datastore[key] = value
+        except TypeError:
+            raise AttributeError('The GenObject cannot accept the following key:value pair provided {key}:{value}'
+                                 .format(key=key,
+                                         value=value))
 
     def __delattr__(self, key):
-        del self.datastore[key]
+        try:
+            del self.datastore[key]
+        except KeyError:
+            raise AttributeError('The GenObject does not contain the following key: {key}'
+                                 .format(key=key))
 
     def returnattr(self, key):
         """
@@ -525,8 +573,7 @@ class GenObject(object):
         :param key: Dictionary key to be used to return the value from datastore[key]
         """
         try:
-            if self.datastore[key] or self.datastore[key] == 0 or self.datastore[key] is False \
-                    or all(self.datastore[key]):
+            if key in self.datastore:
                 # Return the string of the value with any commas replaced by semicolons. Append a comma to the
                 # end of the string for the CSV format
                 return '{},'.format(str(self.datastore[key]).replace(',', ';'))
@@ -542,8 +589,7 @@ class GenObject(object):
         :return: True/False depending on whether an attribute exists
         """
         try:
-            if self.datastore[key] or self.datastore[key] == 0 or self.datastore[key] is False \
-                    or all(self.datastore[key]):
+            if key in self.datastore:
                 return True
             else:
                 return False
@@ -560,7 +606,12 @@ class GenObject(object):
         """
         Allow item assignment for GenObjects
         """
-        self.datastore[key] = value
+        try:
+            self.datastore[key] = value
+        except TypeError:
+            raise AttributeError('The GenObject cannot accept the following key:value pair provided {key}:{value}'
+                                 .format(key=key,
+                                         value=value))
 
 
 class MetadataObject(object):
@@ -571,19 +622,30 @@ class MetadataObject(object):
 
     def __getattr__(self, key):
         """:key is retrieved from datastore if exists, for nested attr recursively :self.__setattr__"""
-        if key not in self.datastore:
-            self.__setattr__(key)
-        return self.datastore[key]
+        try:
+            return self.datastore[key]
+        except KeyError:
+            raise AttributeError('The MetadataObject has not been initialised with the following key: {key}'
+                                 .format(key=key))
 
     def __setattr__(self, key, value=GenObject(), **args):
         """Add :value to :key in datastore or create GenObject for nested attr"""
         if args:
             self.datastore[key].value = args
         else:
-            self.datastore[key] = value
+            try:
+                self.datastore[key] = value
+            except TypeError:
+                raise AttributeError('The MetadataObject cannot accept the following key:value pair '
+                                     'provided {key}:{value}'.format(key=key,
+                                                                     value=value))
 
-    def __getitem__(self, item):
-        return self.datastore[item]
+    def __getitem__(self, key):
+        try:
+            return self.datastore[key]
+        except KeyError:
+            raise AttributeError('The MetadataObject has not been initialised with the following key: {key}'
+                                 .format(key=key))
 
     def dump(self):
         """Prints only the nested dictionary values; removes __methods__ and __members__ attributes"""
