@@ -1,11 +1,11 @@
 #!/usr/bin/env python 3
 from accessoryFunctions.accessoryFunctions import combinetargets, MetadataObject, make_path, \
-    run_subprocess, setup_logging
+    run_subprocess, SetupLogging
 from databasesetup import get_mlst, get_rmlst
 from argparse import ArgumentParser
 import urllib.request
-from time import time
 from glob import glob
+import logging
 import tarfile
 import shutil
 import click
@@ -19,50 +19,62 @@ class DatabaseSetup(object):
         """
         Run the methods
         """
-        self.custom_databases(databasepath=self.databasepath,
-                              database_name='sipprverse',
-                              download_id='13143830')
-        self.custom_databases(databasepath=self.databasepath,
-                              database_name='COWBAT',
-                              download_id='13152896')
-        self.custom_databases(databasepath=self.databasepath,
-                              database_name='ConFindr',
-                              download_id='11864267',
-                              nested=True)
-        self.custom_databases(databasepath=self.databasepath,
-                              database_name='plasmidextractor',
-                              download_id='9827323',
-                              nested=True,
-                              complete=True)
-        self.mash(databasepath=self.databasepath)
-        self.mlst(databasepath=self.databasepath)
-        self.rmlst(databasepath=self.databasepath)
-        self.univec(databasepath=self.databasepath)
-        self.cge_db_downloader(databasepath=self.databasepath,
-                               analysistype='resfinder',
-                               dbname='resfinder_db')
-        self.cge_db_downloader(databasepath=self.databasepath,
-                               analysistype='virulence',
-                               dbname='virulencefinder_db')
-        self.cge_db_downloader(databasepath=self.databasepath,
-                               analysistype='serosippr',
-                               dbname='serotypefinder_db')
-        self.cge_db_downloader(databasepath=self.databasepath,
-                               analysistype='plasmidfinder',
-                               dbname='plasmidfinder_db')
-        self.cge_db_downloader(databasepath=self.databasepath,
-                               analysistype='virulence',
-                               dbname='virulencefinder_db')
-        self.clark(databasepath=self.databasepath)
+        if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'genesippr')):
+            self.custom_databases(databasepath=self.databasepath,
+                                  database_name='sipprverse',
+                                  download_id='13143830')
+        if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'coregenome')):
+            self.custom_databases(databasepath=self.databasepath,
+                                  database_name='COWBAT',
+                                  download_id='13152896')
+        if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'ConFindr')):
+            self.custom_databases(databasepath=self.databasepath,
+                                  database_name='ConFindr',
+                                  download_id='11864267',
+                                  nested=True)
+        if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'plasmidextractor')):
+            self.custom_databases(databasepath=self.databasepath,
+                                  database_name='plasmidextractor',
+                                  download_id='9827323',
+                                  nested=True,
+                                  complete=True)
+        if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'mash')):
+            self.mash(databasepath=self.databasepath)
+        if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'MLST')):
+            self.mlst(databasepath=self.databasepath)
+        if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'rMLST')):
+            self.rmlst(databasepath=self.databasepath,
+                       credentials=self.credentials)
+        if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'univec')):
+            self.univec(databasepath=self.databasepath)
+        if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'resfinder')):
+            self.cge_db_downloader(databasepath=self.databasepath,
+                                   analysistype='resfinder',
+                                   dbname='resfinder_db')
+        if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'virulence')):
+            self.cge_db_downloader(databasepath=self.databasepath,
+                                   analysistype='virulence',
+                                   dbname='virulencefinder_db')
+        if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'serosippr')):
+            self.cge_db_downloader(databasepath=self.databasepath,
+                                   analysistype='serosippr',
+                                   dbname='serotypefinder_db')
+        if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'plasmidfinder')):
+            self.cge_db_downloader(databasepath=self.databasepath,
+                                   analysistype='plasmidfinder',
+                                   dbname='plasmidfinder_db')
+        if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'clark')):
+            self.clark(databasepath=self.databasepath)
 
-    def mlst(self, databasepath, genera=('Escherichia', 'Vibrio', 'Campylobacter', 'Listeria',
-                                         'Bacillus', 'Staphylococcus', 'Salmonella')):
+    @staticmethod
+    def mlst(databasepath, genera=('Escherichia', 'Vibrio', 'Campylobacter', 'Listeria',
+                                   'Bacillus', 'Staphylococcus', 'Salmonella')):
         """
         Download the necessary up-to-date MLST profiles and alleles
         :param databasepath: path to use to save the database
         :param genera: default genera for which alleles and profiles should be downloaded
         """
-        self.logging.info('Downloading MLST databases')
+        logging.info('Downloading MLST databases')
         for genus in genera:
             # Create an object to pass to the get_mlst script
             args = MetadataObject()
@@ -81,21 +93,24 @@ class DatabaseSetup(object):
                 with open(completefile, 'w') as complete:
                     complete.write('\n'.join(glob(os.path.join(args.path, '*'))))
 
-    def rmlst(self, databasepath):
+    @staticmethod
+    def rmlst(databasepath, credentials):
         """
         Get the most up-to-date profiles and alleles from pubmlst. Note that you will need the necessary access token
         and secret for this to work
         :param databasepath: path to use to save the database
+        :param credentials: path to folder containing accessory token and secret.txt files
         """
-        self.logging.info('Downloading rMLST database')
+        logging.info('Downloading rMLST database')
         # Set the name of the file to be used to determine if the database download and set-up was successful
-        completefile = os.path.join(self.databasepath, 'rMLST', 'complete')
+        completefile = os.path.join(databasepath, 'rMLST', 'complete')
         if not os.path.isfile(completefile):
             # Create an object to send to the rMLST download script
             args = MetadataObject()
             # Add the path and start time attributes
             args.path = databasepath
-            args.logging = self.logging
+            args.logging = logging
+            args.credentials = credentials
             # Run the rMLST download
             get_rmlst.Get(args)
             # Create and populate the complete.txt file
@@ -109,7 +124,7 @@ class DatabaseSetup(object):
         :param databasepath: path to use to save the database
         """
         if self.clarkpath:
-            self.logging.info('Downloading CLARK database')
+            logging.info('Downloading CLARK database')
             # Create the folder in which the database is to be stored
             databasepath = self.create_database_folder(databasepath, 'clark')
             # Set the call to create the database - use the --light option, as we don't require the full database
@@ -119,14 +134,14 @@ class DatabaseSetup(object):
             # Download the database
             self.database_clone(targetcall, databasepath)
         else:
-            self.logging.warning('No CLARK scripts detected in $PATH. Cannot download database.')
+            logging.warning('No CLARK scripts detected in $PATH. Cannot download database.')
 
     def mash(self, databasepath):
         """
         Download the pre-computed sketch of the RefSeq database, and compress it with gzip
         :param databasepath: path to use to save the database
         """
-        self.logging.info('Downloading pre-computed RefSeq MASH sketches')
+        logging.info('Downloading pre-computed RefSeq MASH sketches')
         # Create the folder in which the database is to be stored
         databasepath = self.create_database_folder(databasepath=databasepath,
                                                    database='mash')
@@ -152,7 +167,7 @@ class DatabaseSetup(object):
         Download the UniVec core database
         :param databasepath: path to use to save the database
         """
-        self.logging.info('Downloading univec database')
+        logging.info('Downloading univec database')
         databasepath = self.create_database_folder(databasepath, 'univec')
         # Set the name of the output file
         outputfile = os.path.join(databasepath, 'UniVec_core.tfa')
@@ -202,7 +217,7 @@ class DatabaseSetup(object):
         :param nested: Boolean of whether the targets file has nested folders that must be accounted for
         :param complete: Boolean of whether the completefile should be completed
         """
-        self.logging.info('Downloading {} databases'.format(database_name))
+        logging.info('Downloading {} databases'.format(database_name))
         # ConFindr has a nested 'databases' folder
         if nested:
             databasepath = os.path.join(databasepath, database_name)
@@ -218,7 +233,7 @@ class DatabaseSetup(object):
             self.url_request(target_url=target_url,
                              output_file=tar_file)
         # Extract the databases from the archives
-        self.logging.info('Extracting {dbname} database from archives'.format(dbname=database_name))
+        logging.info('Extracting {dbname} database from archives'.format(dbname=database_name))
         if os.path.isfile(tar_file):
             with tarfile.open(tar_file, 'r') as tar:
                 # Decompress the archive
@@ -239,7 +254,7 @@ class DatabaseSetup(object):
         :param extension_in: The file extension of the FASTA files in the database
         :param extension_out: The desired extension for the FASTA files
         """
-        self.logging.info('Downloading {} database'.format(analysistype))
+        logging.info('Downloading {} database'.format(analysistype))
         if analysistype == 'serosippr':
             databasepath = os.path.join(databasepath, analysistype, 'Escherichia')
         else:
@@ -270,14 +285,15 @@ class DatabaseSetup(object):
             databasefiles = glob(os.path.join(databasepath, '*.{ext}'.format(ext=extension)))
             combinetargets(databasefiles, databasepath)
 
-    def create_database_folder(self, databasepath, database):
+    @staticmethod
+    def create_database_folder(databasepath, database):
         """
         Create an appropriately named folder in which the database is to be stored
         :param databasepath: path to use to save the database
         :param database: the name of the database folder to create
         :return: the absolute path of the folder
         """
-        self.logging.info('Setting up {} database'.format(database))
+        logging.info('Setting up {} database'.format(database))
         # Define the path to store the database files
         databasepath = os.path.join(databasepath, database)
         # Create the path as required
@@ -323,21 +339,37 @@ class DatabaseSetup(object):
                     complete.write(out)
                     complete.write(err)
 
-    def __init__(self, args=None, debug=False):
-        # Allow args to be absent
-        if args:
-            self.databasepath = os.path.join(args.databasepath)
-            make_path(self.databasepath)
-        # Create the logging object
-        try:
-            self.logging = setup_logging(debug=args.debug)
-        except AttributeError:
-            self.logging = setup_logging(debug=debug)
-        try:
-            # Determine the location of the CLARK scripts
-            self.clarkpath = os.path.dirname(shutil.which('CLARK'))
-        except AttributeError:
-            self.clarkpath = None
+    def __init__(self, databasepath=None, debug=False, credentials=None, overwrite=False):
+        # Initialise the custom logging handler
+        SetupLogging(debug)
+        # Create class variables from arguments
+        if databasepath is not None:
+            try:
+                self.databasepath = os.path.join(databasepath)
+                make_path(self.databasepath)
+                assert os.path.isdir(self.databasepath)
+            except TypeError:
+                logging.warning('Invalid database path provided: {db_path}'.format(db_path=databasepath))
+            except AssertionError:
+                logging.warning('Could not create database path as provided: {db_path}'
+                                .format(db_path=self.databasepath))
+        else:
+            self.databasepath = databasepath
+        if credentials is not None:
+            try:
+                self.credentials = os.path.join(credentials)
+            except TypeError:
+                self.credentials = None
+        else:
+            self.credentials = credentials
+        self.overwrite = overwrite
+        assert type(self.overwrite) is bool, 'Overwrite variable must be a Boolean. You provided "{var}" with ' \
+                                             'type {type}'.format(var=self.overwrite,
+                                                                  type=type(self.overwrite))
+        # Determine the location of the CLARK scripts
+        self.clarkpath = shutil.which('CLARK')
+        if self.clarkpath is not None:
+            self.clarkpath = os.path.join(self.clarkpath)
 
 
 # If the script is called from the command line, then call the argument parser
@@ -348,13 +380,23 @@ if __name__ == '__main__':
                         required=True,
                         help='Absolute path to location to store database files. Include any version numbers if '
                              'required.')
-    parser.add_argument('--debug',
+    parser.add_argument('-v', '--verbose',
                         default=False,
                         action='store_true',
                         help='Option to include debug level logging messages. Default is false')
+    parser.add_argument('-c,', '--credentials',
+                        required=True,
+                        help='Name and path of folder containing required rMLST credentials.')
+    parser.add_argument('-o', '--overwrite',
+                        default=False,
+                        action='store_true',
+                        help='Optionally allow for the overwriting of database files in the databasepath. Defaults to '
+                             'False, so if the output folder already exists, the download will be skipped.')
     # Get the arguments into an object
     arguments = parser.parse_args()
-    arguments.start = time()
     # Run the pipeline
-    pipeline = DatabaseSetup(arguments)
+    pipeline = DatabaseSetup(databasepath=arguments.databasepath,
+                             debug=arguments.verbose,
+                             credentials=arguments.credentials,
+                             overwrite=arguments.overwrite)
     pipeline.main()
