@@ -17,16 +17,14 @@ class Get(object):
         https://github.com/kjolley/BIGSdb/tree/develop/scripts/test
         And downloads the most up-to-date rMLST profile and alleles
         """
-        # Extract the path of the current script from the full path + file name
-        homepath = os.path.split(os.path.abspath(__file__))[0]
         # Set the path/name of the folder to contain the new alleles and profile
         newfolder = os.path.join(self.path, self.analysistype)
         # Create the path
         make_path(newfolder)
         # Create arguments to feed into the rest_auth_class script
         args = ArgumentParser
-        args.secret_file = os.path.join(homepath, 'secret.txt')
-        args.file_path = homepath
+        args.secret_file = os.path.join(self.credentials, 'secret.txt')
+        args.file_path = os.path.join(self.credentials)
         args.output_path = newfolder
         args.logging = self.logging
         rmlst = rest_auth_class.REST(args)
@@ -60,6 +58,7 @@ class Get(object):
         self.path = os.path.join(args.path)
         self.logging = args.logging
         self.analysistype = 'rMLST'
+        self.credentials = args.credentials
         self.getrmlsthelper()
 
 
