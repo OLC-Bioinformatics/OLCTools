@@ -1,10 +1,12 @@
 #!/usr/bin/env python
-from accessoryFunctions.accessoryFunctions import printtime, GenObject, run_subprocess, write_to_logfile, make_path, \
+from accessoryFunctions.accessoryFunctions import GenObject, run_subprocess, write_to_logfile, make_path, \
     MetadataObject
 from argparse import ArgumentParser
+from click import progressbar
 from queue import Queue
 import multiprocessing
 from glob import glob
+import logging
 import json
 import time
 import os
@@ -15,41 +17,42 @@ class Sistr(object):
 
     def sistr(self):
         """Perform sistr analyses on Salmonella"""
-        printtime('Performing sistr analyses', self.start)
-        for sample in self.metadata:
-            # Create the analysis-type specific attribute
-            setattr(sample, self.analysistype, GenObject())
-            if sample.general.bestassemblyfile != 'NA':
-                try:
-                    # Only process strains that have been determined to be Salmonella
-                    if sample.general.referencegenus == 'Salmonella':
-                        # Set and create the path of the directory to store the strain-specific reports
-                        sample[self.analysistype].reportdir = os.path.join(sample.general.outputdirectory,
-                                                                           self.analysistype)
-                        # Name of the .json output file
-                        sample[self.analysistype].jsonoutput = os.path.join(sample[self.analysistype].reportdir,
-                                                                            '{}.json'.format(sample.name))
-                        # Set the sistr system call
-                        sample.commands.sistr = \
-                            'sistr -f json -o {} -t {} -T {} {}'\
-                            .format(sample[self.analysistype].jsonoutput,
-                                    self.cpus,
-                                    os.path.join(sample[self.analysistype].reportdir, 'tmp'),
-                                    sample.general.bestassemblyfile)
-                        #
-                        sample[self.analysistype].logout = os.path.join(sample[self.analysistype].reportdir, 'logout')
-                        sample[self.analysistype].logerr = os.path.join(sample[self.analysistype].reportdir, 'logerr')
-                        # Only run the analyses if the output json file does not exist
-                        if not os.path.isfile(sample[self.analysistype].jsonoutput):
-                            out, err = run_subprocess(sample.commands.sistr)
-                            write_to_logfile(sample.commands.sistr, sample.commands.sistr, self.logfile,
-                                             sample.general.logout, sample.general.logerr,
-                                             sample[self.analysistype].logout, sample[self.analysistype].logerr)
-                            write_to_logfile(out, err, self.logfile, sample.general.logout, sample.general.logerr,
-                                             sample[self.analysistype].logout, sample[self.analysistype].logerr)
-                        self.queue.task_done()
-                except (ValueError, KeyError):
-                    pass
+        logging.info('Performing sistr analyses')
+        with progressbar(self.metadata) as bar:
+            for sample in bar:
+                # Create the analysis-type specific attribute
+                setattr(sample, self.analysistype, GenObject())
+                if sample.general.bestassemblyfile != 'NA':
+                    try:
+                        # Only process strains that have been determined to be Salmonella
+                        if sample.general.referencegenus == 'Salmonella':
+                            # Set and create the path of the directory to store the strain-specific reports
+                            sample[self.analysistype].reportdir = os.path.join(sample.general.outputdirectory,
+                                                                               self.analysistype)
+                            # Name of the .json output file
+                            sample[self.analysistype].jsonoutput = os.path.join(sample[self.analysistype].reportdir,
+                                                                                '{}.json'.format(sample.name))
+                            # Set the sistr system call
+                            sample.commands.sistr = \
+                                'sistr -f json -o {} -t {} -T {} {}'\
+                                .format(sample[self.analysistype].jsonoutput,
+                                        self.cpus,
+                                        os.path.join(sample[self.analysistype].reportdir, 'tmp'),
+                                        sample.general.bestassemblyfile)
+                            #
+                            sample[self.analysistype].logout = os.path.join(sample[self.analysistype].reportdir, 'logout')
+                            sample[self.analysistype].logerr = os.path.join(sample[self.analysistype].reportdir, 'logerr')
+                            # Only run the analyses if the output json file does not exist
+                            if not os.path.isfile(sample[self.analysistype].jsonoutput):
+                                out, err = run_subprocess(sample.commands.sistr)
+                                write_to_logfile(sample.commands.sistr, sample.commands.sistr, self.logfile,
+                                                 sample.general.logout, sample.general.logerr,
+                                                 sample[self.analysistype].logout, sample[self.analysistype].logerr)
+                                write_to_logfile(out, err, self.logfile, sample.general.logout, sample.general.logerr,
+                                                 sample[self.analysistype].logout, sample[self.analysistype].logerr)
+                            self.queue.task_done()
+                    except (ValueError, KeyError):
+                        pass
         self.queue.join()
         self.report()
 
