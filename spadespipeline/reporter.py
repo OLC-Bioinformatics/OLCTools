@@ -1,6 +1,7 @@
 #!/usr/bin/env python
-from accessoryFunctions.accessoryFunctions import GenObject, printtime
+from accessoryFunctions.accessoryFunctions import GenObject
 from datetime import datetime
+import logging
 import os
 __author__ = 'adamkoziol'
 
@@ -11,7 +12,7 @@ class Reporter(object):
         """
         Creates the metadata report by pulling specific attributes from the metadata objects
         """
-        printtime('Creating summary report', self.starttime)
+        logging.info('Creating summary report')
         header = '{}\n'.format(','.join(self.headers))
         # Create a string to store all the results
         data = str()
@@ -62,7 +63,7 @@ class Reporter(object):
                 else:
                     # Otherwise the profile is set to new
                     data += 'new,'
-            except KeyError:
+            except AttributeError:
                 data += 'new,'
             # MLST_Result
             try:
@@ -78,7 +79,7 @@ class Reporter(object):
                     # Otherwise indicate that the profile is ND
                     else:
                         data += 'ND,'
-            except KeyError:
+            except AttributeError:
                 data += 'ND,'
             # MLST_gene_X_alleles
             try:
@@ -99,7 +100,7 @@ class Reporter(object):
                 # If there are fewer than seven matching alleles, add a ND for each missing result
                 if len(gene_set) < 7:
                     data += (7 - len(gene_set)) * 'ND,'
-            except KeyError:
+            except AttributeError:
                 # data += '-,-,-,-,-,-,-,'
                 data += 'ND,ND,ND,ND,ND,ND,ND,'
             # CoreGenesPresent
@@ -123,7 +124,7 @@ class Reporter(object):
                                                      htype=htype)
                 # Add the serotype to the data string unless neither O-type not H-type were found; add ND instead
                 data += serotype if serotype != 'O-untypeable:H-untypeable,' else 'ND,'
-            except KeyError:
+            except AttributeError:
                 data += 'ND,'
             # SISTR_serovar_antigen
             data += GenObject.returnattr(sample.sistr, 'serovar_antigen').rstrip(';')
@@ -143,7 +144,7 @@ class Reporter(object):
                     data += ';'.join(sample.genesippr.report_output) + ','
                 else:
                     data += 'ND,'
-            except KeyError:
+            except AttributeError:
                 data += 'ND,'
             # Vtyper_Profile
             try:
@@ -153,7 +154,7 @@ class Reporter(object):
                     data += ';'.join(profile) + ','
                 else:
                     data += 'ND,'
-            except KeyError:
+            except AttributeError:
                 data += 'ND,'
             # Legacy Vtyper
             data += GenObject.returnattr(sample.legacy_vtyper, 'toxinprofile')
@@ -175,7 +176,7 @@ class Reporter(object):
                     data += ';'.join(plasmid_profile) + ','
                 else:
                     data += 'ND,'
-            except KeyError:
+            except AttributeError:
                 data += 'ND,'
             # TotalPredictedGenes
             data += GenObject.returnattr(sample.prodigal, 'predictedgenestotal')
@@ -221,7 +222,7 @@ class Reporter(object):
         a new database scheme is implemented
         """
         from collections import OrderedDict
-        printtime('Creating legacy summary report', self.starttime)
+        logging.info('Creating legacy summary report')
         row = ''
         # Create a dictionary of tuples to be printed in the final report
         for sample in self.metadata:
@@ -390,11 +391,11 @@ class Reporter(object):
         for sample in self.metadata:
             try:
                 delattr(sample.coregenome, 'targetnames')
-            except KeyError:
+            except AttributeError:
                 pass
             try:
                 delattr(sample.coregenome, 'targets')
-            except KeyError:
+            except AttributeError:
                 pass
 
     def __init__(self, inputobject):
@@ -419,5 +420,5 @@ class Reporter(object):
         self.reporter()
         self.legacy_reporter()
         # Create a database to store all the metadata
-        self.database()
+        # self.database()
         self.clean_object()
