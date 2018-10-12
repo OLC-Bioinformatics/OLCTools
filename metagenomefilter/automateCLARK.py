@@ -1,15 +1,17 @@
 #!/usr/bin/env python
-from accessoryFunctions.accessoryFunctions import printtime, GenObject, MetadataObject, make_path
+from accessoryFunctions.accessoryFunctions import GenObject, MetadataObject, make_path, SetupLogging
 import accessoryFunctions.metadataprinter as metadataprinter
 from spadespipeline import fileprep, createobject
 from metagenomefilter import filtermetagenome
 from argparse import ArgumentParser
 from shutil import move, which
+from click import progressbar
 from threading import Thread
 from csv import DictReader
 from queue import Queue
 import subprocess
 import xlsxwriter
+import logging
 import time
 import os
 __author__ = 'adamkoziol'
@@ -39,10 +41,10 @@ class CLARK(object):
         self.runmetadata = createobject.ObjectCreation(self)
         if self.runmetadata.extension == 'fastq':
             # To streamline the CLARK process, decompress and combine .gz and paired end files as required
-            printtime('Decompressing and combining .fastq files for CLARK analysis', self.start)
+            logging.info('Decompressing and combining .fastq files for CLARK analysis')
             fileprep.Fileprep(self)
         else:
-            printtime('Using .fasta files for CLARK analysis', self.start)
+            logging.info('Using .fasta files for CLARK analysis')
             for sample in self.runmetadata.samples:
                 sample.general.combined = sample.general.fastqfiles[0]
 
@@ -51,7 +53,7 @@ class CLARK(object):
          use, and the level of classification for the analysis"""
         # Define the set targets call. Include the path to the script, the database path and files, as well
         # as the taxonomic rank to use
-        printtime('Setting up database', self.start)
+        logging.info('Setting up database')
         self.targetcall = 'cd {} && ./set_targets.sh {} {} --{}'.format(self.clarkpath, self.databasepath,
                                                                         self.database, self.rank)
         #
@@ -59,24 +61,25 @@ class CLARK(object):
 
     def clean_sequences(self):
         """Removes reads/contigs that contain plasmids, and masks phage sequences."""
-        printtime('Removing plasmids and masking phages', self.start)
+        logging.info('Removing plasmids and masking phages')
         plasmid_db = os.path.join(self.reffilepath, 'plasmidfinder', 'plasmid_database.fa')
         phage_db = os.path.join(self.reffilepath, 'prophages', 'combinedtargets.tfa')
-        for sample in self.runmetadata.samples:
-            plasmid_removal = 'bbduk.sh ref={} in={} out={} overwrite'\
-                .format(plasmid_db, sample.general.combined, sample.general.combined.replace('.f', '_noplasmid.f'))
-            subprocess.call(plasmid_removal, shell=True, stdout=self.devnull, stderr=self.devnull)
-            phage_masking = 'bbduk.sh ref={} in={} out={} kmask=N overwrite'\
-                .format(phage_db, sample.general.combined.replace('.f', '_noplasmid.f'),
-                        sample.general.combined.replace('.f', '_clean.f'))
-            subprocess.call(phage_masking, shell=True, stdout=self.devnull, stderr=self.devnull)
-            os.remove(sample.general.combined)
-            os.rename(sample.general.combined.replace('.f', '_clean.f'), sample.general.combined)
-            os.remove(sample.general.combined.replace('.f', '_noplasmid.f'))
+        with progressbar(self.runmetadata.samples) as bar:
+            for sample in bar:
+                plasmid_removal = 'bbduk.sh ref={} in={} out={} overwrite'\
+                    .format(plasmid_db, sample.general.combined, sample.general.combined.replace('.f', '_noplasmid.f'))
+                subprocess.call(plasmid_removal, shell=True, stdout=self.devnull, stderr=self.devnull)
+                phage_masking = 'bbduk.sh ref={} in={} out={} kmask=N overwrite'\
+                    .format(phage_db, sample.general.combined.replace('.f', '_noplasmid.f'),
+                            sample.general.combined.replace('.f', '_clean.f'))
+                subprocess.call(phage_masking, shell=True, stdout=self.devnull, stderr=self.devnull)
+                os.remove(sample.general.combined)
+                os.rename(sample.general.combined.replace('.f', '_clean.f'), sample.general.combined)
+                os.remove(sample.general.combined.replace('.f', '_noplasmid.f'))
 
     def classifymetagenome(self):
         """Run the classify metagenome of the CLARK package on the samples"""
-        printtime('Classifying metagenomes', self.start)
+        logging.info('Classifying metagenomes')
         # Define the system call
         self.classifycall = 'cd {} && ./classify_metagenome.sh -O {} -R {} -n {} --light'\
             .format(self.clarkpath,
@@ -124,7 +127,7 @@ class CLARK(object):
         """
         Estimate the abundance of taxonomic groups
         """
-        printtime('Estimating abundance of taxonomic groups', self.start)
+        logging.info('Estimating abundance of taxonomic groups')
         # Create and start threads
         for i in range(self.cpus):
             # Send the threads to the appropriate destination function
@@ -133,26 +136,27 @@ class CLARK(object):
             threads.setDaemon(True)
             # Start the threading
             threads.start()
-        for sample in self.runmetadata.samples:
-            try:
-                if sample.general.combined != 'NA':
-                    # Set the name of the abundance report
-                    sample.general.abundance = sample.general.combined.split('.')[0] + '_abundance.csv'
-                    # if not hasattr(sample, 'commands'):
-                    if not sample.commands.datastore:
-                        sample.commands = GenObject()
+        with progressbar(self.runmetadata.samples) as bar:
+            for sample in bar:
+                try:
+                    if sample.general.combined != 'NA':
+                        # Set the name of the abundance report
+                        sample.general.abundance = sample.general.combined.split('.')[0] + '_abundance.csv'
+                        # if not hasattr(sample, 'commands'):
+                        if not sample.commands.datastore:
+                            sample.commands = GenObject()
 
-                    # Define system calls
-                    sample.commands.target = self.targetcall
-                    sample.commands.classify = self.classifycall
-                    sample.commands.abundancecall = \
-                        'cd {} && ./estimate_abundance.sh -D {} -F {} > {}'.format(self.clarkpath,
-                                                                                   self.databasepath,
-                                                                                   sample.general.classification,
-                                                                                   sample.general.abundance)
-                    self.abundancequeue.put(sample)
-            except KeyError:
-                pass
+                        # Define system calls
+                        sample.commands.target = self.targetcall
+                        sample.commands.classify = self.classifycall
+                        sample.commands.abundancecall = \
+                            'cd {} && ./estimate_abundance.sh -D {} -F {} > {}'.format(self.clarkpath,
+                                                                                       self.databasepath,
+                                                                                       sample.general.classification,
+                                                                                       sample.general.abundance)
+                        self.abundancequeue.put(sample)
+                except KeyError:
+                    pass
         self.abundancequeue.join()
 
     def estimate(self):
@@ -169,7 +173,7 @@ class CLARK(object):
         """
         Create reports from the abundance estimation
         """
-        printtime('Creating CLARK report for {} files'.format(self.runmetadata.extension), self.start)
+        logging.info('Creating CLARK report for {} files'.format(self.runmetadata.extension))
         # Create a workbook to store the report. Using xlsxwriter rather than a simple csv format, as I want to be
         # able to have appropriately sized, multi-line cells
         workbook = xlsxwriter.Workbook(self.report)
@@ -330,7 +334,7 @@ class CLARK(object):
                 self.report = os.path.join(self.reportpath, '{}'.format('abundance{}.xlsx'.format(self.extension)))
                 # Only re-run the CLARK analyses if the CLARK report doesn't exist. All files created by CLARK
                 if not os.path.isfile(self.report):
-                    printtime('Performing CLARK analysis on {} files'.format(self.extension), self.start)
+                    logging.info('Performing CLARK analysis on {} files'.format(self.extension))
                     if self.extension != 'fastq':
                         for sample in self.runmetadata.samples:
                             sample.general.combined = sample.general.bestassemblyfile
@@ -342,7 +346,7 @@ class CLARK(object):
                         for sample in self.runmetadata.samples:
                             try:
                                 status = sample.run.Description
-                            except KeyError:
+                            except AttributeError:
                                 status = 'unknown'
                             if status == 'metagenome':
                                 metagenome = True
@@ -368,21 +372,21 @@ class CLARK(object):
                                 move(sample.general.classification,
                                      os.path.join(sample[clarkextension].outputpath,
                                                   os.path.basename(sample.general.classification)))
-                            except (KeyError, FileNotFoundError):
+                            except (AttributeError, FileNotFoundError):
                                 pass
                             # Set the CLARK-specific attributes
                             try:
                                 sample[clarkextension].abundance = sample.general.abundance
                                 sample[clarkextension].classification = sample.general.classification
                                 sample[clarkextension].combined = sample.general.combined
-                            except KeyError:
+                            except AttributeError:
                                 pass
                             if self.extension == 'fastq':
                                 # Remove the combined .fastq files
                                 try:
                                     if type(sample[clarkextension].combined) is list:
                                         os.remove(sample[clarkextension].combined)
-                                except (OSError, KeyError):
+                                except (OSError, AttributeError):
                                     pass
                         # Remove all the attributes from .general
                         map(lambda x: delattr(sample.general, x), ['abundance', 'classification', 'combined'])
@@ -467,7 +471,7 @@ if __name__ == '__main__':
                         help='Extension of file type to process. Must be either "fasta" or "fastq". Default is "fastq"')
     # Get the arguments into an object
     arguments = parser.parse_args()
-
+    SetupLogging()
     # TODO Implement --rank and --database, and provide a way to easily create a custom database
 
     # Define the start time
@@ -477,7 +481,7 @@ if __name__ == '__main__':
     CLARK(arguments, commit, start, homepath)
 
     # Print a bold, green exit statement
-    print('\033[92m' + '\033[1m' + "\nElapsed Time: %0.2f seconds" % (time.time() - start) + '\033[0m')
+    logging.info('Analyses complete')
 
 
 class PipelineInit(object):
