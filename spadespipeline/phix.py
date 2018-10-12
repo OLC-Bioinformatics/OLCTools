@@ -1,6 +1,6 @@
 #!/usr/bin/env python 3
-from accessoryFunctions.accessoryFunctions import printtime
 from interop import py_interop_run_metrics, py_interop_run, py_interop_summary, py_interop_comm
+import logging
 import os
 
 __author__ = 'adamkoziol'
@@ -9,7 +9,7 @@ __author__ = 'adamkoziol'
 class PhiX(object):
 
     def main(self):
-        printtime('Attempting to extract PhiX mapping data', self.start)
+        logging.info('Attempting to extract PhiX mapping data')
         interop_folder = os.path.join(self.path, 'InterOp')
         # Determine if the InterOp folder is present
         if os.path.isdir(interop_folder):
