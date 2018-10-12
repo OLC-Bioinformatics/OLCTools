@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
-from accessoryFunctions.accessoryFunctions import combinetargets, filer, GenObject, MetadataObject, printtime, \
+from accessoryFunctions.accessoryFunctions import combinetargets, filer, GenObject, MetadataObject, \
     make_path, run_subprocess, write_to_logfile
 from accessoryFunctions.metadataprinter import MetadataPrinter
+from accessoryFunctions.resistance import ResistanceNotes
 from sipprverse_reporter.reports import Reports
 from spadespipeline.GeneSeekr import GeneSeekr
 from sipprCommon.objectprep import Objectprep
 from sipprCommon.sippingmethods import Sippr
 from genesippr.genesippr import GeneSippr
 from serosippr.serosippr import SeroSippr
-from geneseekr.geneseekr import BLAST
+from geneseekr.blast import BLAST
 from Bio.Alphabet import IUPAC
 from Bio.Seq import Seq
 from Bio import SeqIO
@@ -16,6 +17,7 @@ from Bio.SeqRecord import SeqRecord
 from glob import glob
 import xlsxwriter
 import threading
+import logging
 import pandas
 import shutil
 import os
@@ -30,7 +32,7 @@ class GDCS(Sippr):
         """
         Run the necessary methods in the correct order
         """
-        printtime('Starting {} analysis pipeline'.format(self.analysistype), self.starttime)
+        logging.info('Starting {} analysis pipeline'.format(self.analysistype))
         # Run the analyses
         ShortKSippingMethods(self, self.cutoff)
         # Create the reports
@@ -40,7 +42,6 @@ class GDCS(Sippr):
         # Create the report object
         report = Reports(self)
         report.gdcsreporter()
-        self.clear()
 
     def __init__(self, inputobject):
         self.reports = str()
@@ -72,7 +73,7 @@ class Plasmids(GeneSippr):
         """
         Run the necessary methods in the correct order
         """
-        printtime('Starting {} analysis pipeline'.format(self.analysistype), self.starttime)
+        logging.info('Starting {} analysis pipeline'.format(self.analysistype))
         if not self.pipeline:
             general = None
             for sample in self.runmetadata.samples:
@@ -87,8 +88,7 @@ class Plasmids(GeneSippr):
         # Create the reports
         self.reporter()
         # Print the metadata
-        printer = MetadataPrinter(self)
-        printer.printmetadata()
+        MetadataPrinter(self)
 
     def reporter(self):
         """
@@ -133,7 +133,7 @@ class PlasmidExtractor(object):
         """
         Create and run the plasmid extractor system call
         """
-        printtime('Extracting plasmids', self.start)
+        logging.info('Extracting plasmids')
         # Define the system call
         extract_command = 'PlasmidExtractor.py -i {inf} -o {outf} -p {plasdb} -d {db} -t {cpus} -nc' \
             .format(inf=self.path,
@@ -155,7 +155,7 @@ class PlasmidExtractor(object):
         """
         Parse the plasmid extractor report, and populate metadata objects
         """
-        printtime('Parsing Plasmid Extractor outputs', self.start)
+        logging.info('Parsing Plasmid Extractor outputs')
         # A dictionary to store the parsed excel file in a more readable format
         nesteddictionary = dict()
         # Use pandas to read in the CSV file, and convert the pandas data frame to a dictionary (.to_dict())
@@ -209,192 +209,21 @@ class PlasmidExtractor(object):
         self.metadata = inputobject.runmetadata.samples
 
 
-class ResistanceNotes(object):
-
-    @staticmethod
-    def classes(targetpath):
-        """
-        Uses .tfa files included in the ResFinder database to determine the resistance class of gene matches
-        :param targetpath: Path to database files
-        :return: Dictionary of resistance class: gene set
-        """
-        # Initialise dictionary to store results
-        resistance_dict = dict()
-        # Find all the .tfa files in the folder
-        resistance_files = sorted(glob(os.path.join(targetpath, '*.tfa')))
-        # Iterate through each file
-        for fasta in resistance_files:
-            # Extract the resistance class from the file name and path
-            resistance_class = os.path.splitext(os.path.basename(fasta))[0]
-            # Initialise the resistance class as a set in the dictionary
-            resistance_dict[resistance_class] = set()
-            # Open the file
-            with open(fasta) as resistance:
-                # Iterate through the FASTA records
-                for record in SeqIO.parse(resistance, 'fasta'):
-                    # Add the gene name to the set
-                    resistance_dict[resistance_class].add(record.id)
-        return resistance_dict
-
-
-    @staticmethod
-    def gene_name(name):
-        """
-        Split the FASTA header string into its components, including gene name, allele, and accession
-        :param name: FASTA header
-        :return: gname, genename, accession, allele: name of gene. Often the same as genename, but for certain entries
-        it is longer, full gene name, accession, and allele extracted from the FASTA header
-        """
-        if 'Van' in name or 'mcr' in name or 'aph' in name or 'ddlA' in name or 'ant' in name:
-            try:
-                if name == "ant(3'')_Ih_aac(6')_IId_1_AF453998":
-                    # >aac(3)_Ib_aac(6')_Ib_1_AF355189 yields gname, genename: aac(3)-Ib-aac(6')-Ib, allele:1,
-                    # accession: AF355189
-                    gene1, version1, gene2, version2, allele, accession = name.split('_')
-                    gname = '{g1}-{v1}-{g2}-{v2}'.format(g1=gene1,
-                                                         v1=version1,
-                                                         g2=gene2,
-                                                         v2=version2)
-                    genename = gname
-                elif name == 'ant(3'')_Ia_1_X02340':
-                    # >ant(3'')_Ia_1_X02340
-                    gene, version, allele, accession = name.split('_')
-                    gname = '{g}-{v}'.format(g=gene,
-                                             v=version)
-                    genename = gname
-                elif 'mcr_3' in name or 'mcr_2' in name or 'mcr_1.10' in name:
-                    # >mcr_3.3_1_NG055492 yields genename, gname: mcr-3, allele: 1, accession: NG055492
-                    gene, combinedversion, allele, accession = name.split('_')
-                    version = combinedversion.split('.')[0]
-                    gname = '{gene}-{version}'.format(gene=gene,
-                                                      version=version)
-                    genename = gname
-
-                else:
-                    # Allow for an additional part to the gene name aph(3'')_Ib_5_AF321551 yields gname: aph(3''),
-                    # genename: aph(3'')-Ib, allele: 5, accession AF321551
-                    try:
-                        pregene, postgene, allele, accession = name.split('_')
-                        gname = '{pre}-{post}'.format(pre=pregene,
-                                                      post=postgene)
-                        genename = gname
-                    except ValueError:
-                        # Allow for underscores in the accession: aac(2')_Ie_1_NC_011896 yields gname: aac(2'),
-                        # genename:  aac('2)-1e, allele: 1, accession NC_011896
-                        pregene, postgene, allele, preaccession, postaccession = name.split('_')
-                        genename = '{pre}-{post}'.format(pre=pregene,
-                                                         post=postgene)
-                        accession = '{pre}_{post}'.format(pre=preaccession,
-                                                          post=postaccession)
-                        gname = pregene
-            except ValueError:
-                # VanC_2_DQ022190
-                genename, allele, accession = name.split('_')
-                gname = genename
-        else:
-            if 'bla' in name or 'aac' in name or 'ARR' in name or 'POM' in name:
-                if 'OKP' in name or 'CTX' in name or 'OXY' in name:
-                    # >blaOKP_B_11_1_AM051161 yields gname: blaOKP-B-11, genename: blaOXP, allele: 1,
-                    # accession: AM051161
-                    gene, version1, version2, allele, accession = name.split('_')
-                    gname = '{g}-{v1}-{v2}'.format(g=gene,
-                                                   v1=version1,
-                                                   v2=version2)
-                    genename = gname
-                elif 'CMY' in name:
-                    # >blaCMY_12_1_Y16785 yields gname, genename: blaCMY, allele: 12
-                    gname, allele, version, accession = name.split('_')
-                    genename = gname
-                elif name == "aac(3)_Ib_aac(6')_Ib_1_AF355189":
-                    # >aac(3)_Ib_aac(6')_Ib_1_AF355189 yields gname, genename: aac(3)-Ib-aac(6')-Ib, allele:1,
-                    # accession: AF355189
-                    gene1, version1, gene2, version2, allele, accession = name.split('_')
-                    gname = '{g1}-{v1}-{g2}-{v2}'.format(g1=gene1,
-                                                         v1=version1,
-                                                         g2=gene2,
-                                                         v2=version2)
-                    genename = gname
-                elif 'alias' in name:
-                    # >blaSHV_5a_alias_blaSHV_9_1_S82452
-                    gene1, version1, alias, gene2, version2, allele, accession = name.split('_')
-                    gname = '{g1}-{v1}'.format(g1=gene1,
-                                               v1=version1)
-                    genename = gname
-                else:
-                    # Split the name on '_'s: ARR-2_1_HQ141279; gname, genename: ARR-2, allele: 1, accession: HQ141279
-                    try:
-                        genename, allele, accession = name.split('_')
-                        gname = genename
-                    except ValueError:
-                        try:
-                            # >blaACC_1_2_AM939420 yields gname: blaACC-1, genename: blaACC, allele: 2,
-                            # accession: AM939420
-                            genename, version, allele, accession = name.split('_')
-                            gname = '{g}-{v}'.format(g=genename,
-                                                     v=version)
-                        except ValueError:
-                            # >aac(2')_Ie_1_NC_011896 yields gname, genename: aac(2')-Ie, allele: 1,
-                            # accession: NC_011896
-                            genename, version, allele, preaccession, postaccession = name.split('_')
-                            gname = '{g}-{v}'.format(g=genename,
-                                                     v=version)
-                            genename = gname
-                            accession = '{preaccess}_{postaccess}'.format(preaccess=preaccession,
-                                                                          postaccess=postaccession)
-            else:
-                # Split the name on '_'s: ARR-2_1_HQ141279; gname, genename: ARR-2, allele: 1, accession: HQ141279
-                try:
-                    genename, allele, accession = name.split('_')
-                    gname = genename
-                # Some names have a slightly different naming scheme:
-                except ValueError:
-                    # tet(44)_1_NZ_ABDU01000081 yields gname, genename: tet(44), allele: 1,
-                    # accession: NZ_ABDU01000081
-                    genename, allele, preaccession, postaccession = name.split('_')
-                    accession = '{preaccess}_{postaccess}'.format(preaccess=preaccession,
-                                                                  postaccess=postaccession)
-                    gname = genename
-        return gname, genename, accession, allele
-
-    @staticmethod
-    def resistance(genename, resistance_dict):
-        """
-        Determine the resistance class of the gene by searching the sets of genes included in every resistance FASTA
-        file
-        :param genename: Header string returned from analyses
-        :param resistance_dict: Dictionary of resistance class: header
-        :return: resistance class of the gene
-        """
-        # Initialise a string to store the resistance class for the gene
-        resistance = str()
-        # Iterate through the dictionary of the resistance class: set of gene names
-        for resistance_class, gene_set in resistance_dict.items():
-            # If the gene is presence in the set
-            if genename in gene_set:
-                # Set the resistance class appropriately
-                resistance += resistance_class
-        # Return the calculated resistance class
-        return resistance
-
-
 class Serotype(SeroSippr):
 
     def runner(self):
         """
         Run the necessary methods in the correct order
         """
-        printtime('Starting {} analysis pipeline'.format(self.analysistype), self.starttime)
+        logging.info('Starting {} analysis pipeline'.format(self.analysistype))
         # Run the analyses
         ShortKSippingMethods(self, self.cutoff)
-        printer = MetadataPrinter(self)
-        printer.printmetadata()
         self.serotype_escherichia()
         self.serotype_salmonella()
         # Create the reports
         self.reporter()
         # Print the metadata
-        printer = MetadataPrinter(self)
-        printer.printmetadata()
+        MetadataPrinter(self)
 
 
 class ShortKSippingMethods(Sippr):
@@ -427,7 +256,7 @@ class ResSippr(GeneSippr):
         """
         Run the necessary methods in the correct order
         """
-        printtime('Starting {} analysis pipeline'.format(self.analysistype), self.starttime)
+        logging.info('Starting {} analysis pipeline'.format(self.analysistype))
         if not self.pipeline:
             general = None
             for sample in self.runmetadata.samples:
@@ -537,7 +366,7 @@ class Resistance(ResSippr):
         """
         Creates a report of the results
         """
-        printtime('Creating {at} report'.format(at=self.analysistype), self.starttime)
+        logging.info('Creating {at} report'.format(at=self.analysistype))
         resistance_classes = ResistanceNotes.classes(self.targetpath)
         # Find unique gene names with the highest percent identity
         for sample in self.runmetadata.samples:
@@ -587,8 +416,7 @@ class Resistance(ResSippr):
                         # have the same 100% percent identity
                         if float(identity) == percentid:
                             try:
-                                # Determine the name of the gene to use in the report, as well as its associated
-                                # resistance phenotype
+                                # Determine resistance phenotype of the gene
                                 res = ResistanceNotes.resistance(name, resistance_classes)
                                 # Treat the initial vs subsequent results for each sample slightly differently - instead
                                 # of including the sample name, use an empty cell instead
@@ -673,7 +501,7 @@ class ResFinder(GeneSeekr):
         Custom reports for ResFinder analyses. These reports link the gene(s) found to their resistance phenotypes
         """
         # Initialise resistance dictionaries from the notes.txt file
-        genedict, altgenedict = ResistanceNotes.notes(self.targetpath)
+        resistance_classes = ResistanceNotes.classes(self.targetpath)
         # Create a workbook to store the report. Using xlsxwriter rather than a simple csv format, as I want to be
         # able to have appropriately sized, multi-line cells
         workbook = xlsxwriter.Workbook(os.path.join(self.reportpath, '{}.xlsx'.format(self.analysistype)))
@@ -709,11 +537,10 @@ class ResFinder(GeneSeekr):
                     gname, genename, accession, allele = ResistanceNotes.gene_name(name)
                     # Initialise a list to store all the data for each strain
                     data = list()
-                    # Determine the name of the gene to use in the report and the resistance using the resistance
-                    # method
-                    finalgene, resistance = ResistanceNotes.resistance(gname, genename, genedict, altgenedict)
+                    # Determine resistance phenotype of the gene
+                    resistance = ResistanceNotes.resistance(name, resistance_classes)
                     # Append the necessary values to the data list
-                    data.append(finalgene)
+                    data.append(genename)
                     data.append(allele)
                     data.append(resistance)
                     percentid = result['percentidentity']
@@ -724,7 +551,7 @@ class ResFinder(GeneSeekr):
                     try:
                         # Populate the attribute storing the resfinder results
                         sample[self.analysistype].pipelineresults.append(
-                            '{rgene} ({pid}%) {rclass}'.format(rgene=finalgene,
+                            '{rgene} ({pid}%) {rclass}'.format(rgene=genename,
                                                                pid=percentid,
                                                                rclass=resistance))
                         # Only if the alignment option is selected, for inexact results, add alignments
@@ -887,8 +714,6 @@ class Prophages(BLAST):
             data = 'Strain,Gene,Host,PercentIdentity,PercentCovered,Contig,Location\n'
             # Set the required variables to load prophage data from a summary file
             overview = glob(os.path.join(self.targetpath, '*.txt'))[0]
-            # fieldnames = ['id_prophage', 'file_name', 'host', 'host_id', 'number_of_prophages_in_host',
-            #               'start_position_of_prophage', 'end_position_of_prophage', 'length_of_prophage']
             # A dictionary to store the parsed excel file in a more readable format
             prophagedata = dict()
             # Use pandas to read in the excel file, and subsequently convert the pandas data frame to a dictionary
@@ -897,7 +722,7 @@ class Prophages(BLAST):
             dictionary = pandas.read_csv(overview, sep='\t').to_dict()
             # Iterate through the dictionary - each header from the excel file
             for header in dictionary:
-                # Sample is the primary key, and value is the value of the cell for that primary key + header combination
+                # Sample is the primary key, and value is the value of the cell for that primary key + header combo
                 for sample, value in dictionary[header].items():
                     # Update the dictionary with the new data
                     try:
@@ -925,7 +750,7 @@ class Prophages(BLAST):
                                     if multiple:
                                         data += ','
                                     # Iterate through the phage data in the dictionary
-                                    for id, phage in prophagedata.items():
+                                    for query_id, phage in prophagedata.items():
                                         if phage['id_prophage'] == gene:
                                             # Add the data to the row
                                             data += '{},{},{},{},{},{}..{}\n' \
@@ -1036,7 +861,11 @@ class Virulence(GeneSippr):
                     sample[self.analysistype].uniquegenes = dict()
                     for name, identity in sample[self.analysistype].results.items():
                         # Split the name of the gene from the string e.g. stx1:11:Z36899:11 yields stx1
-                        genename = name.split('_')[0]
+                        if ':' in name:
+                            sample[self.analysistype].delimiter = ':'
+                        else:
+                            sample[self.analysistype].delimiter = '_'
+                        genename = name.split(sample[self.analysistype].delimiter)[0]
                         # Only allow matches of 100% identity for stx genes
                         if 'stx' in genename and float(identity) < 100.0:
                             pass
@@ -1052,7 +881,7 @@ class Virulence(GeneSippr):
                             except KeyError:
                                 sample[self.analysistype].uniquegenes[genename] = float(identity)
             except KeyError:
-                pass
+                raise
         # Create the path in which the reports are stored
         make_path(self.reportpath)
         # Initialise strings to store the results
@@ -1067,18 +896,14 @@ class Virulence(GeneSippr):
                         for name, identity in sorted(sample[self.analysistype].results.items()):
                             # Check to see which delimiter is used to separate the gene name, allele, accession, and
                             # subtype information in the header
-                            if ':' in name:
-                                delimiter = ':'
-                            else:
-                                delimiter = '_'
                             try:
                                 # Split the name on the delimiter: stx2A:63:AF500190:d; gene: stx2A, allele: 63,
                                 # accession: AF500190, subtype: d
-                                genename, allele, accession, subtype = name.split(delimiter)
+                                genename, allele, accession, subtype = name.split(sample[self.analysistype].delimiter)
                             # Treat samples without a subtype e.g. icaC:intercellular adhesion protein C: differently.
                             # Extract the allele as the 'subtype', and the gene name, and accession as above
                             except ValueError:
-                                genename, subtype, accession = name.split(delimiter)
+                                genename, subtype, accession = name.split(sample[self.analysistype].delimiter)
                             # Retrieve the best identity for each gene
                             percentid = sample[self.analysistype].uniquegenes[genename]
                             # If the percent identity of the current gene matches the best percent identity, add it to
