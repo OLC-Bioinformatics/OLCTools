@@ -1,7 +1,9 @@
 #!/usr/bin/env python
+from accessoryFunctions.accessoryFunctions import GenObject, make_path, run_subprocess, write_to_logfile
 from threading import Thread, Lock
 from queue import Queue
-from accessoryFunctions.accessoryFunctions import printtime, GenObject, make_path, run_subprocess, write_to_logfile
+from click import progressbar
+import logging
 import os
 __author__ = 'adamkoziol'
 
@@ -11,18 +13,19 @@ threadlock = Lock()
 class Prodigal(object):
 
     def predictthreads(self):
-        printtime('Performing gene predictions', self.start)
+        logging.info('Performing gene predictions')
         # Create the threads for the analyses
         for sample in self.metadata:
             if sample.general.bestassemblyfile != 'NA':
                 threads = Thread(target=self.predict, args=())
                 threads.setDaemon(True)
                 threads.start()
-        for sample in self.metadata:
-            # Create the .prodigal attribute
-            sample.prodigal = GenObject()
-            if sample.general.bestassemblyfile != 'NA':
-                self.predictqueue.put(sample)
+        with progressbar(self.metadata) as bar:
+            for sample in bar:
+                # Create the .prodigal attribute
+                sample.prodigal = GenObject()
+                if sample.general.bestassemblyfile != 'NA':
+                    self.predictqueue.put(sample)
         self.predictqueue.join()
 
     def predict(self):
@@ -55,7 +58,7 @@ class Prodigal(object):
             self.predictqueue.task_done()
 
     def prodigalparse(self):
-        printtime('Parsing gene predictions', self.start)
+        logging.info('Parsing gene predictions')
         for sample in self.metadata:
             sample.prodigal.predictedgenestotal = 0
             sample.prodigal.predictedgenesover3000bp = 0
