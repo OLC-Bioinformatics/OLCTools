@@ -65,7 +65,7 @@ class Basic(object):
                 # Only perform this step if the forward and reverse lengths have not been loaded into the metadata
                 len(sample.run.forwardlength)
                 len(sample.run.reverselength)
-            except (TypeError, KeyError):
+            except AttributeError:
                 # Initialise the .header attribute for each sample
                 sample.header = GenObject()
                 sample.commands = GenObject()
