@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
-from accessoryFunctions.accessoryFunctions import printtime, run_subprocess, write_to_logfile, make_path
+from accessoryFunctions.accessoryFunctions import run_subprocess, write_to_logfile, make_path
 from biotools import bbtools
 from subprocess import CalledProcessError
+from click import progressbar
+import logging
 import shutil
 import os
 __author__ = 'adamkoziol'
@@ -17,76 +19,80 @@ class Skesa(object):
         """
         Run skesa to assemble genomes
         """
-        for sample in self.metadata:
-            # Initialise the assembly command
-            sample.commands.assemble = str()
-            try:
-                if sample.general.trimmedcorrectedfastqfiles:
-                    # If the sample is a pure isolate, assemble it. Otherwise, run the pre-metagenome pipeline
-                    try:
-                        status = sample.run.Description
-                    except KeyError:
-                        status = 'unknown'
-                    if status == 'metagenome':
-                        self.merge(sample)
-                    else:
-                        # Set the output directory
-                        sample.general.assembly_output = os.path.join(sample.general.outputdirectory, 'assembly_output')
-                        make_path(sample.general.assembly_output)
-                        sample.general.assemblyfile = os.path.join(sample.general.assembly_output,
-                                                                   '{name}_unfiltered.fasta'.format(name=sample.name))
-                        sample.general.bestassemblyfile = os.path.join(sample.general.assembly_output, '{name}.fasta'
-                                                                       .format(name=sample.name))
-                        fastqfiles = sample.general.trimmedcorrectedfastqfiles
-
-                        # Set the the forward fastq files
-                        sample.general.assemblyfastq = fastqfiles
-                        forward = fastqfiles[0]
-                        gz = True if '.gz' in forward else False
-                        # If there are two fastq files
-                        if len(fastqfiles) == 2:
-                            # Set the reverse fastq name
-                            sample.commands.assemble = 'skesa --fastq {fastqfiles} --cores {threads} --gz {gz} ' \
-                                                       '--use_paired_ends --contigs_out {contigs}'\
-                                .format(fastqfiles=','.join(fastqfiles),
-                                        threads=self.cpus,
-                                        gz=gz,
-                                        contigs=sample.general.assemblyfile)
-                        # Same as above, but use single read settings for the assembler
+        with progressbar(self.metadata) as bar:
+            for sample in bar:
+                # Initialise the assembly command
+                sample.commands.assemble = str()
+                try:
+                    if sample.general.trimmedcorrectedfastqfiles:
+                        # If the sample is a pure isolate, assemble it. Otherwise, run the pre-metagenome pipeline
+                        try:
+                            status = sample.run.Description
+                        except AttributeError:
+                            status = 'unknown'
+                        if status == 'metagenome':
+                            self.merge(sample)
                         else:
-                            sample.commands.assemble = 'skesa --fastq {fastqfiles} --cores {threads} --gz {gz} ' \
-                                                       '--contigs_out {contigs}'\
-                                .format(fastqfiles=','.join(fastqfiles),
-                                        threads=self.cpus,
-                                        gz=gz,
-                                        contigs=sample.general.assemblyfile)
-                # If there are no fastq files, populate the metadata appropriately
-                else:
+                            # Set the output directory
+                            sample.general.assembly_output = os.path.join(sample.general.outputdirectory,
+                                                                          'assembly_output')
+                            make_path(sample.general.assembly_output)
+                            sample.general.assemblyfile = os.path.join(sample.general.assembly_output,
+                                                                       '{name}_unfiltered.fasta'
+                                                                       .format(name=sample.name))
+                            sample.general.bestassemblyfile = os.path.join(sample.general.assembly_output,
+                                                                           '{name}.fasta'
+                                                                           .format(name=sample.name))
+                            fastqfiles = sample.general.trimmedcorrectedfastqfiles
+
+                            # Set the the forward fastq files
+                            sample.general.assemblyfastq = fastqfiles
+                            forward = fastqfiles[0]
+                            gz = True if '.gz' in forward else False
+                            # If there are two fastq files
+                            if len(fastqfiles) == 2:
+                                # Set the reverse fastq name
+                                sample.commands.assemble = 'skesa --fastq {fastqfiles} --cores {threads} --gz {gz} ' \
+                                                           '--use_paired_ends --contigs_out {contigs}'\
+                                    .format(fastqfiles=','.join(fastqfiles),
+                                            threads=self.cpus,
+                                            gz=gz,
+                                            contigs=sample.general.assemblyfile)
+                            # Same as above, but use single read settings for the assembler
+                            else:
+                                sample.commands.assemble = 'skesa --fastq {fastqfiles} --cores {threads} --gz {gz} ' \
+                                                           '--contigs_out {contigs}'\
+                                    .format(fastqfiles=','.join(fastqfiles),
+                                            threads=self.cpus,
+                                            gz=gz,
+                                            contigs=sample.general.assemblyfile)
+                    # If there are no fastq files, populate the metadata appropriately
+                    else:
+                        sample.general.assembly_output = 'NA'
+                        sample.general.assemblyfastq = 'NA'
+                        sample.general.bestassemblyfile = 'NA'
+                except KeyError:
                     sample.general.assembly_output = 'NA'
                     sample.general.assemblyfastq = 'NA'
+                    sample.general.trimmedcorrectedfastqfiles = 'NA'
                     sample.general.bestassemblyfile = 'NA'
-            except KeyError:
-                sample.general.assembly_output = 'NA'
-                sample.general.assemblyfastq = 'NA'
-                sample.general.trimmedcorrectedfastqfiles = 'NA'
-                sample.general.bestassemblyfile = 'NA'
-            if sample.commands.assemble and not os.path.isfile(sample.general.assemblyfile):
-                # Run the assembly
-                out, err = run_subprocess(sample.commands.assemble)
-                write_to_logfile(sample.commands.assemble,
-                                 sample.commands.assemble,
-                                 self.logfile,
-                                 sample.general.logout,
-                                 sample.general.logerr,
-                                 None,
-                                 None)
-                write_to_logfile(out,
-                                 err,
-                                 self.logfile,
-                                 sample.general.logout,
-                                 sample.general.logerr,
-                                 None,
-                                 None)
+                if sample.commands.assemble and not os.path.isfile(sample.general.assemblyfile):
+                    # Run the assembly
+                    out, err = run_subprocess(sample.commands.assemble)
+                    write_to_logfile(sample.commands.assemble,
+                                     sample.commands.assemble,
+                                     self.logfile,
+                                     sample.general.logout,
+                                     sample.general.logerr,
+                                     None,
+                                     None)
+                    write_to_logfile(out,
+                                     err,
+                                     self.logfile,
+                                     sample.general.logout,
+                                     sample.general.logerr,
+                                     None,
+                                     None)
 
     def merge(self, sample):
         """
@@ -207,4 +213,4 @@ class Skesa(object):
         make_path(os.path.join(self.path, 'BestAssemblies'))
         make_path(os.path.join(self.path, 'raw_assemblies'))
         make_path(self.reportpath)
-        printtime('Assembling sequences', self.start)
+        logging.info('Assembling sequences')
