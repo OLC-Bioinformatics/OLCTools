@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from accessoryFunctions.accessoryFunctions import combinetargets, printtime, GenObject, make_path, logstr, \
+from accessoryFunctions.accessoryFunctions import combinetargets, GenObject, make_path, logstr, \
     write_to_logfile, run_subprocess
 from accessoryFunctions.metadataprinter import MetadataPrinter
 from sipprCommon.bowtie import Bowtie2CommandLine, Bowtie2BuildCommandLine
@@ -9,10 +9,13 @@ from Bio.Sequencing.Applications import SamtoolsFaidxCommandline, SamtoolsIndexC
 from Bio.Application import ApplicationError
 from Bio import SeqIO
 from collections import Counter
+from click import progressbar
 from threading import Thread
 from io import StringIO
 from queue import Queue
 from glob import glob
+import logging
+import psutil
 import numpy
 import pysam
 import os
@@ -47,9 +50,7 @@ class Sippr(object):
         Search the targets folder for FASTA files, create the multi-FASTA file of all targets if necessary, and
         populate objects
         """
-        printtime('Performing analysis with {} targets folder'.format(self.analysistype),
-                  self.start,
-                  output=self.portallog)
+        logging.info('Performing analysis with {} targets folder'.format(self.analysistype))
         if self.pipeline:
             for sample in self.runmetadata:
                 setattr(sample, self.analysistype, GenObject())
@@ -59,7 +60,7 @@ class Sippr(object):
                     try:
                         sample[self.analysistype].targetpath = \
                             os.path.join(self.targetpath, self.analysistype, sample.mash.closestrefseqgenus, '')
-                    except KeyError:
+                    except AttributeError:
                         sample[self.analysistype].targetpath = \
                             os.path.join(self.targetpath, self.analysistype, sample.general.closestrefseqgenus, '')
                     # There is a relatively strict databasing scheme necessary for the custom targets. Eventually,
@@ -130,120 +131,129 @@ class Sippr(object):
                     os.path.join(sample[self.analysistype].outputdir,
                                  '{}_targetMatches.fastq.gz'.format(self.analysistype))
 
-    def bait(self, maskmiddle='f', k='27'):
+    def bait(self, maskmiddle='f', k='19'):
         """
         Use bbduk to perform baiting
         :param maskmiddle: boolean argument treat the middle base of a kmer as a wildcard; increases sensitivity
         in the presence of errors.
         :param k: keyword argument for length of kmers to use in the analyses
         """
-        printtime('Performing kmer baiting of fastq files with {} targets'.format(self.analysistype),
-                  self.start,
-                  output=self.portallog)
-        for sample in self.runmetadata:
-            if sample.general.bestassemblyfile != 'NA' and sample[self.analysistype].runanalysis:
-                # Create the folder (if necessary)
-                make_path(sample[self.analysistype].outputdir)
-                # Make the system call
-                if len(sample.general.fastqfiles) == 2:
-                    # Create the command to run the baiting - paired inputs and a single, zipped output
-                    sample[self.analysistype].bbdukcmd = \
-                        'bbduk.sh ref={ref} in1={in1} in2={in2} k={kmer} maskmiddle={mm} threads={cpus} outm={outm}' \
-                        .format(ref=sample[self.analysistype].baitfile,
-                                in1=sample.general.trimmedcorrectedfastqfiles[0],
-                                in2=sample.general.trimmedcorrectedfastqfiles[1],
-                                kmer=k,
-                                mm=maskmiddle,
-                                cpus=str(self.cpus),
-                                outm=sample[self.analysistype].baitedfastq)
-                else:
-                    sample[self.analysistype].bbdukcmd = \
-                        'bbduk.sh ref={ref} in={in1} k={kmer} maskmiddle={mm} threads={cpus} outm={outm}' \
-                        .format(ref=sample[self.analysistype].baitfile,
-                                in1=sample.general.trimmedcorrectedfastqfiles[0],
-                                kmer=k,
-                                mm=maskmiddle,
-                                cpus=str(self.cpus),
-                                outm=sample[self.analysistype].baitedfastq)
-                # Run the system call (if necessary)
-                if not os.path.isfile(sample[self.analysistype].baitedfastq):
-                    out, err = run_subprocess(sample[self.analysistype].bbdukcmd)
-                    write_to_logfile(sample[self.analysistype].bbdukcmd,
-                                     sample[self.analysistype].bbdukcmd,
-                                     self.logfile, sample.general.logout, sample.general.logerr,
-                                     sample[self.analysistype].logout, sample[self.analysistype].logerr)
-                    write_to_logfile(out,
-                                     err,
-                                     self.logfile, sample.general.logout, sample.general.logerr,
-                                     sample[self.analysistype].logout, sample[self.analysistype].logerr)
+        logging.info('Performing kmer baiting of fastq files with {} targets'.format(self.analysistype))
+        # There seems to be some sort of issue with java incorrectly calculating the total system memory on certain
+        # computers. For now, calculate the memory, and feed it into the bbduk call
+        mem = psutil.virtual_memory()
+        with progressbar(self.runmetadata) as bar:
+            for sample in bar:
+                if sample.general.bestassemblyfile != 'NA' and sample[self.analysistype].runanalysis:
+                    # Create the folder (if necessary)
+                    make_path(sample[self.analysistype].outputdir)
+                    # Make the system call
+                    if len(sample.general.fastqfiles) == 2:
+                        # Create the command to run the baiting - paired inputs and a single, zipped output
+                        sample[self.analysistype].bbdukcmd = \
+                            'bbduk.sh -Xmx{mem} ref={ref} in1={in1} in2={in2} k={kmer} maskmiddle={mm} ' \
+                            'threads={c} outm={om}' \
+                            .format(mem=int(mem.total * 0.85),
+                                    ref=sample[self.analysistype].baitfile,
+                                    in1=sample.general.trimmedcorrectedfastqfiles[0],
+                                    in2=sample.general.trimmedcorrectedfastqfiles[1],
+                                    kmer=k,
+                                    mm=maskmiddle,
+                                    c=str(self.cpus),
+                                    om=sample[self.analysistype].baitedfastq)
+                    else:
+                        sample[self.analysistype].bbdukcmd = \
+                            'bbduk.sh -Xmx{mem} ref={ref} in={in1} k={kmer} maskmiddle={mm} ' \
+                            'threads={cpus} outm={outm}' \
+                            .format(mem=int(mem.total * 0.85),
+                                    ref=sample[self.analysistype].baitfile,
+                                    in1=sample.general.trimmedcorrectedfastqfiles[0],
+                                    kmer=k,
+                                    mm=maskmiddle,
+                                    cpus=str(self.cpus),
+                                    outm=sample[self.analysistype].baitedfastq)
+                    # Run the system call (if necessary)
+                    if not os.path.isfile(sample[self.analysistype].baitedfastq):
+                        out, err = run_subprocess(sample[self.analysistype].bbdukcmd)
+                        write_to_logfile(sample[self.analysistype].bbdukcmd,
+                                         sample[self.analysistype].bbdukcmd,
+                                         self.logfile, sample.general.logout, sample.general.logerr,
+                                         sample[self.analysistype].logout, sample[self.analysistype].logerr)
+                        write_to_logfile(out,
+                                         err,
+                                         self.logfile, sample.general.logout, sample.general.logerr,
+                                         sample[self.analysistype].logout, sample[self.analysistype].logerr)
 
-    def reversebait(self, maskmiddle='f', k=27):
+    def reversebait(self, maskmiddle='f', k=19):
         """
         Use the freshly-baited FASTQ files to bait out sequence from the original target files. This will reduce the
         number of possibly targets against which the baited reads must be aligned
         """
-        printtime('Performing reverse kmer baiting of targets with fastq files', self.start, output=self.portallog)
-        for sample in self.runmetadata:
-            if sample.general.bestassemblyfile != 'NA' and sample[self.analysistype].runanalysis:
-                outfile = os.path.join(sample[self.analysistype].outputdir, 'baitedtargets.fa')
-                sample[self.analysistype].revbbdukcmd = \
-                    'bbduk.sh ref={ref} in={in1} k={kmer} threads={cpus} mincovfraction={mcf} maskmiddle={mm} ' \
-                    'outm={outm}' \
-                    .format(ref=sample[self.analysistype].baitedfastq,
-                            in1=sample[self.analysistype].baitfile,
-                            kmer=k,
-                            cpus=str(self.cpus),
-                            mcf=self.cutoff,
-                            mm=maskmiddle,
-                            outm=outfile)
-                # Run the system call (if necessary)
-                if not os.path.isfile(outfile):
-                    out, err = run_subprocess(sample[self.analysistype].revbbdukcmd)
-                    write_to_logfile(sample[self.analysistype].bbdukcmd,
-                                     sample[self.analysistype].bbdukcmd,
-                                     self.logfile, sample.general.logout, sample.general.logerr,
-                                     sample[self.analysistype].logout, sample[self.analysistype].logerr)
-                    write_to_logfile(out,
-                                     err,
-                                     self.logfile, sample.general.logout, sample.general.logerr,
-                                     sample[self.analysistype].logout, sample[self.analysistype].logerr)
-                # Set the baitfile to use in the mapping steps as the newly created outfile
-                sample[self.analysistype].baitfile = outfile
+        logging.info('Performing reverse kmer baiting of targets with FASTQ files')
+        with progressbar(self.runmetadata) as bar:
+            for sample in bar:
+                if sample.general.bestassemblyfile != 'NA' and sample[self.analysistype].runanalysis:
+                    outfile = os.path.join(sample[self.analysistype].outputdir, 'baitedtargets.fa')
+                    sample[self.analysistype].revbbdukcmd = \
+                        'bbduk.sh ref={ref} in={in1} k={kmer} threads={cpus} mincovfraction={mcf} maskmiddle={mm} ' \
+                        'outm={outm}' \
+                        .format(ref=sample[self.analysistype].baitedfastq,
+                                in1=sample[self.analysistype].baitfile,
+                                kmer=k,
+                                cpus=str(self.cpus),
+                                mcf=self.cutoff,
+                                mm=maskmiddle,
+                                outm=outfile)
+                    # Run the system call (if necessary)
+                    if not os.path.isfile(outfile):
+                        out, err = run_subprocess(sample[self.analysistype].revbbdukcmd)
+                        write_to_logfile(sample[self.analysistype].bbdukcmd,
+                                         sample[self.analysistype].bbdukcmd,
+                                         self.logfile, sample.general.logout, sample.general.logerr,
+                                         sample[self.analysistype].logout, sample[self.analysistype].logerr)
+                        write_to_logfile(out,
+                                         err,
+                                         self.logfile, sample.general.logout, sample.general.logerr,
+                                         sample[self.analysistype].logout, sample[self.analysistype].logerr)
+                    # Set the baitfile to use in the mapping steps as the newly created outfile
+                    sample[self.analysistype].baitfile = outfile
 
     def subsample_reads(self):
         """
         Subsampling of reads to 20X coverage of rMLST genes (roughly).
         To be called after rMLST extraction and read trimming, in that order.
         """
-        printtime('Subsampling {} reads'.format(self.analysistype), self.start, output=self.portallog)
-        for sample in self.runmetadata:
-            if sample.general.bestassemblyfile != 'NA':
-                # Create the name of the subsampled read file
-                sample[self.analysistype].subsampledreads = os.path.join(
-                    sample[self.analysistype].outputdir,
-                    '{}_targetMatches_subsampled.fastq.gz'.format(self.analysistype))
-                # Set the reformat.sh command - this command will be run multiple times, overwrite previous iterations
-                # each time. Use samplebasestarget to provide an approximation of the number of bases to include in the
-                # subsampled reads e.g. for rMLST: 700000 (approx. 35000 bp total length of genes x 20X coverage)
-                sample[self.analysistype].subsamplecmd = 'reformat.sh in={} out={} overwrite samplebasestarget=700000' \
-                    .format(sample[self.analysistype].baitedfastq,
-                            sample[self.analysistype].subsampledreads)
-                if not os.path.isfile(sample[self.analysistype].subsampledreads):
-                    # Run the call
-                    out, err = run_subprocess(sample[self.analysistype].subsamplecmd)
-                    write_to_logfile(sample[self.analysistype].subsamplecmd,
-                                     sample[self.analysistype].subsamplecmd,
-                                     self.logfile, sample.general.logout, sample.general.logerr,
-                                     sample[self.analysistype].logout, sample[self.analysistype].logerr)
-                    write_to_logfile(out,
-                                     err,
-                                     self.logfile, sample.general.logout, sample.general.logerr,
-                                     sample[self.analysistype].logout, sample[self.analysistype].logerr)
-                # Update the variable to store the baited reads
-                sample[self.analysistype].baitedfastq = sample[self.analysistype].subsampledreads
+        logging.info('Subsampling {} reads'.format(self.analysistype))
+        with progressbar(self.runmetadata) as bar:
+            for sample in bar:
+                if sample.general.bestassemblyfile != 'NA':
+                    # Create the name of the subsampled read file
+                    sample[self.analysistype].subsampledreads = os.path.join(
+                        sample[self.analysistype].outputdir,
+                        '{}_targetMatches_subsampled.fastq.gz'.format(self.analysistype))
+                    # Set the reformat.sh command. It will be run multiple times, overwrite previous iterations
+                    # each time. Use samplebasestarget to provide an approximate number of bases to include in the
+                    # subsampled reads e.g. for rMLST: 700000 (approx. 35000 bp total length of genes x 20X coverage)
+                    sample[self.analysistype].subsamplecmd = \
+                        'reformat.sh in={} out={} overwrite samplebasestarget=700000' \
+                        .format(sample[self.analysistype].baitedfastq,
+                                sample[self.analysistype].subsampledreads)
+                    if not os.path.isfile(sample[self.analysistype].subsampledreads):
+                        # Run the call
+                        out, err = run_subprocess(sample[self.analysistype].subsamplecmd)
+                        write_to_logfile(sample[self.analysistype].subsamplecmd,
+                                         sample[self.analysistype].subsamplecmd,
+                                         self.logfile, sample.general.logout, sample.general.logerr,
+                                         sample[self.analysistype].logout, sample[self.analysistype].logerr)
+                        write_to_logfile(out,
+                                         err,
+                                         self.logfile, sample.general.logout, sample.general.logerr,
+                                         sample[self.analysistype].logout, sample[self.analysistype].logerr)
+                    # Update the variable to store the baited reads
+                    sample[self.analysistype].baitedfastq = sample[self.analysistype].subsampledreads
 
     def mapping(self):
-        printtime('Performing reference mapping', self.start, output=self.portallog)
+        logging.info('Performing reference mapping')
         for i in range(len(self.runmetadata)):
             # Start threads
             threads = Thread(target=self.map, args=())
@@ -271,8 +281,8 @@ class Sippr(object):
                 samtools = [
                     # When bowtie2 maps reads to all possible locations rather than choosing a 'best' placement, the
                     # SAM header for that read is set to 'secondary alignment', or 256. Please see:
-                    # http://davetang.org/muse/2014/03/06/understanding-bam-flags/ The script below reads in the stdin
-                    # and subtracts 256 from headers which include 256
+                    # http://davetang.org/muse/2014/03/06/understanding-bam-flags/ The script below reads in
+                    # the stdin and subtracts 256 from headers which include 256
                     'python3 {}'.format(scriptlocation),
                     # Use samtools wrapper to set up the samtools view
                     SamtoolsViewCommandline(b=True,
@@ -296,8 +306,8 @@ class Sippr(object):
                 samindex = SamtoolsFaidxCommandline(reference=sample[self.analysistype].baitfile)
                 # Add the commands (as strings) to the metadata
                 sample[self.analysistype].samindex = str(samindex)
-                # Add the commands to the queue. Note that the commands would usually be set as attributes of the sample
-                # but there was an issue with their serialization when printing out the metadata
+                # Add the commands to the queue. Note that the commands would usually be set as attributes of
+                # the sample but there was an issue with their serialization when printing out the metadata
                 if not os.path.isfile(sample[self.analysistype].baitfilenoext + '.1' + self.bowtiebuildextension):
                     try:
                         stdoutbowtieindex, stderrbowtieindex = \
@@ -350,7 +360,7 @@ class Sippr(object):
             self.mapqueue.task_done()
 
     def indexing(self):
-        printtime('Indexing sorted bam files', self.start, output=self.portallog)
+        logging.info('Indexing sorted BAM files')
         for i in range(len(self.runmetadata)):
             # Send the threads to
             threads = Thread(target=self.index, args=())
@@ -385,7 +395,7 @@ class Sippr(object):
             self.indexqueue.task_done()
 
     def parsing(self):
-        printtime('Parsing sorted bam files', self.start, output=self.portallog)
+        logging.info('Loading sorted BAM files')
         for i in range(len(self.runmetadata)):
             # Send the threads to
             threads = Thread(target=self.reduce, args=())
@@ -402,7 +412,7 @@ class Sippr(object):
                             data = line.split('\t')
                             try:
                                 sample[self.analysistype].faidict[data[0]] = int(data[1])
-                            except KeyError:
+                            except (AttributeError, KeyError):
                                 sample[self.analysistype].faidict = dict()
                                 sample[self.analysistype].faidict[data[0]] = int(data[1])
                     self.parsequeue.put(sample)
@@ -545,199 +555,131 @@ class Sippr(object):
         """
         Parse the dictionaries of the sorted bam files extracted using pysam
         """
-        printtime('Parsing BAM', self.start, output=self.portallog)
-        for sample in self.runmetadata:
-            # Initialise dictionaries to store parsed data
-            matchdict = dict()
-            depthdict = dict()
-            seqdict = dict()
-            snplocationsdict = dict()
-            gaplocationsdict = dict()
-            maxdict = dict()
-            mindict = dict()
-            deviationdict = dict()
-            sample[self.analysistype].results = dict()
-            sample[self.analysistype].avgdepth = dict()
-            sample[self.analysistype].resultssnp = dict()
-            sample[self.analysistype].snplocations = dict()
-            sample[self.analysistype].resultsgap = dict()
-            sample[self.analysistype].gaplocations = dict()
-            sample[self.analysistype].sequences = dict()
-            sample[self.analysistype].maxcoverage = dict()
-            sample[self.analysistype].mincoverage = dict()
-            sample[self.analysistype].standarddev = dict()
-            # Iterate through each contig in the dictionary
-            try:
-                for contig, poslist in sorted(sample[self.analysistype].sequence.items()):
-                    # Use the record_dict dictionary with the contig as the key in order to pull out the
-                    # reference sequence
-                    refseq = self.record_dict[sample.name][contig].seq
-                    # Initialise the reference position to 0
-                    refpos = 0
-                    # Initialise dictionaries with the contig name
-                    matchdict[contig] = int()
-                    depthdict[contig] = int()
-                    seqdict[contig] = str()
-                    snplocationsdict[contig] = list()
-                    gaplocationsdict[contig] = list()
-                    maxdict[contig] = int()
-                    mindict[contig] = int()
-                    deviationdict[contig] = list()
-                    # Iterate through all the reference positions in the reference sequence
-                    for pos, baselist in poslist.items():
-                        # If the query position is equal to the reference position, proceed with the loop
-                        if pos == refpos:
-                            # Use the counter function to count the number of times each base appears in the list of
-                            # query bases
-                            counted = Counter(baselist)
-                            # Sort the bases based on how common they are in the list
-                            maxbases = counted.most_common()
-                            # Set the query base as the most common - note that this is fairly simplistic - the base
-                            # with the highest representation (or the first base in the list in case of a tie) is used
-                            querybase = maxbases[0][0]
-                            # Extract the corresponding base in the reference sequence
-                            refbase = refseq[pos]
-                            # The depth of the current position is the length of the list of bases
-                            depth = len(baselist)
-                            # Update the sequence, depth, and deviation (list of depths) dictionaries
-                            seqdict[contig] += querybase
-                            depthdict[contig] += depth
-                            deviationdict[contig].append(depth)
-                            # Set the maximum and minimum depths observed
-                            if depth > maxdict[contig]:
-                                maxdict[contig] = depth
-                            # Initialise the minimum depth dictionary here
-                            if contig not in mindict:
-                                mindict[contig] = depth
-                            if depth < mindict[contig]:
-                                mindict[contig] = depth
-                            # If the reference and query bases match, increment the number of matches
-                            if querybase == refbase:
-                                matchdict[contig] += 1
-                            # Using the NCBI 16S database, I observed that degenerate nucleotides were used. This
-                            # allows for matches to occur to these bases
-                            elif self.analysistype == 'sixteens_full' and refbase not in ['A', 'C', 'G', 'T']:
-                                # If the query base matches the corresponding IUPAC code e.g. A or G will match R,
-                                # increment the number of matches
-                                if querybase in self.iupac[refbase]:
+        logging.info('Parsing BAM')
+        with progressbar(self.runmetadata) as bar:
+            for sample in bar:
+                # Initialise dictionaries to store parsed data
+                matchdict = dict()
+                depthdict = dict()
+                seqdict = dict()
+                snplocationsdict = dict()
+                gaplocationsdict = dict()
+                maxdict = dict()
+                mindict = dict()
+                deviationdict = dict()
+                sample[self.analysistype].results = dict()
+                sample[self.analysistype].avgdepth = dict()
+                sample[self.analysistype].resultssnp = dict()
+                sample[self.analysistype].snplocations = dict()
+                sample[self.analysistype].resultsgap = dict()
+                sample[self.analysistype].gaplocations = dict()
+                sample[self.analysistype].sequences = dict()
+                sample[self.analysistype].maxcoverage = dict()
+                sample[self.analysistype].mincoverage = dict()
+                sample[self.analysistype].standarddev = dict()
+                # Iterate through each contig in the dictionary
+                try:
+                    for contig, poslist in sorted(sample[self.analysistype].sequence.items()):
+                        # Use the record_dict dictionary with the contig as the key in order to pull out the
+                        # reference sequence
+                        refseq = self.record_dict[sample.name][contig].seq
+                        # Initialise the reference position to 0
+                        refpos = 0
+                        # Initialise dictionaries with the contig name
+                        matchdict[contig] = int()
+                        depthdict[contig] = int()
+                        seqdict[contig] = str()
+                        snplocationsdict[contig] = list()
+                        gaplocationsdict[contig] = list()
+                        maxdict[contig] = int()
+                        mindict[contig] = int()
+                        deviationdict[contig] = list()
+                        # Iterate through all the reference positions in the reference sequence
+                        for pos, baselist in poslist.items():
+                            # If the query position is equal to the reference position, proceed with the loop
+                            if pos == refpos:
+                                # Use the counter function to count the number of times each base appears in the list of
+                                # query bases
+                                counted = Counter(baselist)
+                                # Sort the bases based on how common they are in the list
+                                maxbases = counted.most_common()
+                                # Set the query base as the most common - note that this is fairly simplistic - the base
+                                # with the highest representation (or the first base in case of a tie) is used
+                                querybase = maxbases[0][0]
+                                # Extract the corresponding base in the reference sequence
+                                refbase = refseq[pos]
+                                # The depth of the current position is the length of the list of bases
+                                depth = len(baselist)
+                                # Update the sequence, depth, and deviation (list of depths) dictionaries
+                                seqdict[contig] += querybase
+                                depthdict[contig] += depth
+                                deviationdict[contig].append(depth)
+                                # Set the maximum and minimum depths observed
+                                if depth > maxdict[contig]:
+                                    maxdict[contig] = depth
+                                # Initialise the minimum depth dictionary here
+                                if contig not in mindict:
+                                    mindict[contig] = depth
+                                if depth < mindict[contig]:
+                                    mindict[contig] = depth
+                                # If the reference and query bases match, increment the number of matches
+                                if querybase == refbase:
                                     matchdict[contig] += 1
-                                # Otherwise treat the base as a mismatch, and add the base position to the list of
-                                # SNPs
+                                # Using the NCBI 16S database, I observed that degenerate nucleotides were used. This
+                                # allows for matches to occur to these bases
+                                elif self.analysistype == 'sixteens_full' and refbase not in ['A', 'C', 'G', 'T']:
+                                    # If the query base matches the corresponding IUPAC code e.g. A or G will match R,
+                                    # increment the number of matches
+                                    if querybase in self.iupac[refbase]:
+                                        matchdict[contig] += 1
+                                    # Otherwise treat the base as a mismatch, and add the base position to the list of
+                                    # SNPs
+                                    else:
+                                        snplocationsdict[contig].append(pos)
+                                # If the reference and query bases don't match there could be a couple of reasons
                                 else:
-                                    snplocationsdict[contig].append(pos)
-                            # If the reference and query bases don't match there could be a couple of reasons for this
+                                    # If the bases simply don't match, add the position to the list of SNPs
+                                    if querybase != '-':
+                                        snplocationsdict[contig].append(pos)
+                                    # However, if the query base is a gap (-), add the position to the dictionary of gap
+                                    # locations
+                                    else:
+                                        gaplocationsdict[contig].append(pos)
+                            # If the reference position does not equal the query position, assume a gap
                             else:
-                                # If the bases simply don't match, add the position to the list of SNPs
-                                if querybase != '-':
-                                    snplocationsdict[contig].append(pos)
-                                # However, if the query base is a gap (-), add the position to the dictionary of gap
-                                # locations
-                                else:
-                                    gaplocationsdict[contig].append(pos)
-                        # If the reference position does not equal the query position, assume a gap
-                        else:
-                            # Add the location of the gap to the dictionary
-                            gaplocationsdict[contig].append(pos)
-                        # Increment the reference position
-                        refpos += 1
-            except KeyError:
-                pass
-            # Iterate through all the results, and filter out sequences that do not meet the depth and/or the sequence
-            # identity thresholds
-            for allele in seqdict:
-                # If the length of the match is greater or equal to the length of the gene/allele (multiplied by the
-                # cutoff value) as determined using faidx indexing, then proceed
-                if matchdict[allele] >= sample[self.analysistype].faidict[allele] * self.cutoff:
-                    # Calculate the average depth by dividing the total number of reads observed by the
-                    # length of the gene
-                    averagedepth = float(depthdict[allele]) / float(matchdict[allele])
-                    percentidentity = float(matchdict[allele]) / float(sample[self.analysistype].faidict[allele]) * 100
-                    # Only report a positive result if this average depth is greater than the desired average depth
-                    # and if the percent identity is greater or equal to the cutoff
-                    if averagedepth > self.averagedepth and percentidentity >= float(self.cutoff * 100):
-                        # Populate resultsdict with the gene/allele name, the percent identity, and the average depth
-                        sample[self.analysistype].results.update({allele: '{:.2f}'.format(percentidentity)})
-                        sample[self.analysistype].avgdepth.update({allele: '{:.2f}'.format(averagedepth)})
-                        # Add the results to dictionaries
-                        sample[self.analysistype].resultssnp.update({allele: len(snplocationsdict[allele])})
-                        sample[self.analysistype].snplocations.update({allele: snplocationsdict[allele]})
-                        sample[self.analysistype].resultsgap.update({allele: len(gaplocationsdict[allele])})
-                        sample[self.analysistype].gaplocations.update({allele: gaplocationsdict[allele]})
-                        sample[self.analysistype].sequences.update({allele: seqdict[allele]})
-                        sample[self.analysistype].maxcoverage.update({allele: maxdict[allele]})
-                        sample[self.analysistype].mincoverage.update({allele: mindict[allele]})
-                        sample[self.analysistype] \
-                            .standarddev.update({allele: '{:.2f}'.format(numpy.std(deviationdict[allele], ddof=1))})
-
-    def clear(self):
-        """
-        Clear out large attributes - they are a pain to print to, load from, or view in the .json file
-        """
-        for sample in self.runmetadata:
-            try:
-                delattr(sample[self.analysistype], 'allelenames')
-            except KeyError:
-                pass
-            try:
-                delattr(sample[self.analysistype], 'alleles')
-            except KeyError:
-                pass
-            try:
-                delattr(sample[self.analysistype], 'averagedepth')
-            except KeyError:
-                pass
-            try:
-                delattr(sample[self.analysistype], 'avgdepth')
-            except KeyError:
-                pass
-            try:
-                delattr(sample[self.analysistype], 'faidict')
-            except KeyError:
-                pass
-            try:
-                delattr(sample[self.analysistype], 'gaplocations')
-            except KeyError:
-                pass
-            try:
-                delattr(sample[self.analysistype], 'maxcoverage')
-            except KeyError:
-                pass
-            try:
-                delattr(sample[self.analysistype], 'mincoverage')
-            except KeyError:
-                pass
-            try:
-                delattr(sample[self.analysistype], 'profiledata')
-            except KeyError:
-                pass
-            try:
-                delattr(sample[self.analysistype], 'resultsgap')
-            except KeyError:
-                pass
-            try:
-                delattr(sample[self.analysistype], 'resultssnp')
-            except KeyError:
-                pass
-            try:
-                delattr(sample[self.analysistype], 'sequences')
-            except KeyError:
-                pass
-            try:
-                delattr(sample[self.analysistype], 'sequence')
-            except KeyError:
-                pass
-            try:
-                delattr(sample[self.analysistype], 'snplocations')
-            except KeyError:
-                pass
-            try:
-                delattr(sample[self.analysistype], 'standarddev')
-            except KeyError:
-                pass
-            try:
-                delattr(sample[self.analysistype], 'totaldepth')
-            except KeyError:
-                pass
+                                # Add the location of the gap to the dictionary
+                                gaplocationsdict[contig].append(pos)
+                            # Increment the reference position
+                            refpos += 1
+                except (AttributeError, KeyError):
+                    pass
+                # Iterate through all the results, and filter out sequences that do not meet the depth and/or
+                # the sequence identity thresholds
+                for allele in seqdict:
+                    # If the length of the match is greater or equal to the length of the gene/allele (multiplied by the
+                    # cutoff value) as determined using faidx indexing, then proceed
+                    if matchdict[allele] >= sample[self.analysistype].faidict[allele] * self.cutoff:
+                        # Calculate the average depth by dividing the total number of reads observed by the
+                        # length of the gene
+                        averagedepth = float(depthdict[allele]) / float(matchdict[allele])
+                        percentidentity = \
+                            float(matchdict[allele]) / float(sample[self.analysistype].faidict[allele]) * 100
+                        # Only report a positive result if this average depth is greater than the desired average depth
+                        # and if the percent identity is greater or equal to the cutoff
+                        if averagedepth > self.averagedepth and percentidentity >= float(self.cutoff * 100):
+                            # Populate resultsdict with the gene/allele name, the percent identity, and the avg depth
+                            sample[self.analysistype].results.update({allele: '{:.2f}'.format(percentidentity)})
+                            sample[self.analysistype].avgdepth.update({allele: '{:.2f}'.format(averagedepth)})
+                            # Add the results to dictionaries
+                            sample[self.analysistype].resultssnp.update({allele: len(snplocationsdict[allele])})
+                            sample[self.analysistype].snplocations.update({allele: snplocationsdict[allele]})
+                            sample[self.analysistype].resultsgap.update({allele: len(gaplocationsdict[allele])})
+                            sample[self.analysistype].gaplocations.update({allele: gaplocationsdict[allele]})
+                            sample[self.analysistype].sequences.update({allele: seqdict[allele]})
+                            sample[self.analysistype].maxcoverage.update({allele: maxdict[allele]})
+                            sample[self.analysistype].mincoverage.update({allele: mindict[allele]})
+                            sample[self.analysistype] \
+                                .standarddev.update({allele: '{:.2f}'.format(numpy.std(deviationdict[allele], ddof=1))})
 
     def clipper(self):
         """
@@ -776,17 +718,17 @@ class Sippr(object):
                             pass
                     # Update the .results attribute with the filtered dictionary
                     sample[self.analysistype].results = replacementresults
-            except KeyError:
+            except AttributeError:
                 pass
         # Remove the features attribute - it takes up a lot of room in the .json file
         for sample in self.runmetadata:
             try:
                 delattr(sample[self.analysistype], 'features')
-            except KeyError:
+            except AttributeError:
                 pass
 
     # noinspection PyDefaultArgument
-    def __init__(self, inputobject, cutoff=0.98, averagedepth=10):
+    def __init__(self, inputobject, cutoff=0.98, averagedepth=2):
         self.path = inputobject.path
         self.sequencepath = inputobject.sequencepath
         self.targetpath = inputobject.targetpath
