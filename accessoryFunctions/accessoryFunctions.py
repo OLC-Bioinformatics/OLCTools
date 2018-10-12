@@ -619,6 +619,10 @@ class MetadataObject(object):
     def __init__(self):
         """Create datastore attr with empty dict"""
         super(MetadataObject, self).__setattr__('datastore', {})
+        self.unwanted_keys = ['allelenames', 'alleles', 'faidict', 'gaplocations', 'maxcoverage',
+                              'mincoverage', 'profiledata', 'resultsgap', 'averagedepth', 'avgdepth',
+                              'resultssnp', 'sequences', 'sequence', 'snplocations', 'standarddev',
+                              'totaldepth']
 
     def __getattr__(self, key):
         """:key is retrieved from datastore if exists, for nested attr recursively :self.__setattr__"""
@@ -706,7 +710,8 @@ class MetadataObject(object):
             # Non-GenObjects can (usually) be added to the metadata dictionary without issues
             else:
                 try:
-                    metadata[attr][key] = value
+                    if key not in self.unwanted_keys:
+                        metadata[attr][key] = value
                 except AttributeError:
                     print('dumperror', attr)
         # Return the metadata
