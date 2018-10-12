@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
-from accessoryFunctions.accessoryFunctions import GenObject, make_path, MetadataObject, printtime
+from accessoryFunctions.accessoryFunctions import GenObject, make_path, MetadataObject
 from Bio import SeqIO, Seq
 from argparse import ArgumentParser
+from click import progressbar
 from itertools import product
 from threading import Thread
 from subprocess import call
 from queue import Queue
 from glob import glob
 from time import time
+import logging
 import os
 
 __author__ = 'adamkoziol'
@@ -28,7 +30,7 @@ class Vtyper(object):
         Read in the primer file, and create a properly formatted output file that takes any degenerate bases
         into account
         """
-        printtime('Populating primer dictionaries', self.start)
+        logging.info('Populating primer dictionaries')
         for record in SeqIO.parse(self.primerfile, 'fasta'):
             # from https://stackoverflow.com/a/27552377 - find any degenerate bases in the primer sequence, and
             # create all possibilities as a list
@@ -62,7 +64,7 @@ class Vtyper(object):
         """
         Create the ePCR-compatible primer file from the dictionaries of primer combinations
         """
-        printtime('Creating re-PCR-compatible primer file', self.start)
+        logging.info('Creating re-PCR-compatible primer file')
         with open(self.formattedprimers, 'w') as formatted:
             # Iterate through all the targets
             for basename in sorted(self.forward_dict):
@@ -92,7 +94,7 @@ class Vtyper(object):
                 threads = Thread(target=self.epcr, args=())
                 threads.setDaemon(True)
                 threads.start()
-        printtime('Running ePCR analyses', self.start)
+        logging.info('Running ePCR analyses')
         for sample in self.metadata:
             if sample.general.bestassemblyfile != 'NA':
                 setattr(sample, self.analysistype, GenObject())
@@ -154,7 +156,7 @@ class Vtyper(object):
         """
         Parse the ePCR outputs
         """
-        printtime('Parsing ePCR outputs', self.start)
+        logging.info('Parsing ePCR outputs')
         for sample in self.metadata:
             if sample.general.bestassemblyfile != 'NA':
                 # Create a set to store all the unique results
@@ -180,7 +182,7 @@ class Vtyper(object):
         """
         Create a report of the ePCR-calculated toxin profiles
         """
-        printtime('Creating {at} report'.format(at=self.analysistype), self.start)
+        logging.info('Creating {at} report'.format(at=self.analysistype))
         with open(os.path.join(self.reportpath, '{at}.csv'.format(at=self.analysistype)), 'w') as report:
             data = 'Strain,ToxinProfile\n'
             for sample in self.metadata:
