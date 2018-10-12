@@ -1,10 +1,13 @@
-#!/usr/bin/env python
-import threading
+#!/usr/bin/env python3
+from accessoryFunctions.accessoryFunctions import GenObject, make_path, MetadataObject, \
+    run_subprocess, SetupLogging, write_to_logfile
+import accessoryFunctions.metadataprinter as metadataprinter
+from click import progressbar
 from threading import Thread
-from accessoryFunctions.accessoryFunctions import printtime, MetadataObject, GenObject, make_path, \
-    run_subprocess, write_to_logfile
+import threading
+import logging
 import os
-from spadespipeline import metadataprinter
+
 __author__ = 'adamkoziol'
 
 
@@ -12,7 +15,7 @@ class Vtyper(object):
 
     def vtyper(self):
         """Setup and create  threads for ePCR"""
-        printtime('Running ePCR', self.start)
+        logging.info('Running ePCR')
         # Create the threads for the BLAST analysis
         for sample in self.metadata:
             if sample.general.bestassemblyfile != 'NA':
@@ -20,37 +23,39 @@ class Vtyper(object):
                 threads.setDaemon(True)
                 threads.start()
         # Create the system calls for famap, fahash, and ePCR
-        for sample in self.metadata:
-            if sample.general.bestassemblyfile != 'NA':
-                if 'stx' in sample.general.datastore:
-                    setattr(sample, self.analysistype, GenObject())
-                    # Get the primers ready
-                    if self.reffilepath:
-                        sample[self.analysistype].primers = '{}{}/vtx_subtyping_primers.txt'\
-                            .format(self.reffilepath, self.analysistype)
-                    else:
-                        sample[self.analysistype].primers = self.primerfile
-                    # Make the output path
-                    sample[self.analysistype].reportdir = '{}/{}/'.format(sample.general.outputdirectory,
-                                                                          self.analysistype)
-                    make_path(sample[self.analysistype].reportdir)
-                    outfile = sample[self.analysistype].reportdir + sample.name
-                    # Set the hashing and mapping commands
-                    sample.commands.famap = 'famap -b {}.famap {}.fasta'.format(outfile, sample.general.filenoext)
-                    sample.commands.fahash = 'fahash -b {}.hash {}.famap'.format(outfile, outfile)
-                    # re-PCR uses the subtyping primers list to search the contigs file using the following parameters
-                    # -S {hash file} (Perform STS lookup using hash-file),
-                    # -r + (Enable/disable reverse STS lookup)
-                    # -m 10000 (Set variability for STS size for lookup),
-                    # -n 1 (Set max allowed mismatches per primer for lookup)
-                    # -g 0 (Set max allowed indels per primer for lookup),
-                    # -G (Print alignments in comments),
-                    # -q quiet
-                    # -o {output file},
-                    sample.commands.epcr = 're-PCR -S {}.hash -r + -m 10000 -n 1 -g 0 -G -q -o {}.txt {}'\
-                        .format(outfile, outfile, sample[self.analysistype].primers)
-                    sample[self.analysistype].resultsfile = '{}.txt'.format(outfile)
-                    self.epcrqueue.put((sample, outfile))
+        with progressbar(self.metadata) as bar:
+            for sample in bar:
+                if sample.general.bestassemblyfile != 'NA':
+                    if 'stx' in sample.general.datastore:
+                        setattr(sample, self.analysistype, GenObject())
+                        # Get the primers ready
+                        if self.reffilepath:
+                            sample[self.analysistype].primers = os.path.join(self.reffilepath,
+                                                                             self.analysistype,
+                                                                             'vtx_subtyping_primers.txt')
+                        else:
+                            sample[self.analysistype].primers = self.primerfile
+                        # Make the output path
+                        sample[self.analysistype].reportdir = os.path.join(sample.general.outputdirectory,
+                                                                           self.analysistype)
+                        make_path(sample[self.analysistype].reportdir)
+                        outfile = sample[self.analysistype].reportdir + sample.name
+                        # Set the hashing and mapping commands
+                        sample.commands.famap = 'famap -b {}.famap {}.fasta'.format(outfile, sample.general.filenoext)
+                        sample.commands.fahash = 'fahash -b {}.hash {}.famap'.format(outfile, outfile)
+                        # re-PCR uses the subtyping primers list to search the file with the following parameters
+                        # -S {hash file} (Perform STS lookup using hash-file),
+                        # -r + (Enable/disable reverse STS lookup)
+                        # -m 10000 (Set variability for STS size for lookup),
+                        # -n 1 (Set max allowed mismatches per primer for lookup)
+                        # -g 0 (Set max allowed indels per primer for lookup),
+                        # -G (Print alignments in comments),
+                        # -q quiet
+                        # -o {output file},
+                        sample.commands.epcr = 're-PCR -S {}.hash -r + -m 10000 -n 1 -g 0 -G -q -o {}.txt {}'\
+                            .format(outfile, outfile, sample[self.analysistype].primers)
+                        sample[self.analysistype].resultsfile = '{}.txt'.format(outfile)
+                        self.epcrqueue.put((sample, outfile))
         self.epcrqueue.join()
         self.epcrparse()
 
@@ -92,7 +97,7 @@ class Vtyper(object):
         """
         Parse the ePCR text file outputs
         """
-        printtime('Parsing ePCR results', self.start)
+        logging.info('Parsing ePCR results')
         for sample in self.metadata:
             if sample.general.bestassemblyfile != 'NA':
                 if 'stx' in sample.general.datastore:
@@ -153,7 +158,7 @@ if __name__ == '__main__':
             Set up the metadata object to be passed to Vtyper()
             """
             from glob import glob
-            files = sorted(glob('{}*.fasta'.format(self.sequencepath)))
+            files = sorted(glob(os.path.join(self.sequencepath, '*.fasta')))
             samples = list()
             # Create the metadata for each file
             for fasta in files:
@@ -175,14 +180,14 @@ if __name__ == '__main__':
             """
             Create a report of the results
             """
-            printtime('Writing report', self.starttime)
+            logging.info('Writing report')
             data = 'Strain,Profile\n'
             for sample in self.runmetadata.samples:
                 # Only add to the string if there are results
                 if sample[self.analysistype].toxinprofile:
                     data += '{},{}\n'.format(sample.name, sample[self.analysistype].toxinprofile)
             # Create the report, and write to it
-            with open('{}/{}.csv'.format(self.reportpath, self.analysistype), 'wb') as report:
+            with open(os.path.join(self.reportpath, '{}.csv'.format(self.analysistype)), 'w') as report:
                 report.write(data)
 
         def __init__(self):
@@ -202,6 +207,7 @@ if __name__ == '__main__':
             parser.add_argument('-f', '--primerfile',
                                 required=True,
                                 help='The name and path of the file containing the primers')
+            SetupLogging()
             # Get the arguments into an object
             arguments = parser.parse_args()
             self.starttime = time()
@@ -223,9 +229,6 @@ if __name__ == '__main__':
             # Create a report
             self.reporter()
             # Print the metadata to file
-            printtime('Printing metadata to file', self.starttime)
+            logging.info('Printing metadata to file')
             metadataprinter.MetadataPrinter(self)
-            # Print a bold, green exit statement
-            print(u'\033[92m' + u'\033[1m' + u'\nElapsed Time: %0.2f seconds' % (time() - self.starttime) + u'\033[0m')
-
     Setup()
