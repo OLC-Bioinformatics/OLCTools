@@ -145,7 +145,7 @@ def main(args):
                           'Salmonella': 'Salmonella enterica'}
     # Set the appropriate profile based on the dictionary key:value pairs
     try:
-        args.genus = organismdictionary[args.species]
+        args.genus = organismdictionary[args.genus]
     except (KeyError, AttributeError):
         pass
     with url.urlopen(args.repository_url) as docfile:
