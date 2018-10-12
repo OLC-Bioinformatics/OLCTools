@@ -7,8 +7,10 @@ import urllib.request
 from glob import glob
 import logging
 import tarfile
+import zipfile
 import shutil
 import click
+import gzip
 import os
 __author__ = 'adamkoziol'
 
@@ -19,25 +21,17 @@ class DatabaseSetup(object):
         """
         Run the methods
         """
+        logging.info('Beginning database downloads')
         if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'genesippr')):
-            self.custom_databases(databasepath=self.databasepath,
-                                  database_name='sipprverse',
-                                  download_id='13143830')
+            self.sipprverse_targets(databasepath=self.databasepath)
         if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'coregenome')):
-            self.custom_databases(databasepath=self.databasepath,
-                                  database_name='COWBAT',
-                                  download_id='13152896')
+            self.cowbat_targets(databasepath=self.databasepath)
         if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'ConFindr')):
-            self.custom_databases(databasepath=self.databasepath,
-                                  database_name='ConFindr',
-                                  download_id='11864267',
-                                  nested=True)
+            self.confindr_targets(databasepath=self.databasepath)
         if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'plasmidextractor')):
-            self.custom_databases(databasepath=self.databasepath,
-                                  database_name='plasmidextractor',
-                                  download_id='9827323',
-                                  nested=True,
-                                  complete=True)
+            self.plasmidextractor_targets(databasepath=self.databasepath)
+        # if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'mobrecon')):
+        #     self.mob_suite_targets(databasepath=self.databasepath)
         if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'mash')):
             self.mash(databasepath=self.databasepath)
         if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'MLST')):
@@ -66,6 +60,75 @@ class DatabaseSetup(object):
         if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'clark')):
             self.clark(databasepath=self.databasepath)
 
+    def sipprverse_targets(self, databasepath, database_name='sipprverse', download_id='13216553'):
+        """
+        Download OLC-specific sipprverse targets
+        :param databasepath: path to use to save the database
+        :param database_name: name of current database
+        :param download_id: figshare identifier of .tar.gz file
+        """
+        self.custom_databases(databasepath=databasepath,
+                              database_name=database_name,
+                              download_id=download_id)
+
+    def cowbat_targets(self, databasepath, database_name='COWBAT', download_id='13197437'):
+        """
+        Download OLC-specific COWBAT targets
+        :param databasepath: path to use to save the database
+        :param database_name: name of current database
+        :param download_id: figshare identifier of .tar.gz file
+        """
+        self.custom_databases(databasepath=databasepath,
+                              database_name=database_name,
+                              download_id=download_id)
+
+    def confindr_targets(self, databasepath, database_name='ConFindr', download_id='11864267'):
+        """
+        Download OLC-specific ConFindr targets
+        :param databasepath: path to use to save the database
+        :param database_name: name of current database
+        :param download_id: figshare identifier of .tar.gz file
+        """
+        self.custom_databases(databasepath=databasepath,
+                              database_name=database_name,
+                              download_id=download_id,
+                              nested=True)
+
+    def plasmidextractor_targets(self, databasepath, database_name='plasmidextractor', download_id='9827323'):
+        """
+        Download OLC-specific PlasmidExtractor targets
+        :param databasepath: path to use to save the database
+        :param database_name: name of current database
+        :param download_id: figshare identifier of .tar.gz file
+        """
+        self.custom_databases(databasepath=databasepath,
+                              database_name=database_name,
+                              download_id=download_id,
+                              nested=True,
+                              complete=True)
+
+    def mob_suite_targets(self, databasepath, database_name='mob_suite', download_id='5841882'):
+        """
+        Download MOB-suite databases
+        :param databasepath: path to use to save the database
+        :param database_name: name of current database
+        :param download_id: figshare identifier of .tar.gz file
+        """
+
+        self.custom_databases(databasepath=databasepath,
+                              database_name=database_name,
+                              download_id=download_id,
+                              f_type='articles',
+                              post_id='versions/1',
+                              compression='zip',
+                              nested=True)
+        # Decompress the MOB-suite databases
+        for gz_file in glob(os.path.join(self.databasepath, database_name, '*.gz')):
+            self.decompress(databasepath=databasepath,
+                            database_name=database_name,
+                            compression='gz',
+                            compressed_file=gz_file)
+
     @staticmethod
     def mlst(databasepath, genera=('Escherichia', 'Vibrio', 'Campylobacter', 'Listeria',
                                    'Bacillus', 'Staphylococcus', 'Salmonella')):
@@ -79,7 +142,7 @@ class DatabaseSetup(object):
             # Create an object to pass to the get_mlst script
             args = MetadataObject()
             # Populate the object with the necessary attributes
-            args.species = genus
+            args.genus = genus
             args.repository_url = 'http://pubmlst.org/data/dbases.xml'
             args.force_scheme_name = False
             args.path = os.path.join(databasepath, 'MLST', genus)
@@ -208,12 +271,17 @@ class DatabaseSetup(object):
                     # Update the progress bar
                     bar.update(len(data))
 
-    def custom_databases(self, databasepath, database_name, download_id, nested=False, complete=False):
+    def custom_databases(self, databasepath, database_name, download_id, f_type='files', post_id=None,
+                         compression='tar', nested=False, complete=False):
         """
         Download and extract a .tar.gz file from figshare
         :param databasepath: Name and path of where the database files are to be downloaded
         :param database_name: Name of the database e.g. sipprverse
         :param download_id: Figshare ID of the targets file
+        :param f_type: STR MOB-suite databases have the 'articles' keyword in the figshare URL, while OLC databases
+        all have the 'files' keyword
+        :param post_id: STR MOB-suite databases have 'versions/1' appended at the end of the figshare URL.
+        :param compression: STR MOB-suite databases are .zip files, while OLC databases are .tar.gz
         :param nested: Boolean of whether the targets file has nested folders that must be accounted for
         :param complete: Boolean of whether the completefile should be completed
         """
@@ -228,22 +296,53 @@ class DatabaseSetup(object):
         # Set the name of the targets file
         tar_file = os.path.join(databasepath, download_id)
         # Create the target download call
-        target_url = 'https://ndownloader.figshare.com/files/{id}'.format(id=download_id)
+        target_url = 'https://ndownloader.figshare.com/{type}/{id}/{post}'.format(type=f_type,
+                                                                                  id=download_id,
+                                                                                  post=post_id)
         if not os.path.isfile(completefile):
             self.url_request(target_url=target_url,
                              output_file=tar_file)
-        # Extract the databases from the archives
-        logging.info('Extracting {dbname} database from archives'.format(dbname=database_name))
-        if os.path.isfile(tar_file):
-            with tarfile.open(tar_file, 'r') as tar:
-                # Decompress the archive
-                tar.extractall(path=databasepath)
-            # Delete the archive file
-            os.remove(tar_file)
+        # Decompress the file
+        self.decompress(databasepath=databasepath,
+                        database_name=database_name,
+                        compression=compression,
+                        compressed_file=tar_file)
         # Create the completefile
         if complete:
             with open(completefile, 'w') as complete:
                 complete.write('')
+
+    @staticmethod
+    def decompress(databasepath, database_name, compression, compressed_file):
+        """
+        Decompress the provided file using the appropriate library
+        :param databasepath: Name and path of where the database files are to be downloaded
+        :param database_name: Name of the database e.g. sipprverse
+        :param compression: STR MOB-suite databases are .zip files, while OLC databases are .tar.gz
+        :param compressed_file: Compressed file to process
+        """
+        # Extract the databases from the archives
+        if os.path.isfile(compressed_file):
+            if compression == 'tar':
+                logging.info('Extracting {dbname} from archives'.format(dbname=database_name))
+                with tarfile.open(compressed_file, 'r') as tar:
+                    # Decompress the archive
+                    tar.extractall(path=databasepath)
+            elif compression == 'gz':
+                with gzip.open(compressed_file, 'rb') as gz:
+                    file_name = os.path.basename(os.path.splitext(compressed_file)[0])
+                    output_file = os.path.join(databasepath,
+                                               database_name,
+                                               file_name)
+                    logging.info('Extracting {file_name} from archives'.format(file_name=file_name))
+                    with open(output_file, 'wb') as output:
+                        shutil.copyfileobj(gz, output)
+            else:
+                logging.info('Extracting {dbname} from archives'.format(dbname=database_name))
+                with zipfile.ZipFile(compressed_file, 'r') as zip_file:
+                    zip_file.extractall(path=databasepath)
+            # Delete the archive file
+            os.remove(compressed_file)
 
     def cge_db_downloader(self,  databasepath, analysistype, dbname, extension_in='fsa', extension_out='tfa'):
         """
