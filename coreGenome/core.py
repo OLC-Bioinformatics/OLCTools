@@ -1,10 +1,11 @@
 #!/usr/bin/env python
-from accessoryFunctions.accessoryFunctions import MetadataObject, printtime
-from geneseekr.geneseekr import BLAST
+from accessoryFunctions.accessoryFunctions import MetadataObject
+from geneseekr.blast import BLAST
 from Bio import SeqIO
 from csv import DictReader
 from glob import glob
 import operator
+import logging
 import os
 
 __author__ = 'adamkoziol'
@@ -22,16 +23,19 @@ class CoreGenome(BLAST):
     @staticmethod
     def parser(metadata, analysistype, fieldnames, cutoff, program):
         for sample in metadata:
+            # Initialise a dictionary attribute to store results
+            sample[analysistype].blastresults = dict()
             try:
                 # Open the sequence profile file as a dictionary
                 blastdict = DictReader(open(sample[analysistype].report), fieldnames=fieldnames, dialect='excel-tab')
                 resultdict = dict()
+                resultset = dict()
                 # Initialise a dictionary to store all the target sequences
                 sample[analysistype].targetsequence = dict()
                 coregenomes = list()
                 # A set to store the number of core genes
                 coregenes = set()
-                # Create a list of all the names of the database files - glob, replace - with _, remove path and extension
+                # Create a list of all the names of the database files, replace - with _, remove path and extension
                 for fasta in sample[analysistype].targets:
                     fastaname = os.path.basename(os.path.splitext(fasta)[0]).replace('-', '_')
                     fastaname = fastaname.split('.')[0]
@@ -58,24 +62,25 @@ class CoreGenome(BLAST):
                         underscored = '_'.join(target.split('_')[:-1]) if len(target.split('_')) > 2 else \
                             target.split('_')[0]
                         try:
-                            # Since the number of core genes is the same for each reference strain,
-                            # only need to determine it once
-                            if underscored == sorted(coregenomes)[0]:
-                                coregenes.add(target)
-                            # Update the dictionary with the target and the number of hits
-                            resultdict[underscored] += 1
-                        except (KeyError, IndexError):
-                            pass
-                        # Sort the dictionary on the number of hits - best at the top
-                    topcore = sorted(resultdict.items(), key=operator.itemgetter(1), reverse=True)
-                    # Initialise a dictionary attribute to store results
-                    sample[analysistype].blastresults = dict()
-                    # If there are no results, populate negative results
-                    if not resultdict:
-                        sample[analysistype].blastresults = 'NA'
-                    # If results, add a string of the best number of hits, and a string of the total number of genes
-                    else:
-                        sample[analysistype].blastresults[topcore[0][0]] = (str(topcore[0][1]), str(len(coregenes)))
+                            # Update the dictionary with the reference genome and the target
+                            resultset[underscored].add(target)
+                        except KeyError:
+                            # Initialise the dictionary with the first hit
+                            resultset[underscored] = set()
+                            resultset[underscored].add(target)
+                # Get the number of unique genes per reference genome
+                for underscored, target_set in resultset.items():
+                    resultdict[underscored] = len(target_set)
+                # Sort the dictionary on the number of hits - best at the top
+                topcore = sorted(resultdict.items(), key=operator.itemgetter(1), reverse=True)
+                # If there are no results, populate negative results
+                if not resultdict:
+                    sample[analysistype].blastresults = 'NA'
+                # If results, add a string of the best number of hits, and a string of the total number of genes
+                # This is currently 1013. If this changes, I may re-implement a dynamic method of determining
+                # this value
+                else:
+                    sample[analysistype].blastresults[topcore[0][0]] = (str(topcore[0][1]), str(1013))
             except FileNotFoundError:
                 sample[analysistype].blastresults = 'NA'
         return metadata
@@ -142,7 +147,9 @@ class AnnotatedCore(object):
         """
         Calculates the core genome of organisms using custom databases
         """
-        printtime('Calculating annotated core', self.start)
+        logging.info('Calculating annotated core')
+        # Determine the total number of core genes
+        self.total_core()
         # Iterate through all the samples, and process all Escherichia
         for sample in self.metadata:
             if sample.general.bestassemblyfile != 'NA':
@@ -160,6 +167,16 @@ class AnnotatedCore(object):
         # Create the report
         self.reporter()
 
+    def total_core(self):
+        """
+        Determine the total number of core genes present
+        """
+        corefile = os.path.join(self.reffilepath, self.analysistype, 'Escherichia', 'core_combined.fasta')
+        for record in SeqIO.parse(corefile, 'fasta'):
+            gene_name = record.id.split('-')[0]
+            if gene_name not in self.coregenomes:
+                self.coregenomes.append(gene_name)
+
     def blastparser(self, report, sample):
         """
         Parse the number of core genes present in the strain from the BLAST outputs
@@ -169,12 +186,6 @@ class AnnotatedCore(object):
         try:
             # Open the sequence profile file as a dictionary
             blastdict = DictReader(open(report), fieldnames=self.fieldnames, dialect='excel-tab')
-            # Create a list of all the names of the database files - glob, remove path and extension
-            self.coregenomes = list(map(lambda x: os.path.basename(x).split('.')[0],
-                                        glob(os.path.join(self.reffilepath,
-                                                          self.analysistype,
-                                                          sample.general.referencegenus,
-                                                          '*.tfa'))))
             # Go through each BLAST result
             for row in blastdict:
                 # Calculate the percent identity and extract the bitscore from the row
@@ -208,11 +219,11 @@ class AnnotatedCore(object):
             # Remove the messy blast results and set/list of core genes from the object
             try:
                 delattr(sample[self.analysistype], "blastresults")
-            except KeyError:
+            except AttributeError:
                 pass
             try:
                 delattr(sample[self.analysistype], 'coreset')
-            except KeyError:
+            except AttributeError:
                 pass
 
     def __init__(self, inputobject, genus_specific=False):

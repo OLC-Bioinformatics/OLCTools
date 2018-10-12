@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 from accessoryFunctions.accessoryFunctions import GenObject, make_path, MetadataObject, printtime, run_subprocess, \
     write_to_logfile
-import spadespipeline.metadataprinter as metadataprinter
+import accessoryFunctions.metadataprinter as metadataprinter
 import spadespipeline.createobject as createobject
 from Bio.SeqRecord import SeqRecord
 from Bio.Seq import Seq
