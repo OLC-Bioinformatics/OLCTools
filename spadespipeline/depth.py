@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 from accessoryFunctions.accessoryFunctions import make_path, run_subprocess, write_to_logfile, logstr, GenObject, \
-    printtime, get_version, MetadataObject
+    get_version, MetadataObject
 from spadespipeline.bowtie import Bowtie2BuildCommandLine, Bowtie2CommandLine
 from Bio.Sequencing.Applications import SamtoolsViewCommandline, SamtoolsSortCommandline, SamtoolsIndexCommandline
 from Bio.Application import ApplicationError
 from Bio import SeqIO
 from threading import Lock, Thread
+from click import progressbar
 from io import StringIO
 from glob import glob
 import threading
+import logging
 import shutil
 import os
 import re
@@ -22,7 +24,7 @@ class QualiMap(object):
         """
         Run the methods in the correct order
         """
-        printtime('Aligning reads with bowtie2 for Qualimap', self.start)
+        logging.info('Aligning reads with bowtie2 for Qualimap')
         self.bowtie()
         self.indexing()
         self.pilon()
@@ -40,57 +42,59 @@ class QualiMap(object):
             threads.setDaemon(True)
             # Start the threading
             threads.start()
-        for sample in self.metadata:
-            # Initialise the mapping GenObject
-            sample.mapping = GenObject()
-            # Set an easier to write shortcut for sample.general
-            sagen = sample.general
-            if sagen.bestassemblyfile != "NA":
-                sagen.QualimapResults = os.path.join(sagen.outputdirectory, 'qualimap_results')
-                # Set the results folder
-                # Create this results folder if necessary
-                make_path(sagen.QualimapResults)
-                # Set file names
-                sagen.sortedbam = os.path.join(sagen.QualimapResults, '{}_sorted.bam'.format(sample.name))
-                filenoext = os.path.splitext(sagen.filteredfile)[0]
-                sagen.filenoext = filenoext
-                sagen.bowtie2results = os.path.join(sagen.QualimapResults, sample.name)
-                # Use fancy new bowtie2 wrapper
-                bowtie2build = Bowtie2BuildCommandLine(reference=sagen.bestassemblyfile,
-                                                       bt2=sagen.bowtie2results)
-                sample.mapping.BamFile = sagen.bowtie2results + "_sorted.bam"
-                # SAMtools sort v1.3 has different run parameters
-                samsort = SamtoolsSortCommandline(input=sample.mapping.BamFile,
-                                                  o=True,
-                                                  out_prefix="-")
-                samtools = [SamtoolsViewCommandline(b=True, S=True, input_file="-"), samsort]
-                indict = {'D': 5, 'R': 1, 'num_mismatches': 0, 'seed_length': 22, 'i_func': "S,0,2.50"}
-                #  Update the dictionary with the appropriate parameters for paired- vs. single-ended assemblies
-                try:
-                    _ = sample.general.mergedreads
-                    if len(sample.general.trimmedcorrectedfastqfiles) == 2:
-                        indict.update({'m1': sample.general.trimmedcorrectedfastqfiles[0],
-                                       'm2': sample.general.trimmedcorrectedfastqfiles[1]})
-                    else:
-                        indict.update({'U': sample.general.trimmedcorrectedfastqfiles[0]})
-                except KeyError:
-                    if len(sample.general.assemblyfastq) == 2:
-                        indict.update({'m1': sample.general.assemblyfastq[0], 'm2': sample.general.assemblyfastq[1]})
-                    else:
-                        indict.update({'U': sample.general.assemblyfastq[0]})
-                bowtie2align = Bowtie2CommandLine(bt2=sagen.bowtie2results,
-                                                  threads=self.threads,
-                                                  samtools=samtools,
-                                                  **indict)
+        with progressbar(self.metadata) as bar:
+            for sample in bar:
+                # Initialise the mapping GenObject
+                sample.mapping = GenObject()
+                # Set an easier to write shortcut for sample.general
+                sagen = sample.general
+                if sagen.bestassemblyfile != "NA":
+                    sagen.QualimapResults = os.path.join(sagen.outputdirectory, 'qualimap_results')
+                    # Set the results folder
+                    # Create this results folder if necessary
+                    make_path(sagen.QualimapResults)
+                    # Set file names
+                    sagen.sortedbam = os.path.join(sagen.QualimapResults, '{}_sorted.bam'.format(sample.name))
+                    filenoext = os.path.splitext(sagen.filteredfile)[0]
+                    sagen.filenoext = filenoext
+                    sagen.bowtie2results = os.path.join(sagen.QualimapResults, sample.name)
+                    # Use fancy new bowtie2 wrapper
+                    bowtie2build = Bowtie2BuildCommandLine(reference=sagen.bestassemblyfile,
+                                                           bt2=sagen.bowtie2results)
+                    sample.mapping.BamFile = sagen.bowtie2results + "_sorted.bam"
+                    # SAMtools sort v1.3 has different run parameters
+                    samsort = SamtoolsSortCommandline(input=sample.mapping.BamFile,
+                                                      o=True,
+                                                      out_prefix="-")
+                    samtools = [SamtoolsViewCommandline(b=True, S=True, input_file="-"), samsort]
+                    indict = {'D': 5, 'R': 1, 'num_mismatches': 0, 'seed_length': 22, 'i_func': "S,0,2.50"}
+                    #  Update the dictionary with the appropriate parameters for paired- vs. single-ended assemblies
+                    try:
+                        _ = sample.general.mergedreads
+                        if len(sample.general.trimmedcorrectedfastqfiles) == 2:
+                            indict.update({'m1': sample.general.trimmedcorrectedfastqfiles[0],
+                                           'm2': sample.general.trimmedcorrectedfastqfiles[1]})
+                        else:
+                            indict.update({'U': sample.general.trimmedcorrectedfastqfiles[0]})
+                    except AttributeError:
+                        if len(sample.general.assemblyfastq) == 2:
+                            indict.update({'m1': sample.general.assemblyfastq[0],
+                                           'm2': sample.general.assemblyfastq[1]})
+                        else:
+                            indict.update({'U': sample.general.assemblyfastq[0]})
+                    bowtie2align = Bowtie2CommandLine(bt2=sagen.bowtie2results,
+                                                      threads=self.threads,
+                                                      samtools=samtools,
+                                                      **indict)
 
-                # Convert the commands to strings to allow them to be JSON serialized
-                sample.commands.bowtie2align = str(bowtie2align)
-                sample.commands.bowtie2build = str(bowtie2build)
-                self.bowqueue.put((sample, sample.commands.bowtie2build, sample.commands.bowtie2align))
-            else:
-                sample.commands.samtools = "NA"
-                sample.mapping.MeanInsertSize = 'NA'
-                sample.mapping.MeanCoveragedata = 'NA'
+                    # Convert the commands to strings to allow them to be JSON serialized
+                    sample.commands.bowtie2align = str(bowtie2align)
+                    sample.commands.bowtie2build = str(bowtie2build)
+                    self.bowqueue.put((sample, sample.commands.bowtie2build, sample.commands.bowtie2align))
+                else:
+                    sample.commands.samtools = "NA"
+                    sample.mapping.MeanInsertSize = 'NA'
+                    sample.mapping.MeanCoveragedata = 'NA'
         self.bowqueue.join()
 
     def align(self):
@@ -191,7 +195,7 @@ class QualiMap(object):
                     setattr(sample.mapping, attribute, qdict[attribute].rstrip('X'))
 
     def indexing(self):
-        printtime('Indexing sorted bam files', self.start)
+        logging.info('Indexing sorted bam files')
         for i in range(self.cpus):
             # Send the threads to
             threads = Thread(target=self.index, args=())
@@ -199,12 +203,13 @@ class QualiMap(object):
             threads.setDaemon(True)
             # Start the threading
             threads.start()
-        for sample in self.metadata:
-            if sample.general.bestassemblyfile != 'NA':
-                bamindex = SamtoolsIndexCommandline(input=sample.mapping.BamFile)
-                sample.mapping.sortedbai = sample.mapping.BamFile + '.bai'
-                sample.mapping.bamindex = str(bamindex)
-                self.indexqueue.put((sample, bamindex))
+        with progressbar(self.metadata) as bar:
+            for sample in bar:
+                if sample.general.bestassemblyfile != 'NA':
+                    bamindex = SamtoolsIndexCommandline(input=sample.mapping.BamFile)
+                    sample.mapping.sortedbai = sample.mapping.BamFile + '.bai'
+                    sample.mapping.bamindex = str(bamindex)
+                    self.indexqueue.put((sample, bamindex))
         self.indexqueue.join()
 
     def index(self):
@@ -229,7 +234,7 @@ class QualiMap(object):
         """
         Run pilon to fix any misassemblies in the contigs - will look for SNPs and indels
         """
-        printtime('Improving quality of assembly with pilon', self.start)
+        logging.info('Improving quality of assembly with pilon')
         for i in range(self.cpus):
             # Send the threads to the merge method. :args is empty as I'm using
             threads = Thread(target=self.pilonthreads, args=())
@@ -237,23 +242,24 @@ class QualiMap(object):
             threads.setDaemon(True)
             # Start the threading
             threads.start()
-        for sample in self.metadata:
-            if sample.general.bestassemblyfile != 'NA':
-                if sample.general.polish:
-                    # Set the name of the unfiltered assembly output file
-                    sample.general.contigsfile = sample.general.assemblyfile
-                    sample.mapping.pilondir = os.path.join(sample.general.QualimapResults, 'pilon')
-                    make_path(sample.mapping.pilondir)
-                    # Create the command line command
-                    sample.mapping.piloncmd = 'pilon --genome {} --bam {} --fix bases --threads {} ' \
-                                              '--outdir {} --changes --mindepth 0.25' \
-                        .format(sample.general.contigsfile,
-                                sample.mapping.BamFile,
-                                self.threads,
-                                sample.mapping.pilondir)
-                    self.pilonqueue.put(sample)
-                else:
-                    sample.general.contigsfile = sample.general.assemblyfile
+        with progressbar(self.metadata) as bar:
+            for sample in bar:
+                if sample.general.bestassemblyfile != 'NA':
+                    if sample.general.polish:
+                        # Set the name of the unfiltered assembly output file
+                        sample.general.contigsfile = sample.general.assemblyfile
+                        sample.mapping.pilondir = os.path.join(sample.general.QualimapResults, 'pilon')
+                        make_path(sample.mapping.pilondir)
+                        # Create the command line command
+                        sample.mapping.piloncmd = 'pilon --genome {} --bam {} --fix bases --threads {} ' \
+                                                  '--outdir {} --changes --mindepth 0.25' \
+                            .format(sample.general.contigsfile,
+                                    sample.mapping.BamFile,
+                                    self.threads,
+                                    sample.mapping.pilondir)
+                        self.pilonqueue.put(sample)
+                    else:
+                        sample.general.contigsfile = sample.general.assemblyfile
         self.pilonqueue.join()
 
     def pilonthreads(self):
@@ -276,7 +282,7 @@ class QualiMap(object):
         Filter contigs based on depth
         """
 
-        printtime('Filtering contigs', self.start)
+        logging.info('Filtering contigs')
         for i in range(self.cpus):
             # Send the threads to the filter method
             threads = Thread(target=self.filterthreads, args=())
@@ -284,11 +290,12 @@ class QualiMap(object):
             threads.setDaemon(True)
             # Start the threading
             threads.start()
-        for sample in self.metadata:
-            # Set the name of the unfiltered assembly output file
-            if sample.general.bestassemblyfile != 'NA':
-                sample.general.contigsfile = sample.general.assemblyfile
-                self.filterqueue.put(sample)
+        with progressbar(self.metadata) as bar:
+            for sample in bar:
+                # Set the name of the unfiltered assembly output file
+                if sample.general.bestassemblyfile != 'NA':
+                    sample.general.contigsfile = sample.general.assemblyfile
+                    self.filterqueue.put(sample)
         self.filterqueue.join()
 
     def filterthreads(self):
@@ -350,7 +357,7 @@ class QualiMap(object):
                 delattr(sample.depth, 'coverage')
                 delattr(sample.depth, 'length')
                 delattr(sample.depth, 'stddev')
-            except KeyError:
+            except AttributeError:
                 pass
 
     @staticmethod
@@ -471,4 +478,3 @@ if __name__ == '__main__':
     from time import time
     starttime = time()
     MetadataInit(starttime)
-    printtime('Assembly and characterisation complete', starttime)
