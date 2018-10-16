@@ -146,22 +146,25 @@ class Reporter(object):
                     data += 'ND,'
             except AttributeError:
                 data += 'ND,'
-            # Vtyper_Profile
-            try:
-                # Since the vtyper attribute can be empty, check first
-                profile = sorted(sample.vtyper.profile)
-                if profile:
-                    data += ';'.join(profile) + ','
-                else:
-                    data += 'ND,'
-            except AttributeError:
-                data += 'ND,'
+            # # Vtyper_Profile
+            # try:
+            #     # Since the vtyper attribute can be empty, check first
+            #     profile = sorted(sample.vtyper.profile)
+            #     if profile:
+            #         data += ';'.join(profile) + ','
+            #     else:
+            #         data += 'ND,'
+            # except AttributeError:
+            #     data += 'ND,'
             # Legacy Vtyper
             data += GenObject.returnattr(sample.legacy_vtyper, 'toxinprofile')
             # AMR_Profile and resistant/sensitive status
             if sample.resfinder_assembled.pipelineresults:
                 # Profile
-                data += ';'.join(sorted(sample.resfinder_assembled.pipelineresults)) + ','
+                # data += ';'.join(sorted(sample.resfinder_assembled.pipelineresults)) + ','
+                for resistance, resistance_set in sample.resfinder_assembled.pipelineresults.items():
+                    data += '{res}{r_set};'.format(res=resistance,
+                                                   r_set=';'.join(sorted(list(resistance_set))))
                 # Resistant/Sensitive
                 data += 'Resistant,'
             else:
@@ -270,123 +273,6 @@ class Reporter(object):
         with open(os.path.join(self.reportpath, 'legacy_combinedMetadata.csv'), 'w') as metadatareport:
             metadatareport.write(cleanrow)
 
-    def database(self):
-        """
-        Enters all the metadata into a database
-        """
-        import sqlite3
-        try:
-            os.remove('{}/metadatabase.sqlite'.format(self.reportpath))
-        except OSError:
-            pass
-        # Set the name of the database
-        db = sqlite3.connect('{}/metadatabase.sqlite'.format(self.reportpath))
-        # Create a cursor to allow access to the database
-        cursor = db.cursor()
-        # Set up the db
-        cursor.execute('''
-          CREATE TABLE IF NOT EXISTS Samples (
-            id     INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT UNIQUE,
-            name   TEXT UNIQUE
-          )
-
-        ''')
-        # Create a variable to store the names of the header values for each individual table
-        # This will store a set of all the headers from all the strains, as there can be some variability present, as
-        # not all analyses are available for all taxonomic groups
-        columns = dict()
-        for sample in self.metadata:
-            # Insert each strain name into the Samples table
-            cursor.execute('''
-              INSERT OR IGNORE INTO Samples (name)
-              VALUES ( ? )
-            ''', (sample.name, ))
-            # Each header in the .json file represents a major category e.g. ARMI, GeneSeekr, commands, etc. and
-            # will be made into a separate table
-            for header in sample.datastore.items():
-                # Set the table name
-                tablename = header[0].replace('.', '_')
-                # Allow for certain analyses, such as core genome, not being performed on all strains
-                try:
-                    # Create the table (if it doesn't already exist)
-                    # sample_id INTEGER
-                    cursor.execute('''
-                      CREATE TABLE IF NOT EXISTS {} (
-                      sample_id INTEGER,
-                      FOREIGN KEY(sample_id) REFERENCES Samples(id)
-                      )
-                      '''.format(tablename))
-                    # Key and value: data description and data value e.g. targets present: 1012, etc.
-                    for key, value in header[1].datastore.items():
-                        # Add the data header to the dictionary
-                        # Clean the column names so there are no issues entering names into the database
-                        cleanedcolumn = self.columnclean(key)
-                        try:
-                            columns[tablename].add(str(cleanedcolumn))
-                        # Initialise the dictionary the first time a table name is encountered
-                        except KeyError:
-                            columns[tablename] = set()
-                            columns[tablename].add(str(cleanedcolumn))
-                except (AttributeError, IndexError):
-                    pass
-        # Iterate through the dictionary containing all the data headers
-        for table, setofheaders in columns.items():
-            # Each header will be used as a column in the appropriate table
-            for cleanedcolumn in setofheaders:
-                # Alter the table by adding each header as a column
-                cursor.execute('''
-                  ALTER TABLE {}
-                  ADD COLUMN {} TEXT
-                '''.format(table, cleanedcolumn))
-            # Iterate through the samples and pull out the data for each table/column
-            for sample in self.metadata:
-                # Find the id associated with each sample in the Sample table
-                cursor.execute('''
-                  SELECT id from Samples WHERE name=?
-                ''', (sample.name,))
-                sampleid = cursor.fetchone()[0]
-                # Add the sample_id to the table
-                cursor.execute('''
-                  INSERT OR IGNORE INTO {}
-                  (sample_id) VALUES ("{}")
-                 '''.format(table, sampleid))
-                # Add the data to the table
-                try:
-                    # Find the data for each table/column
-                    for item in sample[table].datastore.items():
-                        # Clean the names
-                        cleanedcolumn = self.columnclean(str(item[0]))
-                        # Add the data to the column of the appropriate table,
-                        # where the sample_id matches the current strain
-                        cursor.execute('''
-                          UPDATE {}
-                          SET {} = ?
-                          WHERE sample_id = {}
-                          '''.format(table, cleanedcolumn, sampleid), (str(item[1]), ))
-                except KeyError:
-                    pass
-        # Commit the changes to the database
-        db.commit()
-
-    @staticmethod
-    def columnclean(column):
-        """
-        Modifies column header format to be importable into a database
-        :param column: raw column header
-        :return: cleanedcolumn: reformatted column header
-        """
-        cleanedcolumn = str(column) \
-            .replace('%', 'percent') \
-            .replace('(', '_') \
-            .replace(')', '') \
-            .replace('As', 'Adenosines') \
-            .replace('Cs', 'Cytosines') \
-            .replace('Gs', 'Guanines') \
-            .replace('Ts', 'Thymines') \
-            .replace('Ns', 'Unknowns') \
-            .replace('index', 'adapterIndex')
-        return cleanedcolumn
-
     def clean_object(self):
         for sample in self.metadata:
             try:
@@ -412,7 +298,7 @@ class Reporter(object):
                         'MLST_gene_2_allele', 'MLST_gene_3_allele', 'MLST_gene_4_allele', 'MLST_gene_5_allele',
                         'MLST_gene_6_allele', 'MLST_gene_7_allele', 'CoreGenesPresent', 'E_coli_Serotype',
                         'SISTR_serovar_antigen', 'SISTR_serovar_cgMLST', 'SISTR_serogroup', 'SISTR_h1', 'SISTR_h2',
-                        'SISTR_serovar', 'GeneSeekr_Profile', 'Vtyper_Profile', 'Legacy_Vtyper_Profile', 'AMR_Profile',
+                        'SISTR_serovar', 'GeneSeekr_Profile', 'Vtyper_Profile', 'AMR_Profile',
                         'AMR Resistant/Sensitive', 'PlasmidProfile', 'TotalPredictedGenes', 'PredictedGenesOver3000bp',
                         'PredictedGenesOver1000bp', 'PredictedGenesOver500bp', "PredictedGenesUnder500bp",
                         'NumClustersPF', 'PercentReadsPhiX', 'ErrorRate', 'LengthForwardRead', 'LengthReverseRead',
@@ -420,5 +306,4 @@ class Reporter(object):
         self.reporter()
         self.legacy_reporter()
         # Create a database to store all the metadata
-        # self.database()
         self.clean_object()
