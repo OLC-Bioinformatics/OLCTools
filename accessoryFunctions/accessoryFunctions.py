@@ -579,7 +579,7 @@ class GenObject(object):
                 return '{},'.format(str(self.datastore[key]).replace(',', ';'))
             else:
                 return 'ND,'
-        except KeyError:
+        except AttributeError:
             return 'ND,'
 
     def isattr(self, key):
@@ -593,7 +593,7 @@ class GenObject(object):
                 return True
             else:
                 return False
-        except KeyError:
+        except AttributeError:
             return False
 
     def __getitem__(self, key):
