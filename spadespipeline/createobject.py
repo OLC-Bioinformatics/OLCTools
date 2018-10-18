@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-from accessoryFunctions.accessoryFunctions import filer, GenObject, make_path, MetadataObject, printtime, \
-    relative_symlink
+from accessoryFunctions.accessoryFunctions import filer, GenObject, make_path, MetadataObject, relative_symlink
 from glob import glob
+import logging
 import os
 __author__ = 'adamkoziol'
 
@@ -9,7 +9,7 @@ __author__ = 'adamkoziol'
 class ObjectCreation(object):
 
     def createobject(self):
-        printtime('Finding sequence files', self.start)
+        logging.info('Finding sequence files')
         # Find all the .fastq files in the sequence path
         filelist = glob(os.path.join(self.sequencepath, '*.fastq*'))
         if filelist:
@@ -40,6 +40,7 @@ class ObjectCreation(object):
             # Initialise the general and commands GenObjects
             metadata.general = GenObject()
             metadata.commands = GenObject()
+            metadata.run = GenObject()
             # Create the .fastqfiles category of :self.metadata
             metadata.general.fastqfiles = list()
             # Link the files to the output folder
@@ -72,9 +73,9 @@ class ObjectCreation(object):
         try:
             self.datapath = inputobject.datapath
         except AttributeError:
-            self.datapath = False
+            self.datapath = None
         if self.datapath:
-            assert os.path.isdir(self.datapath), u'Data location supplied is not a valid directory {0!r:s}' \
+            assert os.path.isdir(self.datapath), 'Data location supplied is not a valid directory {0!r:s}' \
                 .format(self.datapath)
         self.start = inputobject.start
         self.extension = ''
