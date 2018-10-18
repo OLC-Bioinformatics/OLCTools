@@ -183,7 +183,7 @@ class Quality(object):
                 # Try except loop to allow for missing samples
                 try:
                     fastqfiles = sample.general.trimmedfastqfiles
-                except KeyError:
+                except AttributeError:
                     fastqfiles = ""
                     pass
             elif level == 'trimmedcorrected':
@@ -191,7 +191,7 @@ class Quality(object):
                 # Try except loop to allow for missing samples
                 try:
                     fastqfiles = sample.general.trimmedcorrectedfastqfiles
-                except KeyError:
+                except AttributeError:
                     fastqfiles = ""
                     pass
             elif level == 'normalised':
@@ -199,7 +199,7 @@ class Quality(object):
                 # Try except loop to allow for missing samples
                 try:
                     fastqfiles = sample.general.normalisedreads
-                except KeyError:
+                except AttributeError:
                     fastqfiles = ""
                     pass
             elif level == 'merged':
@@ -207,7 +207,7 @@ class Quality(object):
                 # Try except loop to allow for missing samples
                 try:
                     fastqfiles = [sample.general.mergedreads]
-                except KeyError:
+                except AttributeError:
                     fastqfiles = ""
                     pass
             else:
@@ -393,24 +393,30 @@ class Quality(object):
                     # Set the values using the appropriate keys as the attributes
                     sample.confindr.genus = confindr_results[line]['Genus']
                     sample.confindr.num_contaminated_snvs = confindr_results[line]['NumContamSNVs']
-                    try:
-                        sample.confindr.cross_contamination = confindr_results[line]['CrossContamination']
-                    except KeyError:
-                        sample.confindr.cross_contamination = str()
                     sample.confindr.contam_status = confindr_results[line]['ContamStatus']
+                    try:
+                        sample.confindr.percent_contam = confindr_results[line]['PercentContam']
+                    except KeyError:
+                        sample.confindr.percent_contam = 'ND'
+                    try:
+                        sample.confindr.percent_contam_std = confindr_results[line]['PercentContamStandardDeviation']
+                    except KeyError:
+                        sample.confindr.percent_contam_std = 'ND'
                     if sample.confindr.contam_status is True:
                         sample.confindr.contam_status = 'Contaminated'
                     elif sample.confindr.contam_status is False:
                         sample.confindr.contam_status = 'Clean'
         # Re-write the output to be consistent with the rest of the pipeline
         with open(pipeline_report, 'w') as csv:
-            data = 'Strain,Genus,NumContamSNVs,ContamStatus\n'
+            data = 'Strain,Genus,NumContamSNVs,ContamStatus,PercentContam,PercentContamSTD\n'
             for sample in self.metadata:
-                data += '{str},{genus},{numcontamsnv},{status}\n'.format(
+                data += '{str},{genus},{numcontamsnv},{status},{pc},{pcs}\n'.format(
                     str=sample.name,
                     genus=sample.confindr.genus,
                     numcontamsnv=sample.confindr.num_contaminated_snvs,
-                    status=sample.confindr.contam_status
+                    status=sample.confindr.contam_status,
+                    pc=sample.confindr.percent_contam,
+                    pcs=sample.confindr.percent_contam_std
                 )
             csv.write(data)
 
@@ -453,7 +459,7 @@ class Quality(object):
                     write_to_logfile(out, err, self.logfile, sample.general.logout, sample.general.logerr, None, None)
             except CalledProcessError:
                 sample.general.trimmedcorrectedfastqfiles = sample.general.trimmedfastqfiles
-            except KeyError:
+            except AttributeError:
                 sample.general.trimmedcorrectedfastqfiles = list()
 
     def normalise_reads(self):
@@ -647,7 +653,7 @@ class QualityFeatures(object):
                     sample.general.polish = False
                 else:
                     sample.general.polish = True
-            except KeyError:
+            except AttributeError:
                 sample.general.polish = True
 
     def clear_attributes(self):
@@ -660,7 +666,7 @@ class QualityFeatures(object):
                 delattr(sample[self.analysistype], 'record_dict')
                 delattr(sample[self.analysistype], 'contig_lengths')
                 delattr(sample[self.analysistype], 'longest_contig')
-            except KeyError:
+            except AttributeError:
                 pass
 
     def __init__(self, inputobject, analysis):
