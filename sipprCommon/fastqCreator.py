@@ -1,10 +1,11 @@
 #!/usr/bin/env python
-from accessoryFunctions.accessoryFunctions import make_path, printtime, GenObject, MetadataObject, run_subprocess, write_to_logfile
+from accessoryFunctions.accessoryFunctions import make_path, GenObject, MetadataObject, run_subprocess, write_to_logfile
 import sipprCommon.runMetadata as runMetadata
 from sipprCommon.offhours import Offhours
 from time import sleep
 import multiprocessing
 from glob import glob
+import logging
 import shutil
 import os
 # Import ElementTree - try first to import the faster C version, if that doesn't
@@ -71,20 +72,24 @@ class CreateFastq(object):
         # Handle plurality appropriately
         samples = 'samples' if self.samplecount != 1 else 'sample'
         number = 'are' if self.samplecount != 1 else 'is'
-        printtime('There {} {} {} in this run.\n'
-                  'MiSeqPath: {},\n'
-                  'MiSeqFolder: {},\n'
-                  'Fastq destination: {},\n'
-                  'SampleSheet: {}'
-                  .format(number, self.samplecount, samples, self.miseqpath, self.miseqfolder,
-                          self.fastqdestination, projectsamplesheet),
-                  self.start,
-                  output=self.portallog)
+        logging.info('There {num} {num_samples} {plural} in this run.\n'
+                     'MiSeqPath: {miseqpath},\n'
+                     'MiSeqFolder: {miseqfolder},\n'
+                     'FASTQ destination: {destination},\n'
+                     'SampleSheet: {sample_sheet}'
+                     .format(num=number,
+                             num_samples=self.samplecount,
+                             plural=samples,
+                             miseqpath=self.miseqpath,
+                             miseqfolder=self.miseqfolder,
+                             destination=self.fastqdestination,
+                             sample_sheet=projectsamplesheet))
         # Count the number of completed cycles in the run of interest
         cycles = glob(os.path.join(self.miseqpath, self.miseqfolder, 'Data', 'Intensities', 'BaseCalls', 'L001', 'C*'))
         while len(cycles) < self.readsneeded:
-            printtime('Currently at {} cycles. Waiting until the MiSeq reaches cycle {}'.format(len(cycles),
-                      self.readsneeded), self.start, output=self.portallog)
+            logging.info('Currently at {num_cycles} cycles. Waiting until the MiSeq reaches cycle {target_cycle}'
+                         .format(num_cycles=len(cycles),
+                                 target_cycle=self.readsneeded))
             sleep(300)
             cycles = glob(os.path.join(self.miseqpath, self.miseqfolder,
                                        'Data', 'Intensities', 'BaseCalls', 'L001', 'C*'))
@@ -131,7 +136,7 @@ class CreateFastq(object):
                 process = True
         if process:
             # Call bcl2fastq
-            printtime('Running bcl2fastq', self.start, output=self.portallog)
+            logging.info('Running bcl2fastq', self.start)
             # Run the command
             out, err = run_subprocess(bclcall)
             write_to_logfile(bclcall,
