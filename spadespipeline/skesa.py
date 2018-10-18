@@ -71,7 +71,7 @@ class Skesa(object):
                         sample.general.assembly_output = 'NA'
                         sample.general.assemblyfastq = 'NA'
                         sample.general.bestassemblyfile = 'NA'
-                except KeyError:
+                except AttributeError:
                     sample.general.assembly_output = 'NA'
                     sample.general.assemblyfastq = 'NA'
                     sample.general.trimmedcorrectedfastqfiles = 'NA'
@@ -199,7 +199,7 @@ class Skesa(object):
                     sample.general.bestassemblyfile = 'NA'
                 # Add the name and path of the filtered file to the metadata
                 sample.general.filteredfile = filtered_outputfile
-            except KeyError:
+            except AttributeError:
                 sample.general.assemblyfile = 'NA'
                 sample.general.bestassemblyfile = 'NA'
 
