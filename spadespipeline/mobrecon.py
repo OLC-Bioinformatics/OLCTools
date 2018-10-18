@@ -89,18 +89,29 @@ class MobRecon(object):
             data = 'Strain,Location,Contig,Incompatibility,IncompatibilityAccession,RelaxaseType,' \
                    'MashNearestNeighbor,MashNeighborDistance\n'
             for sample in self.metadata:
+                # Initialise a dictionary to store results for the COWBAT final report
+                sample[self.analysistype].pipelineresults = dict()
                 for primarykey, results in sample[self.analysistype].report_dict.items():
+                    # Only process results if they are not calculated to be chromosomal
                     if results['cluster_id'] != 'chromosome':
-                        data += ','.join(str(result) if str(result) != 'nan' else 'ND' for result in [sample.name,
-                                         results['cluster_id'],
-                                         results['contig_id'].split('|')[1],
-                                         results['rep_type'],
-                                         results['rep_type_accession'],
-                                         results['relaxase_type'],
-                                         results['mash_nearest_neighbor'],
-                                         results['mash_neighbor_distance']]
+                        data += ','.join(str(result).replace(',', ';') if str(result) != 'nan' else 'ND'
+                                         for result in [
+                                             sample.name,
+                                             results['cluster_id'],
+                                             results['contig_id'].split('|')[1],
+                                             results['rep_type'],
+                                             results['rep_type_accession'],
+                                             results['relaxase_type'],
+                                             results['mash_nearest_neighbor'],
+                                             results['mash_neighbor_distance']]
                                          )
                         data += '\n'
+                        # Add the calculated incompatibility to the pipeline results for use in the final COWBAT report
+                        sample[self.analysistype].pipelineresults[results['cluster_id']] =  \
+                            ';'.join(str(result).replace(',', ';') if str(result) != 'nan' else 'ND'
+                                     for result in [
+                                         results['rep_type']]
+                                     )
             summary.write(data)
 
     def reporter(self):
