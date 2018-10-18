@@ -39,7 +39,7 @@ class CLARK(object):
         """Create objects to store data and metadata for each sample. Also, perform necessary file manipulations"""
         # Move the files to subfolders and create objects
         self.runmetadata = createobject.ObjectCreation(self)
-        if self.runmetadata.extension == 'fastq':
+        if self.extension == 'fastq':
             # To streamline the CLARK process, decompress and combine .gz and paired end files as required
             logging.info('Decompressing and combining .fastq files for CLARK analysis')
             fileprep.Fileprep(self)
@@ -173,7 +173,7 @@ class CLARK(object):
         """
         Create reports from the abundance estimation
         """
-        logging.info('Creating CLARK report for {} files'.format(self.runmetadata.extension))
+        logging.info('Creating CLARK report for {} files'.format(self.extension))
         # Create a workbook to store the report. Using xlsxwriter rather than a simple csv format, as I want to be
         # able to have appropriately sized, multi-line cells
         workbook = xlsxwriter.Workbook(self.report)
@@ -195,7 +195,7 @@ class CLARK(object):
         # List of the headers to use
         headers = ['Strain', 'Name', 'TaxID', 'Lineage', 'Count', 'Proportion_All(%)', 'Proportion_Classified(%)']
         # Add an additional header for .fasta analyses
-        if self.runmetadata.extension == 'fasta':
+        if self.extension == 'fasta':
             headers.insert(4, 'TotalBP')
         # Populate the headers
         for category in headers:
@@ -247,7 +247,7 @@ class CLARK(object):
                     # contigs map to TaxID 630, however, added together, those 56 contigs are 4705838 bp, while the 50
                     # contigs added together are only 69602 bp. While this is unlikely a pure culture, only
                     # 69602 / (4705838 + 69602) = 1.5% of the total bp map to TaxID 630 compared to 45% of the contigs
-                    if self.runmetadata.extension == 'fasta':
+                    if self.extension == 'fasta':
                         # Initialise a variable to store the total bp mapped to the TaxID
                         result['TotalBP'] = int()
                         # Read the classification file into a dictionary
@@ -319,6 +319,7 @@ class CLARK(object):
         self.reportpath = os.path.join(self.path, 'reports')
         self.clean_seqs = args.clean_seqs
         self.light = args.light
+        self.extension = args.extension
         if self.clean_seqs:
             try:
                 self.reffilepath = args.reffilepath
@@ -329,7 +330,6 @@ class CLARK(object):
         try:
             if args.runmetadata:
                 self.runmetadata = args.runmetadata
-                self.extension = self.runmetadata.extension
                 # Create the name of the final report
                 self.report = os.path.join(self.reportpath, '{}'.format('abundance{}.xlsx'.format(self.extension)))
                 # Only re-run the CLARK analyses if the CLARK report doesn't exist. All files created by CLARK
@@ -388,8 +388,6 @@ class CLARK(object):
                                         os.remove(sample[clarkextension].combined)
                                 except (OSError, AttributeError):
                                     pass
-                        # Remove all the attributes from .general
-                        map(lambda x: delattr(sample.general, x), ['abundance', 'classification', 'combined'])
                         # Remove the text files lists of files and reports created by CLARK
                         try:
                             map(lambda x: os.remove(os.path.join(self.path, x)), ['reportList.txt', 'sampleList.txt'])
@@ -404,7 +402,6 @@ class CLARK(object):
         except AttributeError:
             self.runmetadata = MetadataObject()
             self.report = os.path.join(self.reportpath, 'abundance.xlsx')
-            self.extension = args.extension
             # Create the objects
             self.objectprep()
             # Set the run description to 'metagenome' in order to process the samples
@@ -503,7 +500,7 @@ class PipelineInit(object):
         args.runmetadata = inputobject.runmetadata
         args.clean_seqs = False
         args.reffilepath = inputobject.reffilepath
-        args.runmetadata.extension = extension
+        args.extension = extension
         args.light = light
         # Run CLARK
         CLARK(args, inputobject.commit, inputobject.starttime, inputobject.homepath)
