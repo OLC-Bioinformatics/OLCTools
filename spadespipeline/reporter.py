@@ -161,10 +161,10 @@ class Reporter(object):
             # AMR_Profile and resistant/sensitive status
             if sample.resfinder_assembled.pipelineresults:
                 # Profile
-                # data += ';'.join(sorted(sample.resfinder_assembled.pipelineresults)) + ','
                 for resistance, resistance_set in sample.resfinder_assembled.pipelineresults.items():
-                    data += '{res}{r_set};'.format(res=resistance,
-                                                   r_set=';'.join(sorted(list(resistance_set))))
+                    data += '{res}({r_set});'.format(res=resistance,
+                                                     r_set=';'.join(sorted(list(resistance_set))))
+                data += ','
                 # Resistant/Sensitive
                 data += 'Resistant,'
             else:
@@ -173,13 +173,12 @@ class Reporter(object):
                 # Resistant/Sensitive
                 data += 'Sensitive,'
             # Plasmid Result'
-            try:
-                plasmid_profile = sorted(sample.plasmidextractor.plasmids)
-                if plasmid_profile:
-                    data += ';'.join(plasmid_profile) + ','
-                else:
-                    data += 'ND,'
-            except AttributeError:
+            if sample.mobrecon.pipelineresults:
+                for plasmid, details in sorted(sample.mobrecon.pipelineresults.items()):
+                    data += '{plasmid}({details});'.format(plasmid=plasmid,
+                                                           details=details)
+                data += ','
+            else:
                 data += 'ND,'
             # TotalPredictedGenes
             data += GenObject.returnattr(sample.prodigal, 'predictedgenestotal')
