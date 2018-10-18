@@ -141,7 +141,6 @@ class Sippr(object):
         logging.info('Performing kmer baiting of fastq files with {} targets'.format(self.analysistype))
         # There seems to be some sort of issue with java incorrectly calculating the total system memory on certain
         # computers. For now, calculate the memory, and feed it into the bbduk call
-        mem = psutil.virtual_memory()
         with progressbar(self.runmetadata) as bar:
             for sample in bar:
                 if sample.general.bestassemblyfile != 'NA' and sample[self.analysistype].runanalysis:
@@ -153,7 +152,7 @@ class Sippr(object):
                         sample[self.analysistype].bbdukcmd = \
                             'bbduk.sh -Xmx{mem} ref={ref} in1={in1} in2={in2} k={kmer} maskmiddle={mm} ' \
                             'threads={c} outm={om}' \
-                            .format(mem=int(mem.total * 0.85),
+                            .format(mem=self.mem,
                                     ref=sample[self.analysistype].baitfile,
                                     in1=sample.general.trimmedcorrectedfastqfiles[0],
                                     in2=sample.general.trimmedcorrectedfastqfiles[1],
@@ -165,7 +164,7 @@ class Sippr(object):
                         sample[self.analysistype].bbdukcmd = \
                             'bbduk.sh -Xmx{mem} ref={ref} in={in1} k={kmer} maskmiddle={mm} ' \
                             'threads={cpus} outm={outm}' \
-                            .format(mem=int(mem.total * 0.85),
+                            .format(mem=self.mem,
                                     ref=sample[self.analysistype].baitfile,
                                     in1=sample.general.trimmedcorrectedfastqfiles[0],
                                     kmer=k,
@@ -195,9 +194,10 @@ class Sippr(object):
                 if sample.general.bestassemblyfile != 'NA' and sample[self.analysistype].runanalysis:
                     outfile = os.path.join(sample[self.analysistype].outputdir, 'baitedtargets.fa')
                     sample[self.analysistype].revbbdukcmd = \
-                        'bbduk.sh ref={ref} in={in1} k={kmer} threads={cpus} mincovfraction={mcf} maskmiddle={mm} ' \
-                        'outm={outm}' \
-                        .format(ref=sample[self.analysistype].baitedfastq,
+                        'bbduk.sh -Xmx{mem} ref={ref} in={in1} k={kmer} threads={cpus} mincovfraction={mcf} ' \
+                        'maskmiddle={mm} outm={outm}' \
+                        .format(mem=self.mem,
+                                ref=sample[self.analysistype].baitedfastq,
                                 in1=sample[self.analysistype].baitfile,
                                 kmer=k,
                                 cpus=str(self.cpus),
@@ -750,6 +750,7 @@ class Sippr(object):
         except AttributeError:
             self.portallog = ''
         self.cutoff = cutoff
+        self.mem = int(0.85 * float(psutil.virtual_memory().total))
         self.builddict = dict()
         self.bowtiebuildextension = '.bt2'
         try:
