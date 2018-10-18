@@ -136,7 +136,7 @@ class CreateFastq(object):
                 process = True
         if process:
             # Call bcl2fastq
-            logging.info('Running bcl2fastq', self.start)
+            logging.info('Running bcl2fastq')
             # Run the command
             out, err = run_subprocess(bclcall)
             write_to_logfile(bclcall,
