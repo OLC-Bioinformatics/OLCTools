@@ -17,21 +17,17 @@ __author__ = 'adamkoziol'
 
 class DatabaseSetup(object):
 
-    def main(self):
+    def cowbat(self):
         """
-        Run the methods
+        Run all the methods
         """
-        logging.info('Beginning database downloads')
+        logging.info('Beginning COWBAT database downloads')
         if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'genesippr')):
             self.sipprverse_targets(databasepath=self.databasepath)
         if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'coregenome')):
             self.cowbat_targets(databasepath=self.databasepath)
         if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'ConFindr')):
             self.confindr_targets(databasepath=self.databasepath)
-        if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'plasmidextractor')):
-            self.plasmidextractor_targets(databasepath=self.databasepath)
-        # if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'mobrecon')):
-        #     self.mob_suite_targets(databasepath=self.databasepath)
         if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'mash')):
             self.mash(databasepath=self.databasepath)
         if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'MLST')):
@@ -53,12 +49,47 @@ class DatabaseSetup(object):
             self.cge_db_downloader(databasepath=self.databasepath,
                                    analysistype='serosippr',
                                    dbname='serotypefinder_db')
-        if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'plasmidfinder')):
-            self.cge_db_downloader(databasepath=self.databasepath,
-                                   analysistype='plasmidfinder',
-                                   dbname='plasmidfinder_db')
         if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'clark')):
             self.clark(databasepath=self.databasepath)
+
+    def sipprverse_full(self):
+        """
+        Run a subset of the methods - only the targets used in the sipprverse are required here
+        """
+        logging.info('Beginning sipprverse full database downloads')
+        if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'genesippr')):
+            self.sipprverse_targets(databasepath=self.databasepath)
+        if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'ConFindr')):
+            self.confindr_targets(databasepath=self.databasepath)
+        if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'mash')):
+            self.mash(databasepath=self.databasepath)
+        if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'MLST')):
+            self.mlst(databasepath=self.databasepath)
+        if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'rMLST')):
+            self.rmlst(databasepath=self.databasepath,
+                       credentials=self.credentials)
+        if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'resfinder')):
+            self.cge_db_downloader(databasepath=self.databasepath,
+                                   analysistype='resfinder',
+                                   dbname='resfinder_db')
+        if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'virulence')):
+            self.cge_db_downloader(databasepath=self.databasepath,
+                                   analysistype='virulence',
+                                   dbname='virulencefinder_db')
+        if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'serosippr')):
+            self.cge_db_downloader(databasepath=self.databasepath,
+                                   analysistype='serosippr',
+                                   dbname='serotypefinder_db')
+
+    def sipprverse_method(self):
+        """
+        Reduced subset again. Only sipprverse and confindr targets are required
+        """
+        logging.info('Beginning sipprverse method database downloads')
+        if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'genesippr')):
+            self.sipprverse_targets(databasepath=self.databasepath)
+        if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'ConFindr')):
+            self.confindr_targets(databasepath=self.databasepath)
 
     def sipprverse_targets(self, databasepath, database_name='sipprverse', download_id='13216553'):
         """
@@ -296,9 +327,11 @@ class DatabaseSetup(object):
         # Set the name of the targets file
         tar_file = os.path.join(databasepath, download_id)
         # Create the target download call
-        target_url = 'https://ndownloader.figshare.com/{type}/{id}/{post}'.format(type=f_type,
-                                                                                  id=download_id,
-                                                                                  post=post_id)
+        target_url = 'https://ndownloader.figshare.com/{type}/{id}'.format(type=f_type,
+                                                                           id=download_id)
+        if post_id:
+            target_url += '/{post}'.format(post=post_id)
+        logging.debug(target_url)
         if not os.path.isfile(completefile):
             self.url_request(target_url=target_url,
                              output_file=tar_file)
@@ -491,11 +524,28 @@ if __name__ == '__main__':
                         action='store_true',
                         help='Optionally allow for the overwriting of database files in the databasepath. Defaults to '
                              'False, so if the output folder already exists, the download will be skipped.')
+    parser.add_argument('-s', '--sipprverse_full',
+                        default=False,
+                        action='store_true',
+                        help='Optionally only download the databases used in the sipprverse. These include: genesippr, '
+                             'GDCS, sixteenS, ConFindr, MASH, MLST, rMLST, ResFindr, VirulenceFinder, '
+                             'and SerotypeFinder')
+    parser.add_argument('-m', '--sipprverse_method',
+                        default=False,
+                        action='store_true',
+                        help='Optionally only download the databases used by the sipprverse method: genesippr, '
+                             'sixteenS, GDCS, and ConFindr')
     # Get the arguments into an object
     arguments = parser.parse_args()
-    # Run the pipeline
+    # Create an object
     pipeline = DatabaseSetup(databasepath=arguments.databasepath,
                              debug=arguments.verbose,
                              credentials=arguments.credentials,
                              overwrite=arguments.overwrite)
-    pipeline.main()
+    # Run the appropriate analyses
+    if arguments.sipprverse_full:
+        pipeline.sipprverse_full()
+    elif arguments.sipprverse_method:
+        pipeline.sipprverse_method()
+    else:
+        pipeline.cowbat()
