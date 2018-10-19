@@ -51,9 +51,10 @@ class Skesa(object):
                             gz = True if '.gz' in forward else False
                             # If there are two fastq files
                             if len(fastqfiles) == 2:
-                                # Set the reverse fastq name
+                                # Set the reverse fastq name https://github.com/ncbi/SKESA/issues/7
                                 sample.commands.assemble = 'skesa --fastq {fastqfiles} --cores {threads} --gz {gz} ' \
-                                                           '--use_paired_ends --contigs_out {contigs}'\
+                                                           '--use_paired_ends --vector_percent 1 ' \
+                                                           '--contigs_out {contigs}'\
                                     .format(fastqfiles=','.join(fastqfiles),
                                             threads=self.cpus,
                                             gz=gz,
@@ -61,7 +62,7 @@ class Skesa(object):
                             # Same as above, but use single read settings for the assembler
                             else:
                                 sample.commands.assemble = 'skesa --fastq {fastqfiles} --cores {threads} --gz {gz} ' \
-                                                           '--contigs_out {contigs}'\
+                                                           '--vector_percent 1 --contigs_out {contigs}'\
                                     .format(fastqfiles=','.join(fastqfiles),
                                             threads=self.cpus,
                                             gz=gz,
