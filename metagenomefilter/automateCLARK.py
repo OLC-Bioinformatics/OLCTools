@@ -116,7 +116,7 @@ class CLARK(object):
                             if status == 'metagenome':
                                 filelist.write(sample.general.combined + '\n')
                                 reportlist.write(sample.general.combined.split('.')[0] + '\n')
-                        except KeyError:
+                        except AttributeError:
                             pass
                     else:
                         if sample.general.combined != 'NA':
