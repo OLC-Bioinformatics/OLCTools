@@ -1,10 +1,6 @@
 #!/usr/bin/env python
 from accessoryFunctions.accessoryFunctions import GenObject, make_path, run_subprocess, write_to_logfile
 import accessoryFunctions.metadataprinter as metadataprinter
-try:
-    from confindr import confindr
-except ImportError:
-    import confindr
 from biotools import bbtools
 from Bio.SeqUtils import GC
 from Bio import SeqIO
@@ -28,7 +24,6 @@ class Quality(object):
         these files
         """
         logging.info('Validating FASTQ files')
-        validated_reads = list()
         with progressbar(self.metadata) as bar:
             for sample in bar:
                 # Tiny files can pass the validation tests - ensure that they don't
@@ -40,8 +35,6 @@ class Quality(object):
                                                                returncmd=True)
                         write_to_logfile(out, err, self.logfile, sample.general.logout, sample.general.logerr,
                                          None, None)
-                        # Add the sample to the list of samples with FASTQ files that pass this validation step
-                        validated_reads.append(sample)
                     except CalledProcessError:
                         # Set the file names for the reformatted and repaired files
                         outputfile1 = os.path.join(sample.general.outputdirectory, '{}_reformatted_R1.fastq.gz'
@@ -84,8 +77,6 @@ class Quality(object):
                                 # Update the fastqfiles attribute to point to the repaired files
                                 sample.general.fastqfiles = [repair_file1, repair_file2] if repair_file2 \
                                     else [outputfile1]
-                                # Add the sample object to the list of samples passing the FASTQ validation step
-                                validated_reads.append(sample)
                         except CalledProcessError:
                             # The file(s) can be created even if there is STDERR from reformat.sh
                             if os.path.isfile(outputfile1) and outputfile2:
@@ -98,8 +89,6 @@ class Quality(object):
                                     # Update the fastqfiles attribute to point to the repaired files
                                     sample.general.fastqfiles = [repair_file1, repair_file2] if repair_file2 else \
                                         [repair_file1]
-                                    # Add the sample object to the list of samples passing the FASTQ validation step
-                                    validated_reads.append(sample)
                                 except CalledProcessError:
                                     # Write in the logs that there was an error detected in the FASTQ files
                                     write_to_logfile('An error was detected in the FASTQ files for sample {}. '
@@ -132,8 +121,6 @@ class Quality(object):
                     self.error(sample, 'files_too_small')
         # Print the metadata to file
         metadataprinter.MetadataPrinter(self)
-        # Overwrite self.metadata with objects that do not fail the validation
-        self.metadata = validated_reads
 
     @staticmethod
     def error(sample, message):
@@ -142,8 +129,8 @@ class Quality(object):
         :param sample: metadata sample object
         :param message: error message to add to the sample.run.Description attribute
         """
-        # Set the .fastqfiles attribute to 'NA' to remove this strain from the analyses
-        sample.general.fastqfiles = ['NA']
+        # Set the .fastqfiles attribute to an empty list
+        sample.general.fastqfiles = list()
         # Ensure that the run attribute exists
         if GenObject.isattr(sample, 'run'):
             # If the Description attribute exists, overwrite it, otherwise create and populate it
@@ -184,35 +171,35 @@ class Quality(object):
                 try:
                     fastqfiles = sample.general.trimmedfastqfiles
                 except AttributeError:
-                    fastqfiles = ""
-                    pass
+                    fastqfiles = None
             elif level == 'trimmedcorrected':
                 reader = 'gunzip --to-stdout'
                 # Try except loop to allow for missing samples
                 try:
                     fastqfiles = sample.general.trimmedcorrectedfastqfiles
                 except AttributeError:
-                    fastqfiles = ""
-                    pass
+                    fastqfiles = None
             elif level == 'normalised':
                 reader = 'gunzip --to-stdout'
                 # Try except loop to allow for missing samples
                 try:
                     fastqfiles = sample.general.normalisedreads
                 except AttributeError:
-                    fastqfiles = ""
-                    pass
+                    fastqfiles = None
             elif level == 'merged':
                 reader = 'gunzip --to-stdout'
                 # Try except loop to allow for missing samples
                 try:
                     fastqfiles = [sample.general.mergedreads]
                 except AttributeError:
-                    fastqfiles = ""
-                    pass
+                    fastqfiles = None
             else:
-                reader = 'cat' if '.gz' not in sample.general.fastqfiles[0] else 'gunzip --to-stdout'
-                fastqfiles = sample.general.fastqfiles
+                try:
+                    reader = 'cat' if '.gz' not in sample.general.fastqfiles[0] else 'gunzip --to-stdout'
+                    fastqfiles = sample.general.fastqfiles
+                except IndexError:
+                    reader = str()
+                    fastqfiles = None
             # As the metadata can be populated with 'NA' (string) if there are no fastq files, only process if
             # :fastqfiles is a list
             if type(fastqfiles) is list:
@@ -305,35 +292,40 @@ class Quality(object):
                     # each read, as these bases tend to have lower quality scores. If trimming the reads will cause
                     trim_left = 0
                     # If, for some reason, only the reverse reads are present, use the appropriate output file name
-                    if 'R2' in fastqfiles[0]:
-                        if not os.path.isfile(cleanreverse):
-                            out, \
-                                err, \
-                                bbdukcall = bbtools.bbduk_trim(forward_in=fastqfiles[0],
-                                                               reverse_in=None,
-                                                               forward_out=cleanreverse,
-                                                               trimq=10,
-                                                               minlength=min_len,
-                                                               forcetrimleft=trim_left,
-                                                               returncmd=True)
-                        else:
-                            bbdukcall = str()
-                            out = str()
-                            err = str()
-                    else:
-                        if not os.path.isfile(cleanforward):
+                    try:
+                        if 'R2' in fastqfiles[0]:
+                            if not os.path.isfile(cleanreverse):
                                 out, \
                                     err, \
                                     bbdukcall = bbtools.bbduk_trim(forward_in=fastqfiles[0],
-                                                                   forward_out=cleanforward,
+                                                                   reverse_in=None,
+                                                                   forward_out=cleanreverse,
                                                                    trimq=10,
                                                                    minlength=min_len,
                                                                    forcetrimleft=trim_left,
                                                                    returncmd=True)
+                            else:
+                                bbdukcall = str()
+                                out = str()
+                                err = str()
                         else:
-                            bbdukcall = str()
-                            out = str()
-                            err = str()
+                            if not os.path.isfile(cleanforward):
+                                    out, \
+                                        err, \
+                                        bbdukcall = bbtools.bbduk_trim(forward_in=fastqfiles[0],
+                                                                       forward_out=cleanforward,
+                                                                       trimq=10,
+                                                                       minlength=min_len,
+                                                                       forcetrimleft=trim_left,
+                                                                       returncmd=True)
+                            else:
+                                bbdukcall = str()
+                                out = str()
+                                err = str()
+                    except (IndexError, CalledProcessError):
+                        bbdukcall = str()
+                        out = str()
+                        err = str()
                     # Write the command, stdout, and stderr to the logfile
                     write_to_logfile(bbdukcall, bbdukcall, self.logfile, sample.general.logout, sample.general.logerr,
                                      None, None)
@@ -341,7 +333,7 @@ class Quality(object):
                     # Add the trimmed fastq files to a list
                     trimmedfastqfiles = sorted(glob(os.path.join(sample.general.outputdirectory, '*trimmed.fastq.gz')))
                     # Populate the metadata if the files exist
-                    sample.general.trimmedfastqfiles = trimmedfastqfiles if trimmedfastqfiles else 'NA'
+                    sample.general.trimmedfastqfiles = trimmedfastqfiles if trimmedfastqfiles else list()
         # Add all the trimmed files to the metadata
         logging.info('Fastq files trimmed')
 
@@ -391,15 +383,20 @@ class Quality(object):
                 # If the current line corresponds to the sample of interest
                 if sample.name in line:
                     # Set the values using the appropriate keys as the attributes
-                    sample.confindr.genus = confindr_results[line]['Genus']
+                    sample.confindr.genus = confindr_results[line]['Genus'] if type(confindr_results[line]['Genus']) \
+                                                                               is not float else 'ND'
                     sample.confindr.num_contaminated_snvs = confindr_results[line]['NumContamSNVs']
                     sample.confindr.contam_status = confindr_results[line]['ContamStatus']
+                    # Don't break parsing previous ConFindr reports that lack the percent contamination calculations
                     try:
-                        sample.confindr.percent_contam = confindr_results[line]['PercentContam']
+                        sample.confindr.percent_contam = confindr_results[line]['PercentContam'] if \
+                            str(confindr_results[line]['PercentContam']) != 'nan' else 0
                     except KeyError:
                         sample.confindr.percent_contam = 'ND'
                     try:
-                        sample.confindr.percent_contam_std = confindr_results[line]['PercentContamStandardDeviation']
+                        sample.confindr.percent_contam_std = \
+                            confindr_results[line]['PercentContamStandardDeviation'] if \
+                            str(confindr_results[line]['PercentContamStandardDeviation']) != 'nan' else 0
                     except KeyError:
                         sample.confindr.percent_contam_std = 'ND'
                     if sample.confindr.contam_status is True:
@@ -449,17 +446,28 @@ class Quality(object):
                                                          for fastq in sorted(sample.general.fastqfiles)]
             try:
                 if not os.path.isfile(sample.general.trimmedcorrectedfastqfiles[0]):
-                    out, err, cmd = bbtools.tadpole(forward_in=sorted(sample.general.trimmedfastqfiles)[0],
-                                                    forward_out=sample.general.trimmedcorrectedfastqfiles[0],
-                                                    returncmd=True,
-                                                    mode='correct',
-                                                    threads=self.cpus)
-                    # Set the command in the object
-                    sample[self.analysistype].errorcorrectcmd = cmd
-                    write_to_logfile(out, err, self.logfile, sample.general.logout, sample.general.logerr, None, None)
+                    try:
+                        out, err, cmd = bbtools.tadpole(forward_in=sorted(sample.general.trimmedfastqfiles)[0],
+                                                        forward_out=sample.general.trimmedcorrectedfastqfiles[0],
+                                                        returncmd=True,
+                                                        mode='correct',
+                                                        threads=self.cpus)
+                        # Set the command in the object
+                        sample[self.analysistype].errorcorrectcmd = cmd
+                        write_to_logfile(out=out,
+                                         err=err,
+                                         logfile=self.logfile,
+                                         samplelog=sample.general.logout,
+                                         sampleerr=sample.general.logerr,
+                                         analysislog=None,
+                                         analysiserr=None)
+                    except IndexError:
+                        sample.general.trimmedcorrectedfastqfiles = list()
             except CalledProcessError:
                 sample.general.trimmedcorrectedfastqfiles = sample.general.trimmedfastqfiles
             except AttributeError:
+                sample.general.trimmedcorrectedfastqfiles = list()
+            except IndexError:
                 sample.general.trimmedcorrectedfastqfiles = list()
 
     def normalise_reads(self):
