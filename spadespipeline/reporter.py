@@ -146,17 +146,7 @@ class Reporter(object):
                     data += 'ND,'
             except AttributeError:
                 data += 'ND,'
-            # # Vtyper_Profile
-            # try:
-            #     # Since the vtyper attribute can be empty, check first
-            #     profile = sorted(sample.vtyper.profile)
-            #     if profile:
-            #         data += ';'.join(profile) + ','
-            #     else:
-            #         data += 'ND,'
-            # except AttributeError:
-            #     data += 'ND,'
-            # Legacy Vtyper
+            # Vtyper_Profile
             data += GenObject.returnattr(sample.legacy_vtyper, 'toxinprofile')
             # AMR_Profile and resistant/sensitive status
             if sample.resfinder_assembled.pipelineresults:
@@ -246,7 +236,7 @@ class Reporter(object):
                     .format(oset=';'.join(sample.serosippr.o_set),
                             hset=';'.join(sample.serosippr.h_set))),
                 ('geneSeekrProfile', ';'.join(result for result, pid in sorted(sample.genesippr.results.items()))),
-                ('vtyperProfile', ';'.join(sorted(sample.vtyper.profile))),
+                ('vtyperProfile', ';'.join(sorted(sample.legacy_vtyper.toxinprofile))),
                 ('percentGC', str(sample.quality_features_polished.gc)),
                 ('TotalPredictedGenes', str(sample.prodigal.predictedgenestotal)),
                 ('predictedgenesover3000bp', str(sample.prodigal.predictedgenesover3000bp)),
