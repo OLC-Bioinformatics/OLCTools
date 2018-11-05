@@ -736,10 +736,6 @@ class Prophages(BLAST):
                 # Create a set to ensure that genes are only entered into the report once
                 genes = set()
                 if sample.general.bestassemblyfile != 'NA':
-                    # Open the prophage file as a dict - I do this here, as if I open it earlier, it looks like the
-                    # file remains partially-read through for the next iteration. Something like prophagedata.seek(0)
-                    # would probably work, but Dictreader objects don't have a .seek attribute
-                    # prophagedata = DictReader(open(overview), fieldnames=fieldnames, dialect='excel-tab')
                     try:
                         if sample[self.analysistype].blastlist:
                             # Allow for formatting multiple hits for the same sample
