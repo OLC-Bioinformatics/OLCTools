@@ -54,21 +54,24 @@ class ObjectCreation(object):
                 metadata.general.bestassemblyfile = metadata.general.fastqfiles[0]
             except IndexError:
                 pass
-            # Find the data files corresponding to the sample
-            datafiles = glob(os.path.join(self.datapath, '{}*.csv'.format(metadata.name)))
-            # Assign attributes to the files depending on whether they are abundance files or not
-            for datafile in datafiles:
-                if 'abundance' in datafile:
-                    metadata.general.abundancefile = datafile
-                else:
-                    metadata.general.assignmentfile = datafile
+            # Add the logs
+            metadata.general.logout = os.path.join(outputdir, 'log')
+            metadata.general.logerr = os.path.join(outputdir, 'err')
+            if self.datapath:
+                # Find the data files corresponding to the sample
+                datafiles = glob(os.path.join(self.datapath, '{}*.csv'.format(metadata.name)))
+                # Assign attributes to the files depending on whether they are abundance files or not
+                for datafile in datafiles:
+                    if 'abundance' in datafile:
+                        metadata.general.abundancefile = datafile
+                    else:
+                        metadata.general.assignmentfile = datafile
 
             # Append the metadata to the list of samples
             self.samples.append(metadata)
 
     def __init__(self, inputobject):
         self.samples = list()
-        self.path = inputobject.path
         self.sequencepath = inputobject.sequencepath
         try:
             self.datapath = inputobject.datapath
