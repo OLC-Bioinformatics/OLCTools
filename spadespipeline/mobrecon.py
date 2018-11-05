@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
-from accessoryFunctions.accessoryFunctions import GenObject, run_subprocess, write_to_logfile, make_path
+from accessoryFunctions.accessoryFunctions import GenObject, MetadataObject, run_subprocess, strainer, write_to_logfile, make_path, SetupLogging
+from argparse import ArgumentParser
 from click import progressbar
+import multiprocessing
 import pandas as pd
 import logging
 import os
@@ -120,18 +122,46 @@ class MobRecon(object):
         """
         logging.info('Creating AMR summary table from ResFinder and MOB-recon outputs')
         with open(os.path.join(self.reportpath, 'amr_summary.csv'), 'w') as amr:
-            data = 'Strain,Gene,Allele,Resistance,PercentIdentity,Contig,Location,Incompatibility\n'
+            data = 'Strain,Gene,Allele,Resistance,PercentIdentity,Contig,Location,PlasmidIncompatibilitySets\n'
             for sample in self.metadata:
+                # Initialise a dictionary to store a set of all the incompatibility types listed for a contig.
+                # As the inc type will only be located on one of possibly several contigs associated with a predicted
+                # plasmid, it is nice to know details about the plasmid
+                inc_dict = dict()
+                for primarykey, results in sample[self.analysistype].report_dict.items():
+                    try:
+                        inc = results['cluster_id']
+                        # Convert the rep_type field (predicted incompatibilities) into a more a consistent
+                        # format - pandas will call empty fields 'nan', which is a float
+                        rep = str(results['rep_type']).replace(',', ';') if str(results['rep_type']) != 'nan' else 'ND'
+                        # Add the incompatibility to the set
+                        try:
+                            inc_dict[inc].add(rep)
+                        except KeyError:
+                            inc_dict[inc] = set()
+                            inc_dict[inc].add(rep)
+                    except KeyError:
+                        pass
+                #
                 for primarykey, results in sample[self.analysistype].report_dict.items():
                     try:
                         contig = results['contig_id'].split('|')[1]
-                        for amr_l in sample.resfinder_assembled.sampledata:
-                            if contig in amr_l:
+                        # Use the list of results from the resfinder analyses
+                        for amr_result in sample.resfinder_assembled.sampledata:
+                            # Ensure that the current contig is the same as the one in the resfinder results
+                            if contig in amr_result:
+                                # Set up the output string
                                 data += '{},'.format(sample.name)
+                                # Add the
                                 data += '{amr},{mob}\n'\
-                                    .format(amr=','.join(str(res) if str(res) != 'nan' else 'ND' for res in amr_l[:4]),
+                                    .format(amr=','.join(str(res) if str(res) != 'nan' else 'ND' for res in
+                                                         amr_result[0:4]),
                                             mob=','.join(str(res) if str(res) != 'nan' else 'ND' for res in
-                                                         [contig, results['cluster_id'], results['rep_type']]))
+                                                         [contig, results['cluster_id'],
+                                                          ';'.join(sorted(inc_dict[str(results['cluster_id'])]))
+                                                          ]
+                                                         )
+                                            )
                     except KeyError:
                         pass
             amr.write(data)
@@ -143,3 +173,61 @@ class MobRecon(object):
         self.threads = threads
         self.logfile = logfile
         self.reportpath = reportpath
+
+
+if __name__ == '__main__':
+
+    def resfinder_extract(reportpath, metadata):
+        # A dictionary to store the parsed excel file in a more readable format
+        nesteddictionary = dict()
+        resfinder_report = os.path.join(reportpath, 'resfinder_blastn.xlsx')
+        assert os.path.isfile(resfinder_report), 'Missing ResFinder Report!'
+        dictionary = pd.read_excel(resfinder_report).to_dict()
+        for header in dictionary:
+            # Sample is the primary key, and value is the value of the cell for that primary key + header combination
+            for sample, value in dictionary[header].items():
+                # Update the dictionary with the new data
+                try:
+                    nesteddictionary[sample].update({header: value})
+                # Create the nested dictionary if it hasn't been created yet
+                except KeyError:
+                    nesteddictionary[sample] = dict()
+                    nesteddictionary[sample].update({header: value})
+        for sample in metadata:
+            sample.resfinder_assembled = GenObject()
+            sample.resfinder_assembled.sampledata = list()
+            for line in nesteddictionary:
+                sample_name = nesteddictionary[line]['Strain']
+                if sample_name == sample.name:
+                    sample.resfinder_assembled.sampledata.append(([nesteddictionary[line]['Gene'],
+                                                                   nesteddictionary[line]['Allele'],
+                                                                   nesteddictionary[line]['Resistance'],
+                                                                   nesteddictionary[line]['PercentIdentity'],
+                                                                   nesteddictionary[line]['PercentCovered'],
+                                                                   nesteddictionary[line]['Contig']]))
+        return metadata
+
+    # Parser for arguments
+    parser = ArgumentParser(description='Performing the typing component of the COWBAT pipeline on assemblies')
+    parser.add_argument('-s', '--sequencepath',
+                        required=True,
+                        help='Path to folder containing sequencing reads')
+    parser.add_argument('-r', '--referencefilepath',
+                        required=True,
+                        help='Provide the location of the folder containing the pipeline accessory files (reference '
+                             'genomes, MLST data, etc.')
+    SetupLogging()
+    arguments = parser.parse_args()
+    # Extract the list of strains in the sequence path, and create a metadata object with necessary values
+    strains, metadata = strainer(arguments.sequencepath)
+    report_path = os.path.join(arguments.sequencepath, 'reports')
+    #
+    metadata = resfinder_extract(reportpath=report_path,
+                                 metadata=metadata)
+    mob = MobRecon(metadata=metadata,
+                   analysistype='mobrecon',
+                   databasepath=arguments.referencefilepath,
+                   threads= multiprocessing.cpu_count() - 1,
+                   logfile=os.path.join(arguments.sequencepath, 'log'),
+                   reportpath=report_path)
+    mob.mob_recon()
