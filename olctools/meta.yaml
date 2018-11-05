@@ -1,49 +1,78 @@
 {% set name = "olctools" %}
-{% set version = "0.5.0" %}
+{% set version = "0.6.0" %}
+{% set file_ext = "tar.gz" %}
+{% set hash_type = "sha256" %}
+{% set hash_value = "0b88e59fcff3ffd8264502c41e89b35d96a7c0f030da81a6e795e6362a35d294" %}
 
 package:
-  name: "{{ name|lower }}"
-  version: "{{ version }}"
+  name: '{{ name|lower }}'
+  version: '{{ version }}'
 
 source:
-  git_url: https://github.com/lowandrew/OLCTools
+  fn: '{{ name }}-{{ version }}.{{ file_ext }}'
+  url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.{{ file_ext }}
+  '{{ hash_type }}': '{{ hash_value }}'
 
 build:
   number: 0
-  script: "{{ PYTHON }} -m pip install . --no-deps --ignore-installed --no-cache-dir -vvv "
-  always_include_files:
-    - spadespipeline/primers.txt
+  script: python setup.py install --single-version-externally-managed --record=record.txt
 
 requirements:
   host:
-    - biopython
-    - illumina-interop
-    - pip
-    - pip
     - python
+    - setuptools
+    - biopython
+    - interop
+    - sipprverse
+    - pandas
+    - numpy
+    - geneseekr
+    - psutil
+    - urllib3
+    - confindr
+    - pytest
+    - pysam
+    - xlsxwriter
+    - seaborn
+    - rauth
+    - click
   run:
-    - biopython
-    - illumina-interop
     - python
+    - biopython
+    - interop
+    - sipprverse
+    - pandas
+    - numpy
+    - geneseekr
+    - psutil
+    - urllib3
+    - confindr
+    - pytest
+    - pysam
+    - xlsxwriter
+    - seaborn
+    - rauth
+    - click
 
 test:
   imports:
     - accessoryFunctions
     - biotools
     - coreGenome
+    - databasesetup
     - metagenomefilter
     - sipprCommon
     - spadespipeline
 
 about:
   home: https://github.com/lowandrew/OLCTools
-  license: MIT
+  license: UNKNOWN
   license_family: OTHER
-  license_file: 
-  summary: 
-  doc_url: 
-  dev_url: 
+  license_file: ''
+  summary: Summary of the package
+  description: ''
+  doc_url: ''
+  dev_url: ''
 
 extra:
-  recipe-maintainers:
-    - your-github-id-here
+  recipe-maintainers: ''
