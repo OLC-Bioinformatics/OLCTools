@@ -288,6 +288,7 @@ class Sippr(object):
                     SamtoolsViewCommandline(b=True,
                                             S=True,
                                             h=True,
+                                            F=4,
                                             input_file="-"),
                     samsort]
                 # Add custom parameters to a dictionary to be used in the bowtie2 alignment wrapper
@@ -427,13 +428,14 @@ class Sippr(object):
         """
         while True:
             sample = self.parsequeue.get()
-            # Initialise variables to store query and reference sequences, as well as any feature such as insertions
-            # or locations with internal soft clipped reads
+            # Initialise variables to store query and reference sequences, as well as any feature
+            # such as insertions or locations with internal soft clipped reads
             sample[self.analysistype].sequence = dict()
             sample[self.analysistype].referencesequences = dict()
             sample[self.analysistype].features = dict()
             # Load the baitfile using SeqIO to get the reference sequences
-            self.record_dict[sample.name] = SeqIO.to_dict(SeqIO.parse(sample[self.analysistype].baitfile, 'fasta'))
+            self.record_dict[sample.name] = SeqIO.to_dict(
+                SeqIO.parse(sample[self.analysistype].baitfile, 'fasta'))
             # Create a pysam alignment file object of the sorted bam file
             bamfile = pysam.AlignmentFile(sample[self.analysistype].sortedbam, 'rb')
             # Iterate through each read in the bamfile
