@@ -169,13 +169,15 @@ class ResistanceNotes(object):
         :param resistance_dict: Dictionary of resistance class: header
         :return: resistance class of the gene
         """
-        # Initialise a string to store the resistance class for the gene
-        resistance = str()
+        # Initialise a list to store the resistance class(es) for the gene
+        resistance_list = list()
         # Iterate through the dictionary of the resistance class: set of gene names
         for resistance_class, gene_set in resistance_dict.items():
             # If the gene is presence in the set
             if genename in gene_set:
                 # Set the resistance class appropriately
-                resistance += resistance_class
+                resistance_list.append(resistance_class)
+        # Create a comma-separated string of the sorted genes
+        resistance = ','.join(sorted(resistance_list))
         # Return the calculated resistance class
         return resistance
