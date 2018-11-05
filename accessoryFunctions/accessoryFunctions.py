@@ -619,10 +619,12 @@ class MetadataObject(object):
     def __init__(self):
         """Create datastore attr with empty dict"""
         super(MetadataObject, self).__setattr__('datastore', {})
+        # Initialise a list of keys that will not be printed to the .json file with the dump method
         self.unwanted_keys = ['allelenames', 'alleles', 'faidict', 'gaplocations', 'maxcoverage',
                               'mincoverage', 'profiledata', 'resultsgap', 'averagedepth', 'avgdepth',
                               'resultssnp', 'sequences', 'sequence', 'snplocations', 'standarddev',
-                              'totaldepth']
+                              'totaldepth', 'blastlist', 'targetsequence', 'queryranges', 'querypercent',
+                              'queryscore', 'results']
 
     def __getattr__(self, key):
         """:key is retrieved from datastore if exists, for nested attr recursively :self.__setattr__"""
@@ -837,3 +839,44 @@ def combinetargets(targets, targetpath, mol_type='nt'):
 
 class KeyboardInterruptError(Exception):
     pass
+
+
+def strainer(sequencepath):
+    """
+    Locate all the FASTA files in the supplied sequence path. Create basic metadata objects for
+    each sample
+    """
+    metadata_list = list()
+    assert os.path.isdir(sequencepath), 'Cannot locate sequence path as specified: {}' \
+        .format(sequencepath)
+    # Get the sequences in the sequences folder into a list. Note that they must have a file extension that
+    # begins with .fa
+    strains = sorted(glob.glob(os.path.join(sequencepath, '*.fa*')))
+    # Populate the metadata object. This object will be populated to mirror the objects created in the
+    # genome assembly pipeline. This way this script will be able to be used as a stand-alone, or as part
+    # of a pipeline
+    assert strains, 'Could not find any files with an extension starting with "fa" in {}. Please check ' \
+                    'to ensure that your sequence path is correct'.format(sequencepath)
+    for sample in strains:
+        # Create the object
+        metadata = MetadataObject()
+        # Set the base file name of the sequence. Just remove the file extension
+        filename = os.path.splitext(os.path.split(sample)[1])[0]
+        # Set the .name attribute to be the file name
+        metadata.name = filename
+        # Create the .general attribute
+        metadata.general = GenObject()
+        metadata.commands = GenObject()
+        metadata.general.outputdirectory = os.path.join(sequencepath, filename)
+        # Set the .general.bestassembly file to be the name and path of the sequence file
+        metadata.general.bestassemblyfile = os.path.join(metadata.general.outputdirectory, '{sn}.fasta'
+                                                         .format(sn=filename))
+        make_path(metadata.general.outputdirectory)
+        # Create a symlink to the directory
+        relative_symlink(sample,
+                         metadata.general.outputdirectory)
+        metadata.general.logout = os.path.join(metadata.general.outputdirectory, 'out')
+        metadata.general.logerr = os.path.join(metadata.general.outputdirectory, 'err')
+        # Append the metadata for each sample to the list of samples
+        metadata_list.append(metadata)
+    return strains, metadata_list
