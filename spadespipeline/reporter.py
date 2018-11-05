@@ -30,25 +30,33 @@ class Reporter(object):
             # SamplePurity
             data += GenObject.returnattr(sample.confindr, 'contam_status')
             # N50
-            n50 = GenObject.returnattr(sample.quality_features_polished, 'n50')
+            n50 = GenObject.returnattr(sample.quality_features_polished, 'n50',
+                                       number=True)
             if n50 != '-,':
                 data += n50
             else:
-                data += 'ND,'
+                data += '0,'
             # NumContigs
-            data += GenObject.returnattr(sample.quality_features_polished, 'num_contigs')
+            data += GenObject.returnattr(sample.quality_features_polished, 'num_contigs',
+                                         number=True)
             # TotalLength
-            data += GenObject.returnattr(sample.quality_features_polished, 'genome_length')
+            data += GenObject.returnattr(sample.quality_features_polished, 'genome_length',
+                                         number=True)
             # MeanInsertSize
-            data += GenObject.returnattr(sample.mapping, 'MeanInsertSize')
+            data += GenObject.returnattr(sample.mapping, 'MeanInsertSize',
+                                         number=True)
             # InsertSizeSTD
-            data += GenObject.returnattr(sample.mapping, 'StdInsertSize')
+            data += GenObject.returnattr(sample.mapping, 'StdInsertSize',
+                                         number=True)
             # AverageCoverageDepth
-            data += GenObject.returnattr(sample.mapping, 'MeanCoveragedata')
+            data += GenObject.returnattr(sample.mapping, 'MeanCoveragedata',
+                                         number=True)
             # CoverageDepthSTD
-            data += GenObject.returnattr(sample.mapping, 'StdCoveragedata')
+            data += GenObject.returnattr(sample.mapping, 'StdCoveragedata',
+                                         number=True)
             # PercentGC
-            data += GenObject.returnattr(sample.quality_features_polished, 'gc')
+            data += GenObject.returnattr(sample.quality_features_polished, 'gc',
+                                         number=True)
             # MASH_ReferenceGenome
             data += GenObject.returnattr(sample.mash, 'closestrefseq')
             # MASH_NumMatchingHashes
@@ -59,7 +67,9 @@ class Reporter(object):
             try:
                 # If the number of matches to the closest reference profile is 53, return the profile number
                 if sample.rmlst.matches == 53:
-                    data += GenObject.returnattr(sample.rmlst, 'sequencetype')
+                    rmlst_seq_type = GenObject.returnattr(sample.rmlst, 'sequencetype')
+                    rmlst_seq_type = rmlst_seq_type if rmlst_seq_type != 'ND,' else 'new,'
+                    data += rmlst_seq_type
                 else:
                     # Otherwise the profile is set to new
                     data += 'new,'
@@ -70,17 +80,18 @@ class Reporter(object):
                 if sample.mlst.matches == 7:
                     data += GenObject.returnattr(sample.mlst, 'sequencetype')
                 else:
-                    # Create a set of all the genes present in the results (gene name split from allele)
-                    mlst_gene_set = {gene.split('_')[0] for gene in sample.mlst.results}
-                    # If there are all the genes present, but no perfect match to a reference profile, state that
-                    # the profile is new
-                    if len(mlst_gene_set) == 7:
-                        data += 'new,'
-                    # Otherwise indicate that the profile is ND
-                    else:
-                        data += 'ND,'
+                    data += 'new,'
+                    # # Create a set of all the genes present in the results (gene name split from allele)
+                    # mlst_gene_set = {gene.split('_')[0] for gene in sample.mlst.results}
+                    # # If there are all the genes present, but no perfect match to a reference profile, state that
+                    # # the profile is new
+                    # if len(mlst_gene_set) == 7:
+                    #     data += 'new,'
+                    # # Otherwise indicate that the profile is ND
+                    # else:
+                    #     data += 'ND,'
             except AttributeError:
-                data += 'ND,'
+                data += 'new,'
             # MLST_gene_X_alleles
             try:
                 # Create a set of all the genes present in the results (gene name split from allele)
@@ -171,15 +182,20 @@ class Reporter(object):
             else:
                 data += 'ND,'
             # TotalPredictedGenes
-            data += GenObject.returnattr(sample.prodigal, 'predictedgenestotal')
+            data += GenObject.returnattr(sample.prodigal, 'predictedgenestotal',
+                                         number=True)
             # PredictedGenesOver3000bp
-            data += GenObject.returnattr(sample.prodigal, 'predictedgenesover3000bp')
+            data += GenObject.returnattr(sample.prodigal, 'predictedgenesover3000bp',
+                                         number=True)
             # PredictedGenesOver1000bp
-            data += GenObject.returnattr(sample.prodigal, 'predictedgenesover1000bp')
+            data += GenObject.returnattr(sample.prodigal, 'predictedgenesover1000bp',
+                                         number=True)
             # PredictedGenesOver500bp
-            data += GenObject.returnattr(sample.prodigal, 'predictedgenesover500bp')
+            data += GenObject.returnattr(sample.prodigal, 'predictedgenesover500bp',
+                                         number=True)
             # PredictedGenesUnder500bp
-            data += GenObject.returnattr(sample.prodigal, 'predictedgenesunder500bp')
+            data += GenObject.returnattr(sample.prodigal, 'predictedgenesunder500bp',
+                                         number=True)
             # NumClustersPF
             data += GenObject.returnattr(sample.run, 'NumberofClustersPF')
             # Percent of reads mapping to PhiX control
@@ -187,9 +203,11 @@ class Reporter(object):
             # Error rate calculated from PhiX control
             data += GenObject.returnattr(sample.run, 'error_rate')
             # LengthForwardRead
-            data += GenObject.returnattr(sample.run, 'forwardlength')
+            data += GenObject.returnattr(sample.run, 'forwardlength',
+                                         number=True)
             # LengthReverseRead
-            data += GenObject.returnattr(sample.run, 'reverselength')
+            data += GenObject.returnattr(sample.run, 'reverselength',
+                                         number=True)
             # Real time strain
             data += GenObject.returnattr(sample.run, 'Description')
             # Flowcell
@@ -273,7 +291,7 @@ class Reporter(object):
             except AttributeError:
                 pass
 
-    def __init__(self, inputobject):
+    def __init__(self, inputobject, legacy=True):
         self.metadata = inputobject.runmetadata.samples
         self.commit = inputobject.commit
         self.reportpath = inputobject.reportpath
@@ -293,6 +311,7 @@ class Reporter(object):
                         'NumClustersPF', 'PercentReadsPhiX', 'ErrorRate', 'LengthForwardRead', 'LengthReverseRead',
                         'RealTimeStrain', 'Flowcell', 'MachineName', 'PipelineVersion', 'AssemblyDate']
         self.reporter()
-        self.legacy_reporter()
+        if legacy:
+            self.legacy_reporter()
         # Create a database to store all the metadata
         self.clean_object()
