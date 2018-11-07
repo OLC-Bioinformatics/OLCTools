@@ -115,7 +115,7 @@ class Plasmids(GeneSippr):
                             multiple = True
                     else:
                         data += '\n'
-                except KeyError:
+                except AttributeError:
                     data += '\n'
             report.write(data)
 
@@ -387,7 +387,7 @@ class Resistance(ResSippr):
                         # Initialise the dictionary if necessary
                         except KeyError:
                             sample[self.analysistype].uniquegenes[genename] = float(identity)
-            except KeyError:
+            except AttributeError:
                 pass
         # Create the path in which the reports are stored
         make_path(self.reportpath)
@@ -526,7 +526,7 @@ class ResFinder(GeneSeekr):
             sample[self.analysistype].sampledata = list()
             try:
                 blastresults = sample[self.analysistype].blastresults
-            except KeyError:
+            except AttributeError:
                 blastresults = 'NA'
             # Process the sample only if the script could find targets
             if blastresults != 'NA':
@@ -681,7 +681,7 @@ class ResFinder(GeneSeekr):
                 delattr(sample[self.analysistype], 'ntindex')
                 delattr(sample[self.analysistype], 'dnaseq')
                 delattr(sample[self.analysistype], 'blastresults')
-            except KeyError:
+            except AttributeError:
                 pass
 
     def __init__(self, inputobject):
@@ -763,7 +763,7 @@ class Prophages(BLAST):
                                     multiple = True
                         else:
                             data += '\n'
-                    except KeyError:
+                    except AttributeError:
                         data += '\n'
                 else:
                     data += '\n'
@@ -814,7 +814,7 @@ class Univec(BLAST):
                                             genes.add(gene)
                         else:
                             data += '\n'
-                    except KeyError:
+                    except AttributeError:
                         data += '\n'
                 else:
                     data += '\n'
@@ -876,7 +876,7 @@ class Virulence(GeneSippr):
                             # Initialise the dictionary if necessary
                             except KeyError:
                                 sample[self.analysistype].uniquegenes[genename] = float(identity)
-            except KeyError:
+            except AttributeError:
                 raise
         # Create the path in which the reports are stored
         make_path(self.reportpath)
@@ -926,7 +926,7 @@ class Virulence(GeneSippr):
                                 multiple = True
                     else:
                         data += '\n'
-                except KeyError:
+                except AttributeError:
                     data += '\n'
             # Write the strings to the file
             report.write(data)
