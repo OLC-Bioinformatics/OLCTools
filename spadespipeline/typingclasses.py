@@ -926,7 +926,7 @@ class Virulence(GeneSippr):
                                 multiple = True
                     else:
                         data += '\n'
-                except AttributeError:
+                except (KeyError, AttributeError):
                     data += '\n'
             # Write the strings to the file
             report.write(data)
