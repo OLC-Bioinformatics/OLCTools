@@ -628,7 +628,7 @@ class MetadataObject(object):
                               'mincoverage', 'profiledata', 'resultsgap', 'averagedepth', 'avgdepth',
                               'resultssnp', 'sequences', 'sequence', 'snplocations', 'standarddev',
                               'totaldepth', 'blastlist', 'targetsequence', 'queryranges', 'querypercent',
-                              'queryscore', 'results']
+                              'queryscore', 'results', 'blastresults', 'report_dict', 'sampledata']
 
     def __getattr__(self, key):
         """:key is retrieved from datastore if exists, for nested attr recursively :self.__setattr__"""
