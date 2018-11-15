@@ -22,7 +22,7 @@ class Reporter(object):
             # SampleName
             data += GenObject.returnattr(sample.run, 'SamplePlate')
             # Genus
-            data += GenObject.returnattr(sample.sixteens_full, 'genus')
+            data += GenObject.returnattr(sample.general, 'closestrefseqgenus')
             # SequencingDate
             data += GenObject.returnattr(sample.run, 'Date')
             # Analyst
