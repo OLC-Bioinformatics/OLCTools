@@ -236,7 +236,7 @@ class CreateFastq(object):
             if self.demultiplex:
                 # Repopulate .strainfastqfiles with the freshly-linked/copied files
                 fastqfiles = glob(os.path.join(self.sequencepath, '{}*.fastq*'.format(sample.name)))
-                fastqfiles = sorted([fastq for fastq in fastqfiles if 'trimmed' not in fastq])
+                fastqfiles = sorted([fastq for fastq in fastqfiles if 'trimmed' not in os.path.basename(fastq)])
             else:
                 fastqfiles = sorted(glob(os.path.join(glob_dir, '*.gz')))
             # Populate the metadata object with the name/path of the fastq files
