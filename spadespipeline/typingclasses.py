@@ -130,9 +130,7 @@ class GDCS(Sippr):
                         sample[self.analysistype].avgdepth[header] = avg_depth
                         sample[self.analysistype].standarddev[header] = stddev_depth
                     except (AttributeError, ValueError):
-                        logging.error(value)
                         pass
-                logging.critical((key, header, value))
         except KeyError:
             pass
 
@@ -309,15 +307,28 @@ class Serotype(SeroSippr):
         """
         Run the necessary methods in the correct order
         """
-        logging.info('Starting {} analysis pipeline'.format(self.analysistype))
-        # Run the analyses
-        ShortKSippingMethods(self, self.cutoff)
-        self.serotype_escherichia()
-        self.serotype_salmonella()
-        # Create the reports
-        self.reporter()
-        # Print the metadata
-        MetadataPrinter(self)
+        sero_report = os.path.join(self.reportpath, 'serosippr.csv')
+        if os.path.isfile(sero_report):
+            self.report_parse(sero_report)
+        else:
+            logging.info('Starting {} analysis pipeline'.format(self.analysistype))
+            # Run the analyses
+            ShortKSippingMethods(self, self.cutoff)
+            self.serotype_escherichia()
+            self.serotype_salmonella()
+            # Create the reports
+            self.reporter()
+            # Print the metadata
+            MetadataPrinter(self)
+
+    def report_parse(self, sero_report):
+        """
+
+        :param sero_report:
+        :return:
+        """
+        logging.warning(sero_report)
+        pass
 
 
 class ShortKSippingMethods(Sippr):
@@ -452,9 +463,22 @@ class ResSippr(GeneSippr):
 class Resistance(ResSippr):
 
     def main(self):
-        self.runner()
-        # Create the reports
-        self.reporter()
+        res_report = os.path.join(self.reportpath, 'resfinder.csv')
+        if os.path.isfile(res_report):
+            self.parse_report(res_report)
+        else:
+            self.runner()
+            # Create the reports
+            self.reporter()
+
+    def parse_report(self, res_report):
+        """
+
+        :param res_report:
+        :return:
+        """
+        logging.critical(res_report)
+        pass
 
     def reporter(self):
         """
@@ -916,6 +940,41 @@ class Univec(BLAST):
 
 
 class Virulence(GeneSippr):
+
+    def runner(self):
+        """
+        Run the necessary methods in the correct order
+        """
+
+        vir_report = os.path.join(self.reportpath, 'virulence.csv')
+        if os.path.isfile(vir_report):
+            self.report_parse(vir_report)
+        else:
+            logging.info('Starting {} analysis pipeline'.format(self.analysistype))
+            if not self.pipeline:
+                general = None
+                for sample in self.runmetadata.samples:
+                    general = getattr(sample, 'general')
+                if general is None:
+                    # Create the objects to be used in the analyses
+                    objects = Objectprep(self)
+                    objects.objectprep()
+                    self.runmetadata = objects.samples
+            # Run the analyses
+            Sippr(self, self.cutoff)
+            # Create the reports
+            reports = Reports(self)
+            Reports.reporter(reports, analysistype=self.analysistype)
+            # Print the metadata
+            MetadataPrinter(self)
+
+    def report_parse(self, vir_report):
+        """
+
+        :param vir_report:
+        :return:
+        """
+        logging.error(vir_report)
 
     def reporter(self):
         """
