@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="OLCTools",
-    version="0.6.4",
+    version="0.6.5",
     packages=find_packages(),
     include_package_data=True,
     author="Andrew Low",
@@ -23,6 +23,6 @@ setup(
                       'pysam',
                       'xlsxwriter',
                       'seaborn',
-		      'rauth',
-		      'click']
+                      'rauth',
+                      'click']
 )

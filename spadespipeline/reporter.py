@@ -163,7 +163,7 @@ class Reporter(object):
             if sample.resfinder_assembled.pipelineresults:
                 # Profile
                 for resistance, resistance_set in sample.resfinder_assembled.pipelineresults.items():
-                    data += '{res}({r_set});'.format(res=resistance,
+                    data += '{res}({r_set});'.format(res=resistance.replace(',', ';'),
                                                      r_set=';'.join(sorted(list(resistance_set))))
                 data += ','
                 # Resistant/Sensitive
@@ -291,7 +291,7 @@ class Reporter(object):
             except AttributeError:
                 pass
 
-    def __init__(self, inputobject, legacy=True):
+    def __init__(self, inputobject, legacy=False):
         self.metadata = inputobject.runmetadata.samples
         self.commit = inputobject.commit
         self.reportpath = inputobject.reportpath
