@@ -3,6 +3,7 @@ from accessoryFunctions.accessoryFunctions import filer, MetadataObject, GenObje
 from spadespipeline import metadataReader
 from glob import glob
 import subprocess
+import logging
 import os
 
 __author__ = 'adamkoziol'
@@ -53,6 +54,7 @@ class Basic(object):
     def readlength(self):
         """Calculates the read length of the fastq files. Short reads will not be able to be assembled properly with the
         default parameters used for spades."""
+        logging.info('Estimating read lengths of FASTQ files')
         # Iterate through the samples
         for sample in self.samples:
             sample.run.Date = 'NA'
@@ -61,11 +63,8 @@ class Basic(object):
             sample.run.NumberofClustersPF = 'NA'
             sample.run.PercentOfClusters = 'NA'
             sample.run.SampleProject = 'NA'
-            try:
-                # Only perform this step if the forward and reverse lengths have not been loaded into the metadata
-                len(sample.run.forwardlength)
-                len(sample.run.reverselength)
-            except AttributeError:
+            # Only perform this step if the forward and reverse lengths have not been loaded into the metadata
+            if not GenObject.isattr(sample.run, 'forwardlength') and not GenObject.isattr(sample.run, 'reverselength'):
                 # Initialise the .header attribute for each sample
                 sample.header = GenObject()
                 sample.commands = GenObject()
@@ -100,14 +99,14 @@ class Basic(object):
                         # Added due to weird 2to3 conversion issues, was coming
                         forwardreads = forwardreads.decode('utf-8')
                     except UnicodeDecodeError:
-                        sample.run.forwardlength = 'NA'
+                        sample.run.forwardlength = 0
                     # up as a bytes object when we need it as a string.
                     try:
                         forwardlength = max([len(sequence) for iterator, sequence in enumerate(forwardreads.split('\n'))
                                              if iterator % 4 == 1])
                         sample.run.forwardlength = forwardlength
                     except (ValueError, TypeError):
-                        sample.run.forwardlength = 'NA'
+                        sample.run.forwardlength = 0
                     # For paired end analyses, also calculate the length of the reverse reads
                     if len(sample.general.fastqfiles) == 2:
                         reversefastq = sorted(sample.general.fastqfiles)[1]
@@ -118,15 +117,15 @@ class Basic(object):
                         try:
                             reversereads = reversereads.decode('utf-8')
                         except UnicodeDecodeError:
-                            sample.run.reverselength = 'NA'
+                            sample.run.reverselength = 0
                         try:
                             sample.run.reverselength = max([len(sequence) for iterator, sequence in
                                                             enumerate(reversereads.split('\n')) if iterator % 4 == 1])
                         except (ValueError, TypeError):
-                            sample.run.reverselength = 'NA'
+                            sample.run.reverselength = 0
                     # Populate metadata of single end reads with 'NA'
                     else:
-                        sample.run.reverselength = 'NA'
+                        sample.run.reverselength = 0
 
     def __init__(self, inputobject):
         self.samples = list()
