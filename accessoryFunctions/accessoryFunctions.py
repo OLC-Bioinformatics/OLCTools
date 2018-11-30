@@ -580,7 +580,14 @@ class GenObject(object):
             if key in self.datastore:
                 # Return the string of the value with any commas replaced by semicolons. Append a comma to the
                 # end of the string for the CSV format
-                return '{},'.format(str(self.datastore[key]).replace(',', ';'))
+                return_key = '{},'.format(str(self.datastore[key]).replace(',', ';'))
+                if not number:
+                    return return_key
+                else:
+                    if return_key == 'ND,':
+                        return negative_return
+                    else:
+                        return return_key
             else:
                 return negative_return
         except AttributeError:
