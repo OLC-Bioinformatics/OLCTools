@@ -327,8 +327,21 @@ class Serotype(SeroSippr):
         :param sero_report:
         :return:
         """
-        logging.warning(sero_report)
-        pass
+        with open(sero_report, 'r') as report:
+            next(report)
+            for line in report:
+                data = line.rstrip().split(',')
+                for sample in self.runmetadata.samples:
+                    if sample.name in line:
+                        if data[1]:
+                            setattr(sample, self.analysistype, GenObject())
+                            o_results, h_results = data[1].split(':')
+                            sample[self.analysistype].o_set = [o_results.split(' ')[0]]
+                            sample[self.analysistype].best_o_pid = o_results.split(' ')[1].replace('(', '')\
+                                .replace(')', '')
+                            sample[self.analysistype].h_set = [h_results.split(' ')[0]]
+                            sample[self.analysistype].best_h_pid = h_results.split(' ')[1].replace('(', '')\
+                                .replace(')', '')
 
 
 class ShortKSippingMethods(Sippr):
@@ -477,7 +490,7 @@ class Resistance(ResSippr):
         :param res_report:
         :return:
         """
-        logging.critical(res_report)
+        # logging.critical(res_report)
         pass
 
     def reporter(self):
@@ -974,7 +987,8 @@ class Virulence(GeneSippr):
         :param vir_report:
         :return:
         """
-        logging.error(vir_report)
+        # logging.error(vir_report)
+        pass
 
     def reporter(self):
         """
