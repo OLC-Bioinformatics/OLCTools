@@ -83,15 +83,17 @@ class DatabaseSetup(object):
 
     def sipprverse_method(self):
         """
-        Reduced subset again. Only sipprverse and confindr targets are required
+        Reduced subset again. Only sipprverse, MASH, and confindr targets are required
         """
         logging.info('Beginning sipprverse method database downloads')
         if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'genesippr')):
             self.sipprverse_targets(databasepath=self.databasepath)
         if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'ConFindr')):
             self.confindr_targets(databasepath=self.databasepath)
+        if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'mash')):
+            self.mash(databasepath=self.databasepath)
 
-    def sipprverse_targets(self, databasepath, database_name='sipprverse', download_id='13216553'):
+    def sipprverse_targets(self, databasepath, database_name='sipprverse', download_id='13699538'):
         """
         Download OLC-specific sipprverse targets
         :param databasepath: path to use to save the database
@@ -512,10 +514,6 @@ if __name__ == '__main__':
                         required=True,
                         help='Absolute path to location to store database files. Include any version numbers if '
                              'required.')
-    parser.add_argument('-v', '--verbose',
-                        default=False,
-                        action='store_true',
-                        help='Option to include debug level logging messages. Default is false')
     parser.add_argument('-c,', '--credentials',
                         required=True,
                         help='Name and path of folder containing required rMLST credentials.')
@@ -523,7 +521,7 @@ if __name__ == '__main__':
                         default=False,
                         action='store_true',
                         help='Optionally allow for the overwriting of database files in the databasepath. Defaults to '
-                             'False, so if the output folder already exists, the download will be skipped.')
+                             'False, so if the output folder exists, that part of the download will be skipped.')
     parser.add_argument('-s', '--sipprverse_full',
                         default=False,
                         action='store_true',
@@ -534,7 +532,11 @@ if __name__ == '__main__':
                         default=False,
                         action='store_true',
                         help='Optionally only download the databases used by the sipprverse method: genesippr, '
-                             'sixteenS, GDCS, and ConFindr')
+                             'sixteenS, GDCS, MASH, and ConFindr')
+    parser.add_argument('-v', '--verbose',
+                        default=False,
+                        action='store_true',
+                        help='Option to include debug level logging messages. Default is false')
     # Get the arguments into an object
     arguments = parser.parse_args()
     # Create an object
