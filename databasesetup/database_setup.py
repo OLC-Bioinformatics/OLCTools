@@ -49,6 +49,10 @@ class DatabaseSetup(object):
             self.cge_db_downloader(databasepath=self.databasepath,
                                    analysistype='serosippr',
                                    dbname='serotypefinder_db')
+        if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'pointfinder')):
+            self.cge_db_downloader(databasepath=self.databasepath,
+                                   analysistype='pointfinder',
+                                   dbname='pointfinder_db')
         if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'clark')):
             self.clark(databasepath=self.databasepath)
 
