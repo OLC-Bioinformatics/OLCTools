@@ -153,9 +153,10 @@ class MobRecon(object):
                             contig = contig.split('_')[0]
                         # Use the list of results from the resfinder analyses
                         for amr_result in sample.resfinder_assembled.sampledata:
-                            # Ensure that the current contig is the same as the one in the resfinder results
-                            if contig in amr_result:
-                                logging.warning((sample.name, results['contig_id'], contig, amr_result))
+                            # Ensure that the current contig is the same as the one in the resfinder results. Ensure
+                            # that the slice of the amr result is treated as a string. Unicycler contigs seem to be
+                            # treated as integers
+                            if contig == str(amr_result[-1]):
                                 # Set up the output string
                                 data += '{},'.format(sample.name)
                                 # Add the
