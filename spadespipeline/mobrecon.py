@@ -146,10 +146,16 @@ class MobRecon(object):
                 for primarykey, results in sample[self.analysistype].report_dict.items():
                     try:
                         contig = results['contig_id'].split('|')[1]
+                        # Unicycler gives contigs names such as: 3_length=187116_depth=1.60x_circular=true - test
+                        # to see if the contig name looks unicycler-like, and set the name appropriately (in this
+                        # case, it would be 3)
+                        if contig.split('_')[1].startswith('length'):
+                            contig = contig.split('_')[0]
                         # Use the list of results from the resfinder analyses
                         for amr_result in sample.resfinder_assembled.sampledata:
                             # Ensure that the current contig is the same as the one in the resfinder results
                             if contig in amr_result:
+                                logging.warning((sample.name, results['contig_id'], contig, amr_result))
                                 # Set up the output string
                                 data += '{},'.format(sample.name)
                                 # Add the
