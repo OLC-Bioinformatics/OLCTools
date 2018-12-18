@@ -85,6 +85,60 @@ class REST(object):
             self.access_token = access_list[1]
         else:
             print('Missing access_token')
+            self.get_request_token()
+            self.get_access_token()
+
+    def get_access_token(self):
+        """
+        Request an access token
+        """
+        print('Obtaining access token')
+        # Set URL to use for the verification
+        authorize_url = self.test_web_url + '&page=authorizeClient&oauth_token=' + self.request_token
+        print('Visit this URL in your browser: ' + authorize_url)
+        # Use the user input to set the verifier code
+        verifier = input('Enter oauth_verifier from browser: ')
+        # Create a new session
+        session_request = OAuth1Session(consumer_key=self.consumer_key,
+                                        consumer_secret=self.consumer_secret,
+                                        access_token=self.request_token,
+                                        access_token_secret=self.request_secret)
+        # Perform a GET request with the appropriate keys and tokens
+        r = session_request.get(self.access_token_url,
+                                params={
+                                    'oauth_verifier': verifier
+                                })
+        # If the status code is '200' (OK), proceed
+        if r.status_code == 200:
+            # Save the JSON-decoded token secret and token
+            self.access_token = r.json()['oauth_token']
+            self.access_secret = r.json()['oauth_token_secret']
+            # Write the token and secret to file
+            self.write_token('access_token', self.access_token, self.access_secret)
+
+    def get_request_token(self):
+        """
+        Obtain a request token
+        """
+        print('Obtaining request token')
+        try:
+            os.remove(os.path.join(self.file_path, 'request_token'))
+        except FileNotFoundError:
+            pass
+        # Create a new session
+        session = OAuth1Session(consumer_key=self.consumer_key,
+                                consumer_secret=self.consumer_secret)
+        # Use the test URL in the GET request
+        r = session.request(method='GET',
+                            url=self.request_token_url,
+                            params={'oauth_callback': 'oob'})
+        # If the status code is '200' (OK), proceed
+        if r.status_code == 200:
+            # Save the JSON-decoded token secret and token
+            self.request_token = r.json()['oauth_token']
+            self.request_secret = r.json()['oauth_token_secret']
+            # Write the token and secret to file
+            self.write_token('request_token', self.request_token, self.request_secret)
 
     def get_session_token(self):
         """
@@ -102,10 +156,8 @@ class REST(object):
                                         self.consumer_secret,
                                         access_token=self.access_token,
                                         access_token_secret=self.access_secret)
-        # Set the URL appropriately
-        url = self.test_rest_url + '/oauth/get_session_token'
         # Perform a GET request with the appropriate keys and tokens
-        r = session_request.get(url)
+        r = session_request.get(self.session_token_url)
         # If the status code is '200' (OK), proceed
         if r.status_code == 200:
             # Save the JSON-decoded token secret and token
@@ -121,7 +173,7 @@ class REST(object):
     def write_token(self, token_type, token, secret):
         """
         Write a token to file. Format is secret='secret'\,token='token'
-        :param token_type: The type of token. Currently only 'session' is used, but 'access' should also be an option
+        :param token_type: The type of token. Options are 'request', 'session', and 'access'
         :param token: The string of the token extracted from the GET request
         :param secret:
         """
@@ -267,6 +319,7 @@ class REST(object):
         self.test_rest_url = 'http://rest.pubmlst.org/db/pubmlst_rmlst_seqdef'
         self.test_web_url = 'http://pubmlst.org/cgi-bin/bigsdb/bigsdb.pl?db=pubmlst_rmlst_seqdef'
         self.request_token_url = self.test_rest_url + '/oauth/get_request_token'
+        self.session_token_url = self.test_rest_url + '/oauth/get_session_token'
         self.access_token_url = self.test_rest_url + '/oauth/get_access_token'
         self.authorize_url = self.test_web_url + '&page=authorizeClient'
         self.secret_file = args.secret_file
@@ -278,6 +331,8 @@ class REST(object):
         self.access_token = str()
         self.session_secret = str()
         self.session_token = str()
+        self.request_secret = str()
+        self.request_token = str()
         self.loci = str()
         self.profile = str()
         self.loci_url = list()
