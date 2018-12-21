@@ -1,12 +1,12 @@
 #!/usr/bin/env python
-from accessoryFunctions.accessoryFunctions import make_path, GenObject, MetadataObject, run_subprocess, write_to_logfile
+from accessoryFunctions.accessoryFunctions import make_path, GenObject, MetadataObject, relative_symlink, run_subprocess, write_to_logfile
 import sipprCommon.runMetadata as runMetadata
 from sipprCommon.offhours import Offhours
 from time import sleep
 import multiprocessing
 from glob import glob
 import logging
-import shutil
+# import shutil
 import os
 # Import ElementTree - try first to import the faster C version, if that doesn't
 # work, try to import the regular version
@@ -23,7 +23,8 @@ class CreateFastq(object):
     def createfastq(self):
         """Uses bcl2fastq to create .fastq files from a MiSeqRun"""
         # If the fastq destination folder is not provided, make the default value of :path/:miseqfoldername
-        self.fastqdestination = self.fastqdestination if self.fastqdestination else self.path + self.miseqfoldername
+        self.fastqdestination = self.fastqdestination if self.fastqdestination else \
+            os.path.join(self.path, self.miseqfoldername)
         # Make the path
         make_path(self.fastqdestination)
         # Create a new sample sheet using self.project name instead of the provided Sample_Project. This ensures
@@ -221,22 +222,30 @@ class CreateFastq(object):
         for sample in self.metadata.samples:
             # Make directory variables
             outputdir = os.path.join(self.sequencepath, sample.name)
+            # Demultiplexed files will be present in the project name subfolder within the fastq destination folder
             if self.demultiplex:
                 glob_dir = self.projectpath
+            # Undemultiplexed reads (Undetermined_S0_R1_001.fastq.gz) are present in the fastq destination folder
             else:
                 glob_dir = self.fastqdestination
+            # Sometimes the files are put in self.fastqdestination rather than self.projectpath? Matt has this problem
+            # and I don't understands what's going on
+            if not os.path.isdir(glob_dir):
+                glob_dir = os.path.dirname(glob_dir)
             # Glob all the .gz files in the subfolders - projectpath/Sample_:sample.name/*.gz
             for fastq in sorted(glob(os.path.join(glob_dir, '*.gz'))):
                 fastqname = os.path.basename(fastq)
                 # Set the name of the destination file
                 outputfile = os.path.join(self.sequencepath, fastqname)
-                # Copy the file if it doesn't already exist
+                # Link the file if it doesn't already exist
                 if not os.path.isfile(outputfile):
-                    shutil.copyfile(fastq, outputfile)
+                    relative_symlink(src_file=fastq,
+                                     output_dir=self.sequencepath)
+            # Repopulate .strainfastqfiles with the freshly-linked/copied files
             if self.demultiplex:
-                # Repopulate .strainfastqfiles with the freshly-linked/copied files
                 fastqfiles = glob(os.path.join(self.sequencepath, '{}*.fastq*'.format(sample.name)))
                 fastqfiles = sorted([fastq for fastq in fastqfiles if 'trimmed' not in os.path.basename(fastq)])
+            # Undemultiplexed files will not have the sample name in the file name
             else:
                 fastqfiles = sorted(glob(os.path.join(glob_dir, '*.gz')))
             # Populate the metadata object with the name/path of the fastq files
