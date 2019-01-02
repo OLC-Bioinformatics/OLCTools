@@ -976,8 +976,7 @@ class Virulence(GeneSippr):
             # Run the analyses
             Sippr(self, self.cutoff)
             # Create the reports
-            reports = Reports(self)
-            Reports.reporter(reports, analysistype=self.analysistype)
+            self.reporter()
             # Print the metadata
             MetadataPrinter(self)
 
@@ -998,6 +997,7 @@ class Virulence(GeneSippr):
         genedict = dict()
         # Load the notes file to a dictionary
         notefile = os.path.join(self.targetpath, 'notes.txt')
+        logging.critical(notefile)
         with open(notefile, 'r') as notes:
             for line in notes:
                 # Ignore comment lines - they will break the parsing
@@ -1051,11 +1051,9 @@ class Virulence(GeneSippr):
         data = 'Strain,Gene,Subtype/Allele,Description,Accession,PercentIdentity,FoldCoverage\n'
         with open(os.path.join(self.reportpath, self.analysistype + '.csv'), 'w') as report:
             for sample in self.runmetadata.samples:
-                data += sample.name + ','
                 try:
                     if sample[self.analysistype].results:
                         # If there are many results for a sample, don't write the sample name in each line of the report
-                        multiple = False
                         for name, identity in sorted(sample[self.analysistype].results.items()):
                             # Check to see which delimiter is used to separate the gene name, allele, accession, and
                             # subtype information in the header
@@ -1076,24 +1074,27 @@ class Virulence(GeneSippr):
                             if float(identity) == percentid:
                                 # Treat the initial vs subsequent results for each sample slightly differently - instead
                                 # of including the sample name, use an empty cell instead
-                                if multiple:
-                                    data += ','
                                 try:
                                     description = genedict[genename]
                                 except KeyError:
                                     description = 'na'
                                 # Populate the results
-                                data += '{},{},{},{},{},{}\n'.format(
-                                    genename,
-                                    subtype,
-                                    description,
-                                    accession,
-                                    identity,
-                                    sample[self.analysistype].avgdepth[name])
-                                multiple = True
+                                data += '{samplename},{gene},{subtype},{description},{accession},{identity},{depth}\n'\
+                                    .format(samplename=sample.name,
+                                            gene=genename,
+                                            subtype=subtype,
+                                            description=description,
+                                            accession=accession,
+                                            identity=identity,
+                                            depth=sample[self.analysistype].avgdepth[name])
                     else:
-                        data += '\n'
-                except (KeyError, AttributeError):
-                    data += '\n'
+                        data += sample.name + '\n'
+                except (KeyError, AttributeError) as e:
+                    logging.error(e)
+                    logging.critical(sample.name)
+                    # for key, value in sample[self.analysistype].datastore.items():
+                    #     print(key, value)
+                    print(sample[self.analysistype].datastore)
+                    data += sample.name + '\n'
             # Write the strings to the file
             report.write(data)
