@@ -141,6 +141,10 @@ class Sippr(object):
         logging.info('Performing kmer baiting of fastq files with {} targets'.format(self.analysistype))
         # There seems to be some sort of issue with java incorrectly calculating the total system memory on certain
         # computers. For now, calculate the memory, and feed it into the bbduk call
+        if self.kmer_size is None:
+            kmer = k
+        else:
+            kmer = self.kmer_size
         with progressbar(self.runmetadata) as bar:
             for sample in bar:
                 if sample.general.bestassemblyfile != 'NA' and sample[self.analysistype].runanalysis:
@@ -156,7 +160,7 @@ class Sippr(object):
                                     ref=sample[self.analysistype].baitfile,
                                     in1=sample.general.trimmedcorrectedfastqfiles[0],
                                     in2=sample.general.trimmedcorrectedfastqfiles[1],
-                                    kmer=k,
+                                    kmer=kmer,
                                     mm=maskmiddle,
                                     c=str(self.cpus),
                                     om=sample[self.analysistype].baitedfastq)
@@ -167,7 +171,7 @@ class Sippr(object):
                             .format(mem=self.mem,
                                     ref=sample[self.analysistype].baitfile,
                                     in1=sample.general.trimmedcorrectedfastqfiles[0],
-                                    kmer=k,
+                                    kmer=kmer,
                                     mm=maskmiddle,
                                     cpus=str(self.cpus),
                                     outm=sample[self.analysistype].baitedfastq)
@@ -189,6 +193,10 @@ class Sippr(object):
         number of possibly targets against which the baited reads must be aligned
         """
         logging.info('Performing reverse kmer baiting of targets with FASTQ files')
+        if self.kmer_size is None:
+            kmer = k
+        else:
+            kmer = self.kmer_size
         with progressbar(self.runmetadata) as bar:
             for sample in bar:
                 if sample.general.bestassemblyfile != 'NA' and sample[self.analysistype].runanalysis:
@@ -199,7 +207,7 @@ class Sippr(object):
                         .format(mem=self.mem,
                                 ref=sample[self.analysistype].baitedfastq,
                                 in1=sample[self.analysistype].baitfile,
-                                kmer=k,
+                                kmer=kmer,
                                 cpus=str(self.cpus),
                                 mcf=self.cutoff,
                                 mm=maskmiddle,
@@ -730,8 +738,9 @@ class Sippr(object):
                 pass
 
     # noinspection PyDefaultArgument
-    def __init__(self, inputobject, cutoff=0.98, averagedepth=2):
+    def __init__(self, inputobject, cutoff=0.98, averagedepth=2, k=None):
         self.path = inputobject.path
+        self.kmer_size = k
         self.sequencepath = inputobject.sequencepath
         self.targetpath = inputobject.targetpath
         self.reportpath = inputobject.reportpath
