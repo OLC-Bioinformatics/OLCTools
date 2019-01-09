@@ -371,16 +371,16 @@ class Sippr(object):
             threads.start()
         for sample in self.runmetadata:
             if sample.general.bestassemblyfile != 'NA' and sample[self.analysistype].runanalysis:
-                bamindex = SamtoolsIndexCommandline(input=sample[self.analysistype].sortedbam)
                 sample[self.analysistype].sortedbai = sample[self.analysistype].sortedbam + '.bai'
-                sample[self.analysistype].bamindex = str(bamindex)
-                self.indexqueue.put((sample, bamindex))
+                self.indexqueue.put(sample)
         self.indexqueue.join()
 
     def index(self):
         while True:
             try:
-                sample, bamindex = self.indexqueue.get()
+                sample = self.indexqueue.get()
+                bamindex = SamtoolsIndexCommandline(input=sample[self.analysistype].sortedbam)
+                sample[self.analysistype].bamindex = str(bamindex)
                 # Only make the call if the .bai file doesn't already exist
                 if not os.path.isfile(sample[self.analysistype].sortedbai):
                     # Use cStringIO streams to handle bowtie output
