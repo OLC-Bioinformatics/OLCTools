@@ -43,7 +43,7 @@ class ResistanceNotes(object):
         :return: gname, genename, accession, allele: name of gene. Often the same as genename, but for certain entries
         it is longer, full gene name, accession, and allele extracted from the FASTA header
         """
-        if 'Van' in name or 'mcr' in name or 'aph' in name or 'ddlA' in name or 'ant' in name:
+        if 'Van' in name or 'mcr' in name or 'aph' in name or 'ddlA' in name or 'ant' in name or 'aadE_Cc' in name:
             try:
                 if name == "ant(3'')_Ih_aac(6')_IId_1_AF453998":
                     # >aac(3)_Ib_aac(6')_Ib_1_AF355189 yields gname, genename: aac(3)-Ib-aac(6')-Ib, allele:1,
@@ -67,7 +67,6 @@ class ResistanceNotes(object):
                     gname = '{gene}-{version}'.format(gene=gene,
                                                       version=version)
                     genename = gname
-
                 else:
                     # Allow for an additional part to the gene name aph(3'')_Ib_5_AF321551 yields gname: aph(3''),
                     # genename: aph(3'')-Ib, allele: 5, accession AF321551
