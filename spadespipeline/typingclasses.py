@@ -997,7 +997,6 @@ class Virulence(GeneSippr):
         genedict = dict()
         # Load the notes file to a dictionary
         notefile = os.path.join(self.targetpath, 'notes.txt')
-        logging.critical(notefile)
         with open(notefile, 'r') as notes:
             for line in notes:
                 # Ignore comment lines - they will break the parsing
@@ -1029,20 +1028,16 @@ class Virulence(GeneSippr):
                         else:
                             sample[self.analysistype].delimiter = '_'
                         genename = name.split(sample[self.analysistype].delimiter)[0]
-                        # Only allow matches of 100% identity for stx genes
-                        if 'stx' in genename and float(identity) < 100.0:
-                            pass
-                        else:
-                            # Set the best observed percent identity for each unique gene
-                            try:
-                                # Pull the previous best identity from the dictionary
-                                bestidentity = sample[self.analysistype].uniquegenes[genename]
-                                # If the current identity is better than the old identity, save it
-                                if float(identity) > float(bestidentity):
-                                    sample[self.analysistype].uniquegenes[genename] = float(identity)
-                            # Initialise the dictionary if necessary
-                            except KeyError:
+                        # Set the best observed percent identity for each unique gene
+                        try:
+                            # Pull the previous best identity from the dictionary
+                            bestidentity = sample[self.analysistype].uniquegenes[genename]
+                            # If the current identity is better than the old identity, save it
+                            if float(identity) > float(bestidentity):
                                 sample[self.analysistype].uniquegenes[genename] = float(identity)
+                        # Initialise the dictionary if necessary
+                        except KeyError:
+                            sample[self.analysistype].uniquegenes[genename] = float(identity)
             except AttributeError:
                 raise
         # Create the path in which the reports are stored
@@ -1089,12 +1084,7 @@ class Virulence(GeneSippr):
                                             depth=sample[self.analysistype].avgdepth[name])
                     else:
                         data += sample.name + '\n'
-                except (KeyError, AttributeError) as e:
-                    logging.error(e)
-                    logging.critical(sample.name)
-                    # for key, value in sample[self.analysistype].datastore.items():
-                    #     print(key, value)
-                    print(sample[self.analysistype].datastore)
+                except (KeyError, AttributeError):
                     data += sample.name + '\n'
             # Write the strings to the file
             report.write(data)
