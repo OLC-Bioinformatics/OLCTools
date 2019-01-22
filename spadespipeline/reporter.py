@@ -162,7 +162,7 @@ class Reporter(object):
             # AMR_Profile and resistant/sensitive status
             if sample.resfinder_assembled.pipelineresults:
                 # Profile
-                for resistance, resistance_set in sample.resfinder_assembled.pipelineresults.items():
+                for resistance, resistance_set in sorted(sample.resfinder_assembled.pipelineresults.items()):
                     data += '{res}({r_set});'.format(res=resistance.replace(',', ';'),
                                                      r_set=';'.join(sorted(list(resistance_set))))
                 data += ','
