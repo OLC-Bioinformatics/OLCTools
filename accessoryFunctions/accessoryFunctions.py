@@ -456,7 +456,7 @@ def execute(command, outfile=""):
     sys.stdout.write('\n')
 
 
-def filer(filelist, extension='fastq'):
+def filer(filelist, extension='fastq', returndict=False):
     """
     Helper script that creates a set of the stain names created by stripping off parts of the filename.
     Hopefully handles different naming conventions (e.g. 2015-SEQ-001_S1_L001_R1_001.fastq(.gz),
@@ -464,27 +464,41 @@ def filer(filelist, extension='fastq'):
     all become 2015-SEQ-001)
     :param filelist: List of files to parse
     :param extension: the file extension to use. Default value is 'fastq
+    :param returndict: type BOOL: Option to return a dictionary of file name: fastq files associated with that name
+    rather than a set of the file names
     """
-    # Initialise the set
+    # Initialise the variables
     fileset = set()
+    filedict = dict()
     for seqfile in filelist:
         # Search for the conventional motifs present following strain names
         # _S\d+_L001_R\d_001.fastq(.gz) is a typical unprocessed Illumina fastq file
-        if re.search("_S\d+_L001", seqfile):
-            fileset.add(re.split("_S\d+_L001", seqfile)[0])
+        if re.search("_S\\d+_L001", seqfile):
+            file_name = re.split("_S\\d+_L001", seqfile)[0]
         # Files with _R\d_001.fastq(.gz) are created in the SPAdes assembly pipeline
-        elif re.search("_R\d_001", seqfile):
-            fileset.add(re.split("_R\d_001", seqfile)[0])
+        elif re.search("_R\\d_001", seqfile):
+            file_name = re.split("_R\\d_001", seqfile)[0]
         # _R\d.fastq(.gz) represents a simple naming scheme for paired end reads
-        elif re.search("R\d.{}".format(extension), seqfile):
-            fileset.add(re.split("_R\d.{}".format(extension), seqfile)[0])
+        elif re.search("R\\d.{}".format(extension), seqfile):
+            file_name = re.split("_R\\d.{}".format(extension), seqfile)[0]
         # _\d.fastq is always possible
-        elif re.search("[-_]\d.{}".format(extension), seqfile):
-            fileset.add(re.split("[-_]\d.{}".format(extension), seqfile)[0])
+        elif re.search("[-_]\\d.{}".format(extension), seqfile):
+            file_name = re.split("[-_]\\d.{}".format(extension), seqfile)[0]
         # .fastq is the last option
         else:
-            fileset.add(re.split(".{}".format(extension), seqfile)[0])
-    return fileset
+            file_name = re.split(".{}".format(extension), seqfile)[0]
+        # Add the calculated file name to the set
+        fileset.add(file_name)
+        # Populate the dictionary with the file name: seq file pair
+        try:
+            filedict[file_name].append(seqfile)
+        except KeyError:
+            filedict[file_name] = [seqfile]
+    # Return the appropriate variable
+    if not returndict:
+        return fileset
+    else:
+        return filedict
 
 
 def relativesymlink(src_file, dest_file):
@@ -508,7 +522,7 @@ def relativesymlink(src_file, dest_file):
             raise
 
 
-def relative_symlink(src_file, output_dir, output_name=None):
+def relative_symlink(src_file, output_dir, output_name=None, export_output=False):
     """
     Create relative symlinks files - use the relative path from the desired output directory to the storage path
     e.g. ../../2013-SEQ-0072/simulated/40/50_150/simulated_trimmed/2013-SEQ-0072_simulated_40_50_150_R1.fastq.gz
@@ -518,24 +532,28 @@ def relative_symlink(src_file, output_dir, output_name=None):
     :param src_file: Source file to be symbolically linked
     :param output_dir: Destination folder for the link
     :param output_name: Optionally allow for the link to have a different name
+    :param export_output: type BOOL: Optionally return the absolute path of the new, linked file
+    :return output_file: type STR: Absolute path of the newly-created symlink
     """
     if output_name:
         file_name = output_name
     else:
         file_name = os.path.basename(src_file)
+    #
+    output_file = os.path.join(output_dir, file_name)
     try:
         os.symlink(
             os.path.relpath(
                 src_file,
                 output_dir),
-            os.path.join(
-                output_dir,
-                file_name
-            )
+            output_file
         )
     # Ignore FileExistsErrors
     except FileExistsError:
         pass
+    # Return the absolute path of the symlink if requested
+    if export_output:
+        return output_file
 
 
 class GenObject(object):
@@ -797,7 +815,7 @@ def combinetargets(targets, targetpath, mol_type='nt'):
                     record.seq, hybrid = record.seq.split('>')
                     # Split the header from the sequence e.g. sspC:6:CP003808.1ATGGAAAGTACATTAGA...
                     # will be split into sspC:6:CP003808.1 and ATGGAAAGTACATTAGA
-                    hybridid, seq = re.findall('(.+\d+\.\d)(.+)', str(hybrid))[0]
+                    hybridid, seq = re.findall('(.+\\d+\\.\\d)(.+)', str(hybrid))[0]
                     # Replace and dashes in the record.id with underscores
                     hybridid = hybridid.replace('-', '_')
                     # Convert the string to a seq object
@@ -891,3 +909,31 @@ def strainer(sequencepath):
         # Append the metadata for each sample to the list of samples
         metadata_list.append(metadata)
     return strains, metadata_list
+
+
+# noinspection PyProtectedMember
+def modify_usage_error(subcommand, program_list):
+    """
+    Method to append the help menu to a modified usage error when a subcommand is specified, but options are missing
+    :param subcommand: subcommand function
+    :param program_list: list of acceptable sub-programs
+    """
+    import click
+    from click._compat import get_text_stderr
+    from click.utils import echo
+
+    def show(self, file=None):
+        import sys
+        if file is None:
+            file = get_text_stderr()
+        color = None
+        if self.ctx is not None:
+            color = self.ctx.color
+        echo('Error: %s\n' % self.format_message(), file=file, color=color)
+        # Set the sys.argv to be the first two arguments passed to the script if the subcommand was specified
+        arg2 = sys.argv[1] if sys.argv[1] in program_list else str()
+        sys.argv = [' '.join([sys.argv[0], arg2])] if arg2 else [sys.argv[0]]
+        # Call the help
+        subcommand(['--help'])
+
+    click.exceptions.UsageError.show = show
