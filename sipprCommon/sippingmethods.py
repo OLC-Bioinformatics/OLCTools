@@ -41,9 +41,9 @@ class Sippr(object):
         # Use samtools to index the sorted bam file
         self.indexing()
         # Parse the results
-        self.parsing()
+        self.parsebam()
         # Filter out any sequences with cigar features such as internal soft-clipping from the results
-        self.clipper()
+        # self.clipper()
 
     def targets(self):
         """
@@ -568,15 +568,6 @@ class Sippr(object):
         logging.info('Parsing BAM')
         with progressbar(self.runmetadata) as bar:
             for sample in bar:
-                # Initialise dictionaries to store parsed data
-                matchdict = dict()
-                depthdict = dict()
-                seqdict = dict()
-                snplocationsdict = dict()
-                gaplocationsdict = dict()
-                maxdict = dict()
-                mindict = dict()
-                deviationdict = dict()
                 sample[self.analysistype].results = dict()
                 sample[self.analysistype].avgdepth = dict()
                 sample[self.analysistype].resultssnp = dict()
@@ -587,7 +578,28 @@ class Sippr(object):
                 sample[self.analysistype].maxcoverage = dict()
                 sample[self.analysistype].mincoverage = dict()
                 sample[self.analysistype].standarddev = dict()
-                # Iterate through each contig in the dictionary
+                # Iterate through each contig in our target file.
+                for contig in SeqIO.parse(sample[self.analysistype].baitfile, 'fasta'):
+                    # Initialise dictionaries to store parsed data
+                    matchdict = dict()
+                    depthdict = dict()
+                    seqdict = dict()
+                    snplocationsdict = dict()
+                    gaplocationsdict = dict()
+                    maxdict = dict()
+                    mindict = dict()
+                    deviationdict = dict()
+                    bamfile = pysam.AlignmentFile(sample[self.analysistype].sortedbam, 'rb')
+                    for column in bamfile.pileup(contig,
+                                                 stepper='samtools',
+                                                 ignore_orphans=False,
+                                                 fastafile=pysam.FastaFile(sample[self.analysistype].baitfile)):
+                        # Find all the attributes!
+                        depth = 1
+                    bamfile.close()
+
+
+                """
                 try:
                     for contig, poslist in sorted(sample[self.analysistype].sequence.items()):
                         # Use the record_dict dictionary with the contig as the key in order to pull out the
@@ -665,6 +677,15 @@ class Sippr(object):
                     pass
                 # Iterate through all the results, and filter out sequences that do not meet the depth and/or
                 # the sequence identity thresholds
+                print(matchdict)
+                print(depthdict)
+                print(seqdict)
+                print(snplocationsdict)
+                print(gaplocationsdict)
+                print(maxdict)
+                print(mindict)
+                print(deviationdict)
+                """
                 for allele in seqdict:
                     # If the length of the match is greater or equal to the length of the gene/allele (multiplied by the
                     # cutoff value) as determined using faidx indexing, then proceed
@@ -728,12 +749,6 @@ class Sippr(object):
                             pass
                     # Update the .results attribute with the filtered dictionary
                     sample[self.analysistype].results = replacementresults
-            except AttributeError:
-                pass
-        # Remove the features attribute - it takes up a lot of room in the .json file
-        for sample in self.runmetadata:
-            try:
-                delattr(sample[self.analysistype], 'features')
             except AttributeError:
                 pass
 
