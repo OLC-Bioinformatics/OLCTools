@@ -561,6 +561,20 @@ class Sippr(object):
                         pass
             self.parsequeue.task_done()
 
+    @staticmethod
+    def internal_clip_check(column_one_names, column_two_names):
+        # Check that at least 50 percent of the names in column one are also in column two.
+        # If not, it's because reads got clipped and caused all sorts of problems.
+        name_in_column_two_count = 0
+        for name in column_one_names:
+            if name in column_two_names:
+                name_in_column_two_count += 1
+
+        if name_in_column_two_count/len(column_one_names) > 0.5:
+            return False
+        else:
+            return True
+
     def parsebam(self):
         """
         Parse the dictionaries of the sorted bam files extracted using pysam
@@ -600,8 +614,11 @@ class Sippr(object):
                 maxdict = dict()
                 mindict = dict()
                 deviationdict = dict()
+                has_clips_dict = dict()
                 # Iterate through each contig in our target file.
                 for contig in SeqIO.parse(sample[self.analysistype].baitfile, 'fasta'):
+                    softclipflag = False  # Check for internal soft clips in genes found - if found, exclude gene from
+                    # analysis since it probably isn't actually there.
                     bamfile = pysam.AlignmentFile(sample[self.analysistype].sortedbam, 'rb')
                     # Initialise dictionaries with the contig name
                     matchdict[contig.id] = int()
@@ -612,6 +629,8 @@ class Sippr(object):
                     maxdict[contig.id] = int()
                     mindict[contig.id] = int()
                     deviationdict[contig.id] = list()
+                    previous_column_read_names = list()
+                    has_clips_dict[contig.id] = False
                     # Settings used here are important for making output match up with bamfile visualised in tablet
                     for column in bamfile.pileup(contig.id,
                                                  stepper='samtools',
@@ -627,6 +646,14 @@ class Sippr(object):
                             seqdict[contig.id] += '-'
                             deviationdict[contig.id].append(depth)
                         else:
+
+                            # Check that internal clip isn't a thing.
+                            column_read_names = column.get_query_sequences()
+                            if column.reference_pos >= 1:
+                                has_clips = Sippr.internal_clip_check(column_read_names, previous_column_read_names)
+                                if has_clips is True:
+                                    has_clips_dict[contig.id] = True
+
                             # Need to find what the most common base at the position is - don't change this too much from
                             # the way this was done before.
                             # Use the counter function to count the number of times each base appears in the list of
@@ -647,6 +674,17 @@ class Sippr(object):
                             # matchdict keeps track of how many identities we have.
                             if reference_base == querybase:
                                 matchdict[contig.id] += 1
+                            # Using the NCBI 16S database, I observed that degenerate nucleotides were used. This
+                            # allows for matches to occur to these bases
+                            elif self.analysistype == 'sixteens_full' and reference_base not in ['A', 'C', 'G', 'T']:
+                                # If the query base matches the corresponding IUPAC code e.g. A or G will match R,
+                                # increment the number of matches
+                                if querybase in self.iupac[reference_base]:
+                                    matchdict[contig] += 1
+                                # Otherwise treat the base as a mismatch, and add the base position to the list of
+                                # SNPs
+                                else:
+                                    snplocationsdict[contig].append(column.reference_pos + 1)
 
                             # depthdict keeps track of how many bases total are aligned against the target gene.
                             depthdict[contig.id] += depth
@@ -656,7 +694,7 @@ class Sippr(object):
 
                             # snplocationsdict keeps track of where snps are in sequence. Append reference position
                             # if ref and query don't match. Add 1, since reference_pos is 0 based.
-                            if reference_base != querybase:
+                            if reference_base != querybase and querybase != '-':
                                 snplocationsdict[contig.id].append(column.reference_pos + 1)
 
                             # gaplocations, much the same as snplocations. Need to check that querybase shows as a gap
@@ -673,108 +711,13 @@ class Sippr(object):
                             # Finally, deviationdict just has the depths at every position so we can calculate stdev later
                             deviationdict[contig.id].append(depth)
 
+                            previous_column_read_names = column_read_names
                     bamfile.close()
 
-
-                print(matchdict)
-                print(depthdict)
-                print(seqdict)
-                print(snplocationsdict)
-                print(gaplocationsdict)
-                print(maxdict)
-                print(mindict)
-                print(deviationdict)
-                """
-                try:
-                    for contig, poslist in sorted(sample[self.analysistype].sequence.items()):
-                        # Use the record_dict dictionary with the contig as the key in order to pull out the
-                        # reference sequence
-                        refseq = self.record_dict[sample.name][contig].seq
-                        # Initialise the reference position to 0
-                        refpos = 0
-                        # Initialise dictionaries with the contig name
-                        matchdict[contig] = int()
-                        depthdict[contig] = int()
-                        seqdict[contig] = str()
-                        snplocationsdict[contig] = list()
-                        gaplocationsdict[contig] = list()
-                        maxdict[contig] = int()
-                        mindict[contig] = int()
-                        deviationdict[contig] = list()
-                        # Iterate through all the reference positions in the reference sequence
-                        for pos, baselist in poslist.items():
-                            # If the query position is equal to the reference position, proceed with the loop
-                            if pos == refpos:
-                                # Use the counter function to count the number of times each base appears in the list of
-                                # query bases
-                                counted = Counter(baselist)
-                                # Sort the bases based on how common they are in the list
-                                maxbases = counted.most_common()
-                                # Set the query base as the most common - note that this is fairly simplistic - the base
-                                # with the highest representation (or the first base in case of a tie) is used
-                                querybase = maxbases[0][0]
-                                # Extract the corresponding base in the reference sequence
-                                refbase = refseq[pos]
-                                # The depth of the current position is the length of the list of bases
-                                depth = len(baselist)
-                                # Update the sequence, depth, and deviation (list of depths) dictionaries
-                                seqdict[contig] += querybase
-                                depthdict[contig] += depth
-                                deviationdict[contig].append(depth)
-                                # Set the maximum and minimum depths observed
-                                if depth > maxdict[contig]:
-                                    maxdict[contig] = depth
-                                # Initialise the minimum depth dictionary here
-                                if contig not in mindict:
-                                    mindict[contig] = depth
-                                if depth < mindict[contig]:
-                                    mindict[contig] = depth
-                                # If the reference and query bases match, increment the number of matches
-                                if querybase == refbase:
-                                    matchdict[contig] += 1
-                                # Using the NCBI 16S database, I observed that degenerate nucleotides were used. This
-                                # allows for matches to occur to these bases
-                                elif self.analysistype == 'sixteens_full' and refbase not in ['A', 'C', 'G', 'T']:
-                                    # If the query base matches the corresponding IUPAC code e.g. A or G will match R,
-                                    # increment the number of matches
-                                    if querybase in self.iupac[refbase]:
-                                        matchdict[contig] += 1
-                                    # Otherwise treat the base as a mismatch, and add the base position to the list of
-                                    # SNPs
-                                    else:
-                                        snplocationsdict[contig].append(pos)
-                                # If the reference and query bases don't match there could be a couple of reasons
-                                else:
-                                    # If the bases simply don't match, add the position to the list of SNPs
-                                    if querybase != '-':
-                                        snplocationsdict[contig].append(pos)
-                                    # However, if the query base is a gap (-), add the position to the dictionary of gap
-                                    # locations
-                                    else:
-                                        gaplocationsdict[contig].append(pos)
-                            # If the reference position does not equal the query position, assume a gap
-                            else:
-                                # Add the location of the gap to the dictionary
-                                gaplocationsdict[contig].append(pos)
-                            # Increment the reference position
-                            refpos += 1
-                except (AttributeError, KeyError):
-                    pass
-                # Iterate through all the results, and filter out sequences that do not meet the depth and/or
-                # the sequence identity thresholds
-                print(matchdict)
-                print(depthdict)
-                print(seqdict)
-                print(snplocationsdict)
-                print(gaplocationsdict)
-                print(maxdict)
-                print(mindict)
-                print(deviationdict)
-                """
                 for allele in seqdict:
                     # If the length of the match is greater or equal to the length of the gene/allele (multiplied by the
                     # cutoff value) as determined using faidx indexing, then proceed
-                    if matchdict[allele] >= sample[self.analysistype].faidict[allele] * self.cutoff:
+                    if matchdict[allele] >= sample[self.analysistype].faidict[allele] * self.cutoff and has_clips_dict[allele] is False:
                         # Calculate the average depth by dividing the total number of reads observed by the
                         # length of the gene
                         averagedepth = float(depthdict[allele]) / float(matchdict[allele])
