@@ -568,6 +568,19 @@ class Sippr(object):
         logging.info('Parsing BAM')
         with progressbar(self.runmetadata) as bar:
             for sample in bar:
+                if sample.general.bestassemblyfile != 'NA' and sample[self.analysistype].runanalysis:
+                    # Get the fai file into a dictionary to be used in parsing results
+                    try:
+                        with open(sample[self.analysistype].faifile, 'r') as faifile:
+                            for line in faifile:
+                                data = line.split('\t')
+                                try:
+                                    sample[self.analysistype].faidict[data[0]] = int(data[1])
+                                except (AttributeError, KeyError):
+                                    sample[self.analysistype].faidict = dict()
+                                    sample[self.analysistype].faidict[data[0]] = int(data[1])
+                    except FileNotFoundError:
+                        pass
                 sample[self.analysistype].results = dict()
                 sample[self.analysistype].avgdepth = dict()
                 sample[self.analysistype].resultssnp = dict()
@@ -578,27 +591,99 @@ class Sippr(object):
                 sample[self.analysistype].maxcoverage = dict()
                 sample[self.analysistype].mincoverage = dict()
                 sample[self.analysistype].standarddev = dict()
+                # Initialise dictionaries to store parsed data
+                matchdict = dict()
+                depthdict = dict()
+                seqdict = dict()
+                snplocationsdict = dict()
+                gaplocationsdict = dict()
+                maxdict = dict()
+                mindict = dict()
+                deviationdict = dict()
                 # Iterate through each contig in our target file.
                 for contig in SeqIO.parse(sample[self.analysistype].baitfile, 'fasta'):
-                    # Initialise dictionaries to store parsed data
-                    matchdict = dict()
-                    depthdict = dict()
-                    seqdict = dict()
-                    snplocationsdict = dict()
-                    gaplocationsdict = dict()
-                    maxdict = dict()
-                    mindict = dict()
-                    deviationdict = dict()
                     bamfile = pysam.AlignmentFile(sample[self.analysistype].sortedbam, 'rb')
-                    for column in bamfile.pileup(contig,
+                    # Initialise dictionaries with the contig name
+                    matchdict[contig.id] = int()
+                    depthdict[contig.id] = int()
+                    seqdict[contig.id] = str()
+                    snplocationsdict[contig.id] = list()
+                    gaplocationsdict[contig.id] = list()
+                    maxdict[contig.id] = int()
+                    mindict[contig.id] = int()
+                    deviationdict[contig.id] = list()
+                    # Settings used here are important for making output match up with bamfile visualised in tablet
+                    for column in bamfile.pileup(contig.id,
                                                  stepper='samtools',
                                                  ignore_orphans=False,
+                                                 min_base_quality=0,
                                                  fastafile=pysam.FastaFile(sample[self.analysistype].baitfile)):
                         # Find all the attributes!
-                        depth = 1
+
+                        # Read depth - just get number of aligned reads at that position.
+                        depth = column.get_num_aligned()
+                        # Need to have at least some bases aligned for this to work at all.
+                        if depth == 0:
+                            seqdict[contig.id] += '-'
+                            deviationdict[contig.id].append(depth)
+                        else:
+                            # Need to find what the most common base at the position is - don't change this too much from
+                            # the way this was done before.
+                            # Use the counter function to count the number of times each base appears in the list of
+                            # query bases
+                            baselist = column.get_query_sequences()
+                            # Make sure everything in baselist is upper case - double check at some point that the
+                            # lower case letters don't really mean anything.
+                            baselist = [x.upper() for x in baselist]
+                            counted = Counter(baselist)
+                            # Set the query base as the most common - note that this is fairly simplistic - the base
+                            # with the highest representation (or the first base in case of a tie) is used
+                            maxbases = counted.most_common()
+                            querybase = maxbases[0][0]
+                            reference_base = contig.seq[column.reference_pos]
+
+                            # Populate the data dictionaries that we'll need later.
+
+                            # matchdict keeps track of how many identities we have.
+                            if reference_base == querybase:
+                                matchdict[contig.id] += 1
+
+                            # depthdict keeps track of how many bases total are aligned against the target gene.
+                            depthdict[contig.id] += depth
+
+                            # seqdict is our query sequence
+                            seqdict[contig.id] += querybase
+
+                            # snplocationsdict keeps track of where snps are in sequence. Append reference position
+                            # if ref and query don't match. Add 1, since reference_pos is 0 based.
+                            if reference_base != querybase:
+                                snplocationsdict[contig.id].append(column.reference_pos + 1)
+
+                            # gaplocations, much the same as snplocations. Need to check that querybase shows as a gap
+                            if querybase == '-':
+                                gaplocationsdict[contig.id].append(column.reference_pos + 1)
+
+                            # Also need to keep track of min and max depth for the gene.
+                            if depth > maxdict[contig.id]:
+                                maxdict[contig.id] = depth
+
+                            if depth < mindict[contig.id]:
+                                mindict[contig.id] = depth
+
+                            # Finally, deviationdict just has the depths at every position so we can calculate stdev later
+                            deviationdict[contig.id].append(depth)
+
                     bamfile.close()
 
 
+                print(matchdict)
+                print(depthdict)
+                print(seqdict)
+                print(snplocationsdict)
+                print(gaplocationsdict)
+                print(maxdict)
+                print(mindict)
+                print(deviationdict)
                 """
                 try:
                     for contig, poslist in sorted(sample[self.analysistype].sequence.items()):

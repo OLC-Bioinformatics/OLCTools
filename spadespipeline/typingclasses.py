@@ -363,7 +363,8 @@ class ShortKSippingMethods(Sippr):
         # Use samtools to index the sorted bam file
         self.indexing()
         # Parse the results
-        self.parsing()
+        # self.parsing()
+        self.parsebam()
         # Filter out any sequences with cigar features such as internal soft-clipping from the results
         self.clipper()
 
