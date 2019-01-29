@@ -561,20 +561,6 @@ class Sippr(object):
                         pass
             self.parsequeue.task_done()
 
-    @staticmethod
-    def internal_clip_check(column_one_names, column_two_names):
-        # Check that at least 50 percent of the names in column one are also in column two.
-        # If not, it's because reads got clipped and caused all sorts of problems.
-        name_in_column_two_count = 0
-        for name in column_one_names:
-            if name in column_two_names:
-                name_in_column_two_count += 1
-
-        if name_in_column_two_count/len(column_one_names) > 0.5:
-            return False
-        else:
-            return True
-
     def parsebam(self):
         """
         Parse the dictionaries of the sorted bam files extracted using pysam
@@ -617,7 +603,6 @@ class Sippr(object):
                 has_clips_dict = dict()
                 # Iterate through each contig in our target file.
                 for contig in SeqIO.parse(sample[self.analysistype].baitfile, 'fasta'):
-                    softclipflag = False  # Check for internal soft clips in genes found - if found, exclude gene from
                     # analysis since it probably isn't actually there.
                     bamfile = pysam.AlignmentFile(sample[self.analysistype].sortedbam, 'rb')
                     # Initialise dictionaries with the contig name
@@ -629,7 +614,6 @@ class Sippr(object):
                     maxdict[contig.id] = int()
                     mindict[contig.id] = int()
                     deviationdict[contig.id] = list()
-                    previous_column_read_names = list()
                     has_clips_dict[contig.id] = False
                     # Settings used here are important for making output match up with bamfile visualised in tablet
                     for column in bamfile.pileup(contig.id,
@@ -646,19 +630,16 @@ class Sippr(object):
                             seqdict[contig.id] += '-'
                             deviationdict[contig.id].append(depth)
                         else:
-
-                            # Check that internal clip isn't a thing.
-                            column_read_names = column.get_query_sequences()
-                            if column.reference_pos >= 1:
-                                has_clips = Sippr.internal_clip_check(column_read_names, previous_column_read_names)
-                                if has_clips is True:
-                                    has_clips_dict[contig.id] = True
-
                             # Need to find what the most common base at the position is - don't change this too much from
                             # the way this was done before.
                             # Use the counter function to count the number of times each base appears in the list of
-                            # query bases
-                            baselist = column.get_query_sequences()
+                            # query bases. Mark ends will marks end/start of reads with $/^, and also takes care of clips
+                            try:
+                                baselist = column.get_query_sequences(mark_ends=True, add_indels=True)
+                            except AssertionError:
+                                print(contig.id)
+                                print(column.reference_pos)
+                                quit()
                             # Make sure everything in baselist is upper case - double check at some point that the
                             # lower case letters don't really mean anything.
                             baselist = [x.upper() for x in baselist]
@@ -667,10 +648,23 @@ class Sippr(object):
                             # with the highest representation (or the first base in case of a tie) is used
                             maxbases = counted.most_common()
                             querybase = maxbases[0][0]
+
+                            # The $ and ^ characters represent end and start of reads, respectively, or just reads
+                            # that have been clipped. If we find these as most common base anywhere not 10 bases from
+                            # start of a target or 10 bases from end of a target, we likely have internal clipping.
+                            # Set our has_clips_dict for this contig to True so that we know to ignore it.
+                            if '$' in querybase or '^' in querybase:
+                                if 10 <= column.reference_pos <= len(contig.seq) - 10:
+                                    has_clips_dict[contig.id] = True
+                                # For some reason pysam (or the underlying samtools, I don't actually know) seems to
+                                # be adding extra chars onto the querybase (one of ", !, #, or ~ from what I've seen).
+                                # Only take the base itself - last in the string for begin clip, first for end clip.
+                                if '$' in querybase:
+                                    querybase = querybase[0]
+                                elif '^' in querybase:
+                                    querybase = querybase[-1]
                             reference_base = contig.seq[column.reference_pos]
-
                             # Populate the data dictionaries that we'll need later.
-
                             # matchdict keeps track of how many identities we have.
                             if reference_base == querybase:
                                 matchdict[contig.id] += 1
@@ -711,7 +705,6 @@ class Sippr(object):
                             # Finally, deviationdict just has the depths at every position so we can calculate stdev later
                             deviationdict[contig.id].append(depth)
 
-                            previous_column_read_names = column_read_names
                     bamfile.close()
 
                 for allele in seqdict:
