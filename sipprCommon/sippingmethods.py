@@ -685,11 +685,11 @@ class Sippr(object):
                                 # If the query base matches the corresponding IUPAC code e.g. A or G will match R,
                                 # increment the number of matches
                                 if querybase in self.iupac[reference_base]:
-                                    matchdict[contig] += 1
+                                    matchdict[contig.id] += 1
                                 # Otherwise treat the base as a mismatch, and add the base position to the list of
                                 # SNPs
                                 else:
-                                    snplocationsdict[contig].append(column.reference_pos + 1)
+                                    snplocationsdict[contig.id].append(column.reference_pos + 1)
 
                             # depthdict keeps track of how many bases total are aligned against the target gene.
                             depthdict[contig.id] += depth
