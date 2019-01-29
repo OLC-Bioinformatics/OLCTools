@@ -629,20 +629,31 @@ class Sippr(object):
                         if depth == 0:
                             seqdict[contig.id] += '-'
                             deviationdict[contig.id].append(depth)
-                        else:
-                            # Need to find what the most common base at the position is - don't change this too much from
-                            # the way this was done before.
-                            # Use the counter function to count the number of times each base appears in the list of
-                            # query bases. Mark ends will marks end/start of reads with $/^, and also takes care of clips
-                            try:
-                                baselist = column.get_query_sequences(mark_ends=True, add_indels=True)
-                            except AssertionError:
-                                print(contig.id)
-                                print(column.reference_pos)
-                                quit()
+                        if depth <= 3000:
+                            # Get list of bases for our column, marking ends and adding indels samtools style.
+                            """
+                            From http://www.htslib.org/doc/samtools.html
+                            In the pileup format (without -u or -g), each line represents a genomic position, 
+                            consisting of chromosome name, 1-based coordinate, reference base, the number of reads 
+                            covering the site, read bases, base qualities and alignment mapping qualities. 
+                            Information on match, mismatch, indel, strand, mapping quality and start and end of a read 
+                            are all encoded at the read base column. At this column, a dot stands for a match to the 
+                            reference base on the forward strand, a comma for a match on the reverse strand, a '>' or 
+                            '<' for a reference skip, `ACGTN' for a mismatch on the forward strand and `acgtn' for a 
+                            mismatch on the reverse strand. A pattern `\\+[0-9]+[ACGTNacgtn]+' indicates there is an 
+                            insertion between this reference position and the next reference position. The length of
+                            the insertion is given by the integer in the pattern, followed by the inserted sequence. 
+                            Similarly, a pattern `-[0-9]+[ACGTNacgtn]+' represents a deletion from the reference. 
+                            The deleted bases will be presented as `*' in the following lines. Also at the read 
+                            base column, a symbol `^' marks the start of a read. The ASCII of the character following
+                            `^' minus 33 gives the mapping quality. A symbol `$' marks the end of a read segment.
+                            """
+                            baselist = column.get_query_sequences(mark_ends=True, add_indels=True)
                             # Make sure everything in baselist is upper case - double check at some point that the
                             # lower case letters don't really mean anything.
                             baselist = [x.upper() for x in baselist]
+                            # Use the counter function to count the number of times each base appears in the list of
+                            # query bases. Mark ends will marks end/start of reads with $/^, and also takes care of clips
                             counted = Counter(baselist)
                             # Set the query base as the most common - note that this is fairly simplistic - the base
                             # with the highest representation (or the first base in case of a tie) is used
@@ -656,14 +667,76 @@ class Sippr(object):
                             if '$' in querybase or '^' in querybase:
                                 if 10 <= column.reference_pos <= len(contig.seq) - 10:
                                     has_clips_dict[contig.id] = True
-                                # For some reason pysam (or the underlying samtools, I don't actually know) seems to
-                                # be adding extra chars onto the querybase (one of ", !, #, or ~ from what I've seen).
+                                # Samtools puts the mapping quality as an ascii char as well as the ^ for read starts
+                                # So you end up with ^!A (or similar).
                                 # Only take the base itself - last in the string for begin clip, first for end clip.
                                 if '$' in querybase:
                                     querybase = querybase[0]
                                 elif '^' in querybase:
                                     querybase = querybase[-1]
                             reference_base = contig.seq[column.reference_pos]
+                            # Populate the data dictionaries that we'll need later.
+                            # matchdict keeps track of how many identities we have.
+                            if reference_base == querybase:
+                                matchdict[contig.id] += 1
+                            # Using the NCBI 16S database, I observed that degenerate nucleotides were used. This
+                            # allows for matches to occur to these bases
+                            elif self.analysistype == 'sixteens_full' and reference_base not in ['A', 'C', 'G', 'T']:
+                                # If the query base matches the corresponding IUPAC code e.g. A or G will match R,
+                                # increment the number of matches
+                                if querybase in self.iupac[reference_base]:
+                                    matchdict[contig] += 1
+                                # Otherwise treat the base as a mismatch, and add the base position to the list of
+                                # SNPs
+                                else:
+                                    snplocationsdict[contig].append(column.reference_pos + 1)
+
+                            # depthdict keeps track of how many bases total are aligned against the target gene.
+                            depthdict[contig.id] += depth
+
+                            # seqdict is our query sequence
+                            seqdict[contig.id] += querybase
+
+                            # snplocationsdict keeps track of where snps are in sequence. Append reference position
+                            # if ref and query don't match. Add 1, since reference_pos is 0 based.
+                            if reference_base != querybase and querybase != '-':
+                                snplocationsdict[contig.id].append(column.reference_pos + 1)
+
+                            # gaplocations, much the same as snplocations. Need to check that querybase shows as a gap
+                            if querybase == '-':
+                                gaplocationsdict[contig.id].append(column.reference_pos + 1)
+
+                            # Also need to keep track of min and max depth for the gene.
+                            if depth > maxdict[contig.id]:
+                                maxdict[contig.id] = depth
+
+                            if depth < mindict[contig.id]:
+                                mindict[contig.id] = depth
+
+                            # Finally, deviationdict just has the depths at every position so we can calculate stdev later
+                            deviationdict[contig.id].append(depth)
+                        # High depth columns can break the get_query_sequences, since there's a hard-coded 10000 limit
+                        # there - appears that read starts count as 3 each if mark_ends is on since then you get the
+                        # the base, the mapping quality, and a char telling you it's the start of a read.
+                        # To get around this, iterate over the pileupreads for this column manually.
+                        # https://github.com/pysam-developers/pysam/issues/727
+                        # TODO: Unfortunate amounts of code duplication here - get a function or something written.
+                        else:
+                            baselist = list()
+                            start_end_count = 0
+                            for pileupread in column.pileups:
+                                # Figure out what base is present, and if it's at start or end of read
+                                baselist.append(pileupread.alignment.query_sequence[pileupread.query_position])
+                                if pileupread.is_head == 1 or pileupread.is_tail == 1:
+                                    start_end_count += 1
+                            counted = Counter(baselist)
+                            # Set the query base as the most common - note that this is fairly simplistic - the base
+                            # with the highest representation (or the first base in case of a tie) is used
+                            maxbases = counted.most_common()
+                            querybase = maxbases[0][0]
+                            reference_base = contig.seq[column.reference_pos]
+                            if start_end_count >= 0.5 * depth:
+                                has_clips_dict[contig.id] = True
                             # Populate the data dictionaries that we'll need later.
                             # matchdict keeps track of how many identities we have.
                             if reference_base == querybase:
