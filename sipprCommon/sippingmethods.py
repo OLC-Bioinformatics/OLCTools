@@ -262,7 +262,7 @@ class Sippr(object):
 
     def mapping(self):
         logging.info('Performing reference mapping')
-        for i in range(len(self.runmetadata)):
+        for i in range(self.cpus):
             # Start threads
             threads = Thread(target=self.map, args=())
             # Set the daemon to True - something to do with thread management
@@ -406,7 +406,7 @@ class Sippr(object):
     # TODO: Deprecated, should be removed.
     def parsing(self):
         logging.info('Loading sorted BAM files')
-        for i in range(len(self.runmetadata)):
+        for i in range(self.cpus):
             # Send the threads to
             threads = Thread(target=self.reduce, args=())
             # Set the daemon to true - something to do with thread management
@@ -810,13 +810,9 @@ class Sippr(object):
         """
         Parse the dictionaries of the sorted bam files extracted using pysam
         """
-        logging.info('Parsing BAM')
-        # TODO: Make multiprocessing handle some multithreaded bam parsing for me.
-        # Since everything is done on the metadata object, will need to make a method that takes a sample and returns
-        # a modified version of that sample, and then updates the original object.
-        # Other option - learn how to use threading, since that actually shares memory.
-        q = Queue(maxsize=self.threads)
-        for i in range(self.threads):
+        # Create a queue to handle this, and set up worker threads for the queue.
+        q = Queue(maxsize=self.cpus)
+        for i in range(self.cpus):
             worker = Thread(target=self.parse_one_sample, args=(q, ))
             worker.setDaemon(True)
             worker.start()
