@@ -570,6 +570,8 @@ class Sippr(object):
     def parse_one_sample(json_file, analysistype, iupac, cutoff, desired_average_depth):
         with open(json_file) as f:
             sample = json.load(f)
+        if 'faidict' not in sample[analysistype]:
+            sample[analysistype]['faidict'] = dict()
         if sample['general']['bestassemblyfile'] != 'NA' and sample[analysistype]['runanalysis']:
             # Get the fai file into a dictionary to be used in parsing results
             try:
@@ -603,210 +605,211 @@ class Sippr(object):
         mindict = dict()
         deviationdict = dict()
         has_clips_dict = dict()
-        # Iterate through each contig in our target file.
-        for contig in SeqIO.parse(sample[analysistype]['baitfile'], 'fasta'):
-            # analysis since it probably isn't actually there.
-            bamfile = pysam.AlignmentFile(sample[analysistype]['sortedbam'], 'rb')
-            # Initialise dictionaries with the contig name
-            matchdict[contig.id] = int()
-            depthdict[contig.id] = int()
-            seqdict[contig.id] = str()
-            snplocationsdict[contig.id] = list()
-            gaplocationsdict[contig.id] = list()
-            maxdict[contig.id] = int()
-            mindict[contig.id] = int()
-            deviationdict[contig.id] = list()
-            has_clips_dict[contig.id] = False
-            # Settings used here are important for making output match up with bamfile visualised in tablet
-            for column in bamfile.pileup(contig.id,
-                                         stepper='samtools',
-                                         ignore_orphans=False,
-                                         min_base_quality=0,
-                                         fastafile=pysam.FastaFile(sample[analysistype]['baitfile'])):
-                # Find all the attributes!
+        if 'baitfile' in sample[analysistype]:
+            # Iterate through each contig in our target file.
+            for contig in SeqIO.parse(sample[analysistype]['baitfile'], 'fasta'):
+                # analysis since it probably isn't actually there.
+                bamfile = pysam.AlignmentFile(sample[analysistype]['sortedbam'], 'rb')
+                # Initialise dictionaries with the contig name
+                matchdict[contig.id] = int()
+                depthdict[contig.id] = int()
+                seqdict[contig.id] = str()
+                snplocationsdict[contig.id] = list()
+                gaplocationsdict[contig.id] = list()
+                maxdict[contig.id] = int()
+                mindict[contig.id] = int()
+                deviationdict[contig.id] = list()
+                has_clips_dict[contig.id] = False
+                # Settings used here are important for making output match up with bamfile visualised in tablet
+                for column in bamfile.pileup(contig.id,
+                                             stepper='samtools',
+                                             ignore_orphans=False,
+                                             min_base_quality=0,
+                                             fastafile=pysam.FastaFile(sample[analysistype]['baitfile'])):
+                    # Find all the attributes!
 
-                # Read depth - just get number of aligned reads at that position.
-                depth = column.get_num_aligned()
-                # Need to have at least some bases aligned for this to work at all.
-                if depth == 0:
-                    seqdict[contig.id] += '-'
-                    deviationdict[contig.id].append(depth)
-                if depth <= 3000:
-                    # Get list of bases for our column, marking ends and adding indels samtools style.
-                    """
-                    From http://www.htslib.org/doc/samtools.html
-                    In the pileup format (without -u or -g), each line represents a genomic position, 
-                    consisting of chromosome name, 1-based coordinate, reference base, the number of reads 
-                    covering the site, read bases, base qualities and alignment mapping qualities. 
-                    Information on match, mismatch, indel, strand, mapping quality and start and end of a read 
-                    are all encoded at the read base column. At this column, a dot stands for a match to the 
-                    reference base on the forward strand, a comma for a match on the reverse strand, a '>' or 
-                    '<' for a reference skip, `ACGTN' for a mismatch on the forward strand and `acgtn' for a 
-                    mismatch on the reverse strand. A pattern `\\+[0-9]+[ACGTNacgtn]+' indicates there is an 
-                    insertion between this reference position and the next reference position. The length of
-                    the insertion is given by the integer in the pattern, followed by the inserted sequence. 
-                    Similarly, a pattern `-[0-9]+[ACGTNacgtn]+' represents a deletion from the reference. 
-                    The deleted bases will be presented as `*' in the following lines. Also at the read 
-                    base column, a symbol `^' marks the start of a read. The ASCII of the character following
-                    `^' minus 33 gives the mapping quality. A symbol `$' marks the end of a read segment.
-                    """
-                    baselist = column.get_query_sequences(mark_ends=True, add_indels=True)
-                    # Make sure everything in baselist is upper case - double check at some point that the
-                    # lower case letters don't really mean anything.
-                    baselist = [x.upper() for x in baselist]
-                    # Use the counter function to count the number of times each base appears in the list of
-                    # query bases. Mark ends will marks end/start of reads with $/^, and also takes care of clips
-                    counted = Counter(baselist)
-                    # Set the query base as the most common - note that this is fairly simplistic - the base
-                    # with the highest representation (or the first base in case of a tie) is used
-                    maxbases = counted.most_common()
-                    querybase = maxbases[0][0]
+                    # Read depth - just get number of aligned reads at that position.
+                    depth = column.get_num_aligned()
+                    # Need to have at least some bases aligned for this to work at all.
+                    if depth == 0:
+                        seqdict[contig.id] += '-'
+                        deviationdict[contig.id].append(depth)
+                    if depth <= 3000:
+                        # Get list of bases for our column, marking ends and adding indels samtools style.
+                        """
+                        From http://www.htslib.org/doc/samtools.html
+                        In the pileup format (without -u or -g), each line represents a genomic position, 
+                        consisting of chromosome name, 1-based coordinate, reference base, the number of reads 
+                        covering the site, read bases, base qualities and alignment mapping qualities. 
+                        Information on match, mismatch, indel, strand, mapping quality and start and end of a read 
+                        are all encoded at the read base column. At this column, a dot stands for a match to the 
+                        reference base on the forward strand, a comma for a match on the reverse strand, a '>' or 
+                        '<' for a reference skip, `ACGTN' for a mismatch on the forward strand and `acgtn' for a 
+                        mismatch on the reverse strand. A pattern `\\+[0-9]+[ACGTNacgtn]+' indicates there is an 
+                        insertion between this reference position and the next reference position. The length of
+                        the insertion is given by the integer in the pattern, followed by the inserted sequence. 
+                        Similarly, a pattern `-[0-9]+[ACGTNacgtn]+' represents a deletion from the reference. 
+                        The deleted bases will be presented as `*' in the following lines. Also at the read 
+                        base column, a symbol `^' marks the start of a read. The ASCII of the character following
+                        `^' minus 33 gives the mapping quality. A symbol `$' marks the end of a read segment.
+                        """
+                        baselist = column.get_query_sequences(mark_ends=True, add_indels=True)
+                        # Make sure everything in baselist is upper case - double check at some point that the
+                        # lower case letters don't really mean anything.
+                        baselist = [x.upper() for x in baselist]
+                        # Use the counter function to count the number of times each base appears in the list of
+                        # query bases. Mark ends will marks end/start of reads with $/^, and also takes care of clips
+                        counted = Counter(baselist)
+                        # Set the query base as the most common - note that this is fairly simplistic - the base
+                        # with the highest representation (or the first base in case of a tie) is used
+                        maxbases = counted.most_common()
+                        querybase = maxbases[0][0]
 
-                    # The $ and ^ characters represent end and start of reads, respectively, or just reads
-                    # that have been clipped. If we find these as most common base anywhere not 10 bases from
-                    # start of a target or 10 bases from end of a target, we likely have internal clipping.
-                    # Set our has_clips_dict for this contig to True so that we know to ignore it.
-                    if '$' in querybase or '^' in querybase:
-                        if 10 <= column.reference_pos <= len(contig.seq) - 10:
-                            has_clips_dict[contig.id] = True
-                        # Samtools puts the mapping quality as an ascii char as well as the ^ for read starts
-                        # So you end up with ^!A (or similar).
-                        # Only take the base itself - last in the string for begin clip, first for end clip.
-                        if '$' in querybase:
-                            querybase = querybase[0]
-                        elif '^' in querybase:
-                            querybase = querybase[-1]
-                    reference_base = contig.seq[column.reference_pos]
-                    # Populate the data dictionaries that we'll need later.
-                    # matchdict keeps track of how many identities we have.
-                    if reference_base == querybase:
-                        matchdict[contig.id] += 1
-                    # Using the NCBI 16S database, I observed that degenerate nucleotides were used. This
-                    # allows for matches to occur to these bases
-                    elif analysistype == 'sixteens_full' and reference_base not in ['A', 'C', 'G', 'T']:
-                        # If the query base matches the corresponding IUPAC code e.g. A or G will match R,
-                        # increment the number of matches
-                        if querybase in iupac[reference_base]:
+                        # The $ and ^ characters represent end and start of reads, respectively, or just reads
+                        # that have been clipped. If we find these as most common base anywhere not 10 bases from
+                        # start of a target or 10 bases from end of a target, we likely have internal clipping.
+                        # Set our has_clips_dict for this contig to True so that we know to ignore it.
+                        if '$' in querybase or '^' in querybase:
+                            if 10 <= column.reference_pos <= len(contig.seq) - 10:
+                                has_clips_dict[contig.id] = True
+                            # Samtools puts the mapping quality as an ascii char as well as the ^ for read starts
+                            # So you end up with ^!A (or similar).
+                            # Only take the base itself - last in the string for begin clip, first for end clip.
+                            if '$' in querybase:
+                                querybase = querybase[0]
+                            elif '^' in querybase:
+                                querybase = querybase[-1]
+                        reference_base = contig.seq[column.reference_pos]
+                        # Populate the data dictionaries that we'll need later.
+                        # matchdict keeps track of how many identities we have.
+                        if reference_base == querybase:
                             matchdict[contig.id] += 1
-                        # Otherwise treat the base as a mismatch, and add the base position to the list of
-                        # SNPs
-                        else:
+                        # Using the NCBI 16S database, I observed that degenerate nucleotides were used. This
+                        # allows for matches to occur to these bases
+                        elif analysistype == 'sixteens_full' and reference_base not in ['A', 'C', 'G', 'T']:
+                            # If the query base matches the corresponding IUPAC code e.g. A or G will match R,
+                            # increment the number of matches
+                            if querybase in iupac[reference_base]:
+                                matchdict[contig.id] += 1
+                            # Otherwise treat the base as a mismatch, and add the base position to the list of
+                            # SNPs
+                            else:
+                                snplocationsdict[contig.id].append(column.reference_pos + 1)
+
+                        # depthdict keeps track of how many bases total are aligned against the target gene.
+                        depthdict[contig.id] += depth
+
+                        # seqdict is our query sequence
+                        seqdict[contig.id] += querybase
+
+                        # snplocationsdict keeps track of where snps are in sequence. Append reference position
+                        # if ref and query don't match. Add 1, since reference_pos is 0 based.
+                        if reference_base != querybase and '-' not in querybase:
                             snplocationsdict[contig.id].append(column.reference_pos + 1)
 
-                    # depthdict keeps track of how many bases total are aligned against the target gene.
-                    depthdict[contig.id] += depth
+                        # gaplocations, much the same as snplocations. Need to check that querybase shows as a gap
+                        if '-' in querybase:
+                            gaplocationsdict[contig.id].append(column.reference_pos + 1)
 
-                    # seqdict is our query sequence
-                    seqdict[contig.id] += querybase
+                        # Also need to keep track of min and max depth for the gene.
+                        if depth > maxdict[contig.id]:
+                            maxdict[contig.id] = depth
 
-                    # snplocationsdict keeps track of where snps are in sequence. Append reference position
-                    # if ref and query don't match. Add 1, since reference_pos is 0 based.
-                    if reference_base != querybase and querybase != '-':
-                        snplocationsdict[contig.id].append(column.reference_pos + 1)
+                        if depth < mindict[contig.id]:
+                            mindict[contig.id] = depth
 
-                    # gaplocations, much the same as snplocations. Need to check that querybase shows as a gap
-                    if querybase == '-':
-                        gaplocationsdict[contig.id].append(column.reference_pos + 1)
+                        # Finally, deviationdict just has the depths at every position so we can calculate stdev later
+                        deviationdict[contig.id].append(depth)
+                    # High depth columns can break the get_query_sequences, since there's a hard-coded 10000 limit
+                    # there - appears that read starts count as 3 each if mark_ends is on since then you get the
+                    # the base, the mapping quality, and a char telling you it's the start of a read.
+                    # To get around this, iterate over the pileupreads for this column manually.
+                    # https://github.com/pysam-developers/pysam/issues/727
+                    # TODO: Unfortunate amounts of code duplication here - get a function or something written.
+                    else:
+                        baselist = list()
+                        start_end_count = 0
+                        for pileupread in column.pileups:
+                            # Figure out what base is present, and if it's at start or end of read
+                            baselist.append(pileupread.alignment.query_sequence[pileupread.query_position])
+                            if pileupread.is_head == 1 or pileupread.is_tail == 1:
+                                start_end_count += 1
+                        counted = Counter(baselist)
+                        # Set the query base as the most common - note that this is fairly simplistic - the base
+                        # with the highest representation (or the first base in case of a tie) is used
+                        maxbases = counted.most_common()
+                        querybase = maxbases[0][0]
+                        reference_base = contig.seq[column.reference_pos]
+                        if start_end_count >= 0.5 * depth:
+                            has_clips_dict[contig.id] = True
+                        # Populate the data dictionaries that we'll need later.
+                        # matchdict keeps track of how many identities we have.
+                        if reference_base == querybase:
+                            matchdict[contig.id] += 1
+                        # Using the NCBI 16S database, I observed that degenerate nucleotides were used. This
+                        # allows for matches to occur to these bases
+                        elif analysistype == 'sixteens_full' and reference_base not in ['A', 'C', 'G', 'T']:
+                            # If the query base matches the corresponding IUPAC code e.g. A or G will match R,
+                            # increment the number of matches
+                            if querybase in iupac[reference_base]:
+                                matchdict[contig] += 1
+                            # Otherwise treat the base as a mismatch, and add the base position to the list of
+                            # SNPs
+                            else:
+                                snplocationsdict[contig].append(column.reference_pos + 1)
 
-                    # Also need to keep track of min and max depth for the gene.
-                    if depth > maxdict[contig.id]:
-                        maxdict[contig.id] = depth
+                        # depthdict keeps track of how many bases total are aligned against the target gene.
+                        depthdict[contig.id] += depth
 
-                    if depth < mindict[contig.id]:
-                        mindict[contig.id] = depth
+                        # seqdict is our query sequence
+                        seqdict[contig.id] += querybase
 
-                    # Finally, deviationdict just has the depths at every position so we can calculate stdev later
-                    deviationdict[contig.id].append(depth)
-                # High depth columns can break the get_query_sequences, since there's a hard-coded 10000 limit
-                # there - appears that read starts count as 3 each if mark_ends is on since then you get the
-                # the base, the mapping quality, and a char telling you it's the start of a read.
-                # To get around this, iterate over the pileupreads for this column manually.
-                # https://github.com/pysam-developers/pysam/issues/727
-                # TODO: Unfortunate amounts of code duplication here - get a function or something written.
-                else:
-                    baselist = list()
-                    start_end_count = 0
-                    for pileupread in column.pileups:
-                        # Figure out what base is present, and if it's at start or end of read
-                        baselist.append(pileupread.alignment.query_sequence[pileupread.query_position])
-                        if pileupread.is_head == 1 or pileupread.is_tail == 1:
-                            start_end_count += 1
-                    counted = Counter(baselist)
-                    # Set the query base as the most common - note that this is fairly simplistic - the base
-                    # with the highest representation (or the first base in case of a tie) is used
-                    maxbases = counted.most_common()
-                    querybase = maxbases[0][0]
-                    reference_base = contig.seq[column.reference_pos]
-                    if start_end_count >= 0.5 * depth:
-                        has_clips_dict[contig.id] = True
-                    # Populate the data dictionaries that we'll need later.
-                    # matchdict keeps track of how many identities we have.
-                    if reference_base == querybase:
-                        matchdict[contig.id] += 1
-                    # Using the NCBI 16S database, I observed that degenerate nucleotides were used. This
-                    # allows for matches to occur to these bases
-                    elif analysistype == 'sixteens_full' and reference_base not in ['A', 'C', 'G', 'T']:
-                        # If the query base matches the corresponding IUPAC code e.g. A or G will match R,
-                        # increment the number of matches
-                        if querybase in iupac[reference_base]:
-                            matchdict[contig] += 1
-                        # Otherwise treat the base as a mismatch, and add the base position to the list of
-                        # SNPs
-                        else:
-                            snplocationsdict[contig].append(column.reference_pos + 1)
+                        # snplocationsdict keeps track of where snps are in sequence. Append reference position
+                        # if ref and query don't match. Add 1, since reference_pos is 0 based.
+                        if reference_base != querybase and querybase != '-':
+                            snplocationsdict[contig.id].append(column.reference_pos + 1)
 
-                    # depthdict keeps track of how many bases total are aligned against the target gene.
-                    depthdict[contig.id] += depth
+                        # gaplocations, much the same as snplocations. Need to check that querybase shows as a gap
+                        if querybase == '-':
+                            gaplocationsdict[contig.id].append(column.reference_pos + 1)
 
-                    # seqdict is our query sequence
-                    seqdict[contig.id] += querybase
+                        # Also need to keep track of min and max depth for the gene.
+                        if depth > maxdict[contig.id]:
+                            maxdict[contig.id] = depth
 
-                    # snplocationsdict keeps track of where snps are in sequence. Append reference position
-                    # if ref and query don't match. Add 1, since reference_pos is 0 based.
-                    if reference_base != querybase and querybase != '-':
-                        snplocationsdict[contig.id].append(column.reference_pos + 1)
+                        if depth < mindict[contig.id]:
+                            mindict[contig.id] = depth
 
-                    # gaplocations, much the same as snplocations. Need to check that querybase shows as a gap
-                    if querybase == '-':
-                        gaplocationsdict[contig.id].append(column.reference_pos + 1)
+                        # Finally, deviationdict just has the depths at every position so we can calculate stdev later
+                        deviationdict[contig.id].append(depth)
 
-                    # Also need to keep track of min and max depth for the gene.
-                    if depth > maxdict[contig.id]:
-                        maxdict[contig.id] = depth
+                bamfile.close()
 
-                    if depth < mindict[contig.id]:
-                        mindict[contig.id] = depth
+            for allele in seqdict:
+                # If the length of the match is greater or equal to the length of the gene/allele (multiplied by the
+                # cutoff value) as determined using faidx indexing, then proceed
+                if matchdict[allele] >= sample[analysistype]['faidict'][allele] * cutoff and has_clips_dict[allele] is False:
+                    # Calculate the average depth by dividing the total number of reads observed by the
+                    # length of the gene
+                    averagedepth = float(depthdict[allele]) / float(matchdict[allele])
+                    percentidentity = \
+                        float(matchdict[allele]) / float(sample[analysistype]['faidict'][allele]) * 100
+                    # Only report a positive result if this average depth is greater than the desired average depth
+                    # and if the percent identity is greater or equal to the cutoff
+                    if averagedepth > desired_average_depth and percentidentity >= float(cutoff * 100):
+                        # Populate resultsdict with the gene/allele name, the percent identity, and the avg depth
+                        sample[analysistype]['results'][allele] = '{:.2f}'.format(percentidentity)
 
-                    # Finally, deviationdict just has the depths at every position so we can calculate stdev later
-                    deviationdict[contig.id].append(depth)
-
-            bamfile.close()
-
-        for allele in seqdict:
-            # If the length of the match is greater or equal to the length of the gene/allele (multiplied by the
-            # cutoff value) as determined using faidx indexing, then proceed
-            if matchdict[allele] >= sample[analysistype]['faidict'][allele] * cutoff and has_clips_dict[allele] is False:
-                # Calculate the average depth by dividing the total number of reads observed by the
-                # length of the gene
-                averagedepth = float(depthdict[allele]) / float(matchdict[allele])
-                percentidentity = \
-                    float(matchdict[allele]) / float(sample[analysistype]['faidict'][allele]) * 100
-                # Only report a positive result if this average depth is greater than the desired average depth
-                # and if the percent identity is greater or equal to the cutoff
-                if averagedepth > desired_average_depth and percentidentity >= float(cutoff * 100):
-                    # Populate resultsdict with the gene/allele name, the percent identity, and the avg depth
-                    sample[analysistype]['results'][allele] = '{:.2f}'.format(percentidentity)
-
-                    sample[analysistype]['avgdepth'][allele] = '{:.2f}'.format(averagedepth)
-                    # Add the results to dictionaries
-                    sample[analysistype]['resultssnp'][allele] = len(snplocationsdict[allele])
-                    sample[analysistype]['snplocations'][allele] = snplocationsdict[allele]
-                    sample[analysistype]['resultsgap'][allele] = len(gaplocationsdict[allele])
-                    sample[analysistype]['gaplocations'][allele] = gaplocationsdict[allele]
-                    sample[analysistype]['sequences'][allele] = seqdict[allele]
-                    sample[analysistype]['maxcoverage'][allele] = maxdict[allele]
-                    sample[analysistype]['mincoverage'][allele] = mindict[allele]
-                    sample[analysistype]['standarddev'][allele] = '{:.2f}'.format(numpy.std(deviationdict[allele], ddof=1))
+                        sample[analysistype]['avgdepth'][allele] = '{:.2f}'.format(averagedepth)
+                        # Add the results to dictionaries
+                        sample[analysistype]['resultssnp'][allele] = len(snplocationsdict[allele])
+                        sample[analysistype]['snplocations'][allele] = snplocationsdict[allele]
+                        sample[analysistype]['resultsgap'][allele] = len(gaplocationsdict[allele])
+                        sample[analysistype]['gaplocations'][allele] = gaplocationsdict[allele]
+                        sample[analysistype]['sequences'][allele] = seqdict[allele]
+                        sample[analysistype]['maxcoverage'][allele] = maxdict[allele]
+                        sample[analysistype]['mincoverage'][allele] = mindict[allele]
+                        sample[analysistype]['standarddev'][allele] = '{:.2f}'.format(numpy.std(deviationdict[allele], ddof=1))
         return sample
 
     def parsebam(self):
@@ -834,6 +837,7 @@ class Sippr(object):
             p.join()
         # Since we had to json-ize the sample objects, we now need to update the metadata for everything.
         for sample in self.runmetadata:
+                sample[self.analysistype].faidict = dict()
                 sample[self.analysistype].results = dict()
                 sample[self.analysistype].avgdepth = dict()
                 sample[self.analysistype].resultssnp = dict()
@@ -847,6 +851,7 @@ class Sippr(object):
                 # Figure out which of the sample results to use.
                 for sample_result in sample_results:
                     if sample_result['name'] == sample.name:
+                        sample[self.analysistype].faidict = sample_result[self.analysistype]['faidict']
                         sample[self.analysistype].results = sample_result[self.analysistype]['results']
                         sample[self.analysistype].avgdepth = sample_result[self.analysistype]['avgdepth']
                         sample[self.analysistype].resultssnp = sample_result[self.analysistype]['resultssnp']
