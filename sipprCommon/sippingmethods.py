@@ -605,7 +605,7 @@ class Sippr(object):
         mindict = dict()
         deviationdict = dict()
         has_clips_dict = dict()
-        if 'baitfile' in sample[analysistype]:
+        if 'baitfile' in sample[analysistype] and 'sortedbam' in sample[analysistype]:
             # Iterate through each contig in our target file.
             for contig in SeqIO.parse(sample[analysistype]['baitfile'], 'fasta'):
                 # analysis since it probably isn't actually there.
