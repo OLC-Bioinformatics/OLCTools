@@ -634,7 +634,7 @@ class Sippr(object):
                     if depth == 0:
                         seqdict[contig.id] += '-'
                         deviationdict[contig.id].append(depth)
-                    if depth <= 3000:
+                    if depth <= 2000:
                         # Get list of bases for our column, marking ends and adding indels samtools style.
                         """
                         From http://www.htslib.org/doc/samtools.html
@@ -730,10 +730,11 @@ class Sippr(object):
                         baselist = list()
                         start_end_count = 0
                         for pileupread in column.pileups:
-                            # Figure out what base is present, and if it's at start or end of read
-                            baselist.append(pileupread.alignment.query_sequence[pileupread.query_position])
-                            if pileupread.is_head == 1 or pileupread.is_tail == 1:
-                                start_end_count += 1
+                            if pileupread.query_position is not None:
+                                # Figure out what base is present, and if it's at start or end of read
+                                baselist.append(pileupread.alignment.query_sequence[pileupread.query_position])
+                                if pileupread.is_head == 1 or pileupread.is_tail == 1:
+                                    start_end_count += 1
                         counted = Counter(baselist)
                         # Set the query base as the most common - note that this is fairly simplistic - the base
                         # with the highest representation (or the first base in case of a tie) is used
