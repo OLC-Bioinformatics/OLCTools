@@ -363,7 +363,8 @@ class ShortKSippingMethods(Sippr):
         # Use samtools to index the sorted bam file
         self.indexing()
         # Parse the results
-        self.parsing()
+        # self.parsing()
+        self.parsebam()
         # Filter out any sequences with cigar features such as internal soft-clipping from the results
         self.clipper()
 
@@ -1052,14 +1053,18 @@ class Virulence(GeneSippr):
                         for name, identity in sorted(sample[self.analysistype].results.items()):
                             # Check to see which delimiter is used to separate the gene name, allele, accession, and
                             # subtype information in the header
-                            try:
+                            if len(name.split(sample[self.analysistype].delimiter)) == 4:
                                 # Split the name on the delimiter: stx2A:63:AF500190:d; gene: stx2A, allele: 63,
                                 # accession: AF500190, subtype: d
                                 genename, allele, accession, subtype = name.split(sample[self.analysistype].delimiter)
-                            # Treat samples without a subtype e.g. icaC:intercellular adhesion protein C: differently.
-                            # Extract the allele as the 'subtype', and the gene name, and accession as above
-                            except ValueError:
+                            elif len(name.split(sample[self.analysistype].delimiter)) == 3:
+                                # Treat samples without a subtype e.g. icaC:intercellular adhesion protein C: differently.
+                                # Extract the allele as the 'subtype', and the gene name, and accession as above
                                 genename, subtype, accession = name.split(sample[self.analysistype].delimiter)
+                            else:
+                                genename = name
+                                subtype = ''
+                                accession = ''
                             # Retrieve the best identity for each gene
                             percentid = sample[self.analysistype].uniquegenes[genename]
                             # If the percent identity of the current gene matches the best percent identity, add it to
