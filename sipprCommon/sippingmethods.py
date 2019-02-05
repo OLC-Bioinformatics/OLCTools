@@ -634,7 +634,7 @@ class Sippr(object):
                     if depth == 0:
                         seqdict[contig.id] += '-'
                         deviationdict[contig.id].append(depth)
-                    if depth <= 2000:
+                    try:  # This almost always works, except for when we have very high depth.
                         # Get list of bases for our column, marking ends and adding indels samtools style.
                         """
                         From http://www.htslib.org/doc/samtools.html
@@ -726,7 +726,7 @@ class Sippr(object):
                     # To get around this, iterate over the pileupreads for this column manually.
                     # https://github.com/pysam-developers/pysam/issues/727
                     # TODO: Unfortunate amounts of code duplication here - get a function or something written.
-                    else:
+                    except AssertionError:  # Very high depth makes us hit an AssertionError - do some more manual parsing then
                         baselist = list()
                         start_end_count = 0
                         for pileupread in column.pileups:
