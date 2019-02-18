@@ -2,6 +2,7 @@
 from accessoryFunctions.accessoryFunctions import combinetargets, MetadataObject, make_path, \
     run_subprocess, SetupLogging
 from databasesetup import get_mlst, get_rmlst
+from confindr_src import database_setup as confindr_db_setup
 from argparse import ArgumentParser
 import urllib.request
 from glob import glob
@@ -27,7 +28,7 @@ class DatabaseSetup(object):
         if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'coregenome')):
             self.cowbat_targets(databasepath=self.databasepath)
         if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'ConFindr')):
-            self.confindr_targets(databasepath=self.databasepath)
+            self.confindr_targets()
         if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'mash')):
             self.mash(databasepath=self.databasepath)
         if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'MLST')):
@@ -55,6 +56,8 @@ class DatabaseSetup(object):
                                    dbname='pointfinder_db')
         if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'clark')):
             self.clark(databasepath=self.databasepath)
+        if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'mob_suite')):
+            self.mob_suite_targets()
 
     def sipprverse_full(self):
         """
@@ -64,7 +67,7 @@ class DatabaseSetup(object):
         if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'genesippr')):
             self.sipprverse_targets(databasepath=self.databasepath)
         if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'ConFindr')):
-            self.confindr_targets(databasepath=self.databasepath)
+            self.confindr_targets()
         if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'mash')):
             self.mash(databasepath=self.databasepath)
         if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'MLST')):
@@ -93,7 +96,7 @@ class DatabaseSetup(object):
         if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'genesippr')):
             self.sipprverse_targets(databasepath=self.databasepath)
         if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'ConFindr')):
-            self.confindr_targets(databasepath=self.databasepath)
+            self.confindr_targets()
         if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'mash')):
             self.mash(databasepath=self.databasepath)
 
@@ -119,52 +122,26 @@ class DatabaseSetup(object):
                               database_name=database_name,
                               download_id=download_id)
 
-    def confindr_targets(self, databasepath, database_name='ConFindr', download_id='11864267'):
+    def confindr_targets(self, database_name='ConFindr'):
         """
         Download OLC-specific ConFindr targets
-        :param databasepath: path to use to save the database
         :param database_name: name of current database
-        :param download_id: figshare identifier of .tar.gz file
         """
-        self.custom_databases(databasepath=databasepath,
-                              database_name=database_name,
-                              download_id=download_id,
-                              nested=True)
+        logging.info('Downloading ConFindr databases.')
+        # NOTE: Need ConFindr >= 0.5.0 for this to work.
+        secret_file = os.path.join(self.credentials, 'secret.txt')
+        confindr_db_setup.setup_confindr_database(output_folder=os.path.join(self.databasepath, database_name),
+                                                  consumer_secret=secret_file)
 
-    def plasmidextractor_targets(self, databasepath, database_name='plasmidextractor', download_id='9827323'):
-        """
-        Download OLC-specific PlasmidExtractor targets
-        :param databasepath: path to use to save the database
-        :param database_name: name of current database
-        :param download_id: figshare identifier of .tar.gz file
-        """
-        self.custom_databases(databasepath=databasepath,
-                              database_name=database_name,
-                              download_id=download_id,
-                              nested=True,
-                              complete=True)
-
-    def mob_suite_targets(self, databasepath, database_name='mob_suite', download_id='5841882'):
+    def mob_suite_targets(self, database_name='mob_suite'):
         """
         Download MOB-suite databases
-        :param databasepath: path to use to save the database
         :param database_name: name of current database
-        :param download_id: figshare identifier of .tar.gz file
         """
-
-        self.custom_databases(databasepath=databasepath,
-                              database_name=database_name,
-                              download_id=download_id,
-                              f_type='articles',
-                              post_id='versions/1',
-                              compression='zip',
-                              nested=True)
-        # Decompress the MOB-suite databases
-        for gz_file in glob(os.path.join(self.databasepath, database_name, '*.gz')):
-            self.decompress(databasepath=databasepath,
-                            database_name=database_name,
-                            compression='gz',
-                            compressed_file=gz_file)
+        logging.info('Download MOB-suite databases')
+        # NOTE: This requires mob_suite >=1.4.9.1. Versions before that don't have the -d option.
+        cmd = 'mob_init -d {}'.format(os.path.join(self.databasepath, database_name))
+        out, err = run_subprocess(cmd)
 
     @staticmethod
     def mlst(databasepath, genera=('Escherichia', 'Vibrio', 'Campylobacter', 'Listeria',

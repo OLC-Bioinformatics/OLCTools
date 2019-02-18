@@ -28,6 +28,9 @@ class Get(object):
         args.output_path = newfolder
         args.logging = self.logging
         rmlst = rest_auth_class.REST(args)
+        rmlst.secret_finder()
+        rmlst.get_request_token()
+        rmlst.get_access_token()
         # Download the profile and alleles
         rmlst.main()
         # Get the new alleles into a list, and create the combinedAlleles file

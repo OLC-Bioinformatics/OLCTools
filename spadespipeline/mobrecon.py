@@ -36,10 +36,11 @@ class MobRecon(object):
                 make_path(sample[self.analysistype].outputdir)
                 if sample.general.bestassemblyfile != 'NA':
                     # Create the system call
-                    sample.commands.mobrecon = 'mob_recon -i {fasta} -o {outdir} --run_typer -n {threads}'\
+                    sample.commands.mobrecon = 'mob_recon -i {fasta} -o {outdir} --run_typer -n {threads} -d {databases}'\
                         .format(fasta=sample.general.bestassemblyfile,
                                 outdir=sample[self.analysistype].outputdir,
-                                threads=self.threads)
+                                threads=self.threads,
+                                databases=os.path.join(self.databasepath, 'mob_suite'))
                     # Ensure that the report doesn't already exist
                     if not os.path.isfile(sample[self.analysistype].contig_report):
                         # Run the analyses

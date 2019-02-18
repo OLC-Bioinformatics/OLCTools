@@ -18,7 +18,7 @@ setup(
                       'geneseekr',
                       'psutil',
                       'urllib3',
-                      'confindr',
+                      'confindr>=0.5',
                       'pytest',
                       'pysam',
                       'xlsxwriter',
