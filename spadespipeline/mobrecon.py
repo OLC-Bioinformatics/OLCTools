@@ -24,6 +24,7 @@ class MobRecon(object):
         """
         logging.info('Running MOB-recon on Assemblies')
         with progressbar(self.metadata) as bar:
+            commands = list()
             for sample in bar:
                 # Create and populate the mob_recon genobject
                 setattr(sample, self.analysistype, GenObject())
@@ -35,7 +36,7 @@ class MobRecon(object):
                 sample[self.analysistype].logerr = os.path.join(sample[self.analysistype].outputdir, 'err')
                 make_path(sample[self.analysistype].outputdir)
                 if sample.general.bestassemblyfile != 'NA':
-                    # Create the system call
+                    # Create the system call TODO: Run these instances in parallel.
                     sample.commands.mobrecon = 'mob_recon -i {fasta} -o {outdir} --run_typer -n {threads} -d {databases}'\
                         .format(fasta=sample.general.bestassemblyfile,
                                 outdir=sample[self.analysistype].outputdir,
@@ -44,22 +45,33 @@ class MobRecon(object):
                     # Ensure that the report doesn't already exist
                     if not os.path.isfile(sample[self.analysistype].contig_report):
                         # Run the analyses
-                        out, err = run_subprocess(sample.commands.mobrecon)
-                        # Write the outputs to the log file
-                        write_to_logfile(out=sample.commands.mobrecon,
-                                         err=sample.commands.mobrecon,
-                                         logfile=self.logfile,
-                                         samplelog=sample.general.logout,
-                                         sampleerr=sample.general.logerr,
-                                         analysislog=sample[self.analysistype].logout,
-                                         analysiserr=sample[self.analysistype].logerr)
-                        write_to_logfile(out=out,
-                                         err=err,
-                                         logfile=self.logfile,
-                                         samplelog=sample.general.logout,
-                                         sampleerr=sample.general.logerr,
-                                         analysislog=sample[self.analysistype].logout,
-                                         analysiserr=sample[self.analysistype].logerr)
+                        commands.append(sample.commands.mobrecon)
+            p = multiprocessing.Pool(processes=self.threads)
+            out_err = p.map(MobRecon.run_cmd, commands)
+            p.close()
+            p.join()
+            for sample in bar:
+                # Write the outputs to the log file
+                write_to_logfile(out=sample.commands.mobrecon,
+                                 err=sample.commands.mobrecon,
+                                 logfile=self.logfile,
+                                 samplelog=sample.general.logout,
+                                 sampleerr=sample.general.logerr,
+                                 analysislog=sample[self.analysistype].logout,
+                                 analysiserr=sample[self.analysistype].logerr)
+                # TODO: Figure out the best way to get out and err associated with a sample
+                # write_to_logfile(out=out,
+                                 # err=err,
+                                 # logfile=self.logfile,
+                                 # samplelog=sample.general.logout,
+                                 # sampleerr=sample.general.logerr,
+                                 # analysislog=sample[self.analysistype].logout,
+                                 # analysiserr=sample[self.analysistype].logerr)
+
+    @staticmethod
+    def run_cmd(command):
+        out, err = run_subprocess(command)
+        return out, err
 
     def read_tsv(self):
         """
