@@ -50,8 +50,13 @@ class MobRecon(object):
             out_err = p.map(MobRecon.run_cmd, commands)
             p.close()
             p.join()
+            # At this point, out_err has a list of tuples with out as index 0 in each tuple and
+            # err at index 1 in each tuple. These will be in the same order as the samples, so retrieve them by index.
+            index = 0
             for sample in bar:
                 # Write the outputs to the log file
+                out = out_err[index][0]
+                err = out_err[index][1]
                 write_to_logfile(out=sample.commands.mobrecon,
                                  err=sample.commands.mobrecon,
                                  logfile=self.logfile,
@@ -59,14 +64,14 @@ class MobRecon(object):
                                  sampleerr=sample.general.logerr,
                                  analysislog=sample[self.analysistype].logout,
                                  analysiserr=sample[self.analysistype].logerr)
-                # TODO: Figure out the best way to get out and err associated with a sample
-                # write_to_logfile(out=out,
-                                 # err=err,
-                                 # logfile=self.logfile,
-                                 # samplelog=sample.general.logout,
-                                 # sampleerr=sample.general.logerr,
-                                 # analysislog=sample[self.analysistype].logout,
-                                 # analysiserr=sample[self.analysistype].logerr)
+                write_to_logfile(out=out,
+                                 err=err,
+                                 logfile=self.logfile,
+                                 samplelog=sample.general.logout,
+                                 sampleerr=sample.general.logerr,
+                                 analysislog=sample[self.analysistype].logout,
+                                 analysiserr=sample[self.analysistype].logerr)
+                index += 1
 
     @staticmethod
     def run_cmd(command):
