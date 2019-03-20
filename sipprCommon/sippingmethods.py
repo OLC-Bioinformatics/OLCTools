@@ -567,34 +567,35 @@ class Sippr(object):
             self.parsequeue.task_done()
 
     @staticmethod
-    def parse_one_sample(json_file, analysistype, iupac, cutoff, desired_average_depth):
+    def parse_one_sample(json_file, sample_name, best_assembly_file, analysistype, iupac, cutoff, desired_average_depth):
         with open(json_file) as f:
             sample = json.load(f)
-        if 'faidict' not in sample[analysistype]:
-            sample[analysistype]['faidict'] = dict()
-        if sample['general']['bestassemblyfile'] != 'NA' and sample[analysistype]['runanalysis']:
+        if 'faidict' not in sample:
+            sample['faidict'] = dict()
+        sample['name'] = sample_name
+        if best_assembly_file != 'NA' and sample['runanalysis']:
             # Get the fai file into a dictionary to be used in parsing results
             try:
-                with open(sample[analysistype]['faifile'], 'r') as faifile:
+                with open(sample['faifile'], 'r') as faifile:
                     for line in faifile:
                         data = line.split('\t')
                         try:
-                            sample[analysistype]['faidict'][data[0]] = int(data[1])
+                            sample['faidict'][data[0]] = int(data[1])
                         except (AttributeError, KeyError):
-                            sample[analysistype]['faidict'] = dict()
-                            sample[analysistype]['faidict'][data[0]] = int(data[1])
+                            sample['faidict'] = dict()
+                            sample['faidict'][data[0]] = int(data[1])
             except FileNotFoundError:
                 pass
-        sample[analysistype]['results'] = dict()
-        sample[analysistype]['avgdepth'] = dict()
-        sample[analysistype]['resultssnp'] = dict()
-        sample[analysistype]['snplocations'] = dict()
-        sample[analysistype]['resultsgap'] = dict()
-        sample[analysistype]['gaplocations'] = dict()
-        sample[analysistype]['sequences'] = dict()
-        sample[analysistype]['maxcoverage'] = dict()
-        sample[analysistype]['mincoverage'] = dict()
-        sample[analysistype]['standarddev'] = dict()
+        sample['results'] = dict()
+        sample['avgdepth'] = dict()
+        sample['resultssnp'] = dict()
+        sample['snplocations'] = dict()
+        sample['resultsgap'] = dict()
+        sample['gaplocations'] = dict()
+        sample['sequences'] = dict()
+        sample['maxcoverage'] = dict()
+        sample['mincoverage'] = dict()
+        sample['standarddev'] = dict()
         # Initialise dictionaries to store parsed data
         matchdict = dict()
         depthdict = dict()
@@ -605,11 +606,11 @@ class Sippr(object):
         mindict = dict()
         deviationdict = dict()
         has_clips_dict = dict()
-        if 'baitfile' in sample[analysistype] and 'sortedbam' in sample[analysistype]:
+        if 'baitfile' in sample and 'sortedbam' in sample:
             # Iterate through each contig in our target file.
-            for contig in SeqIO.parse(sample[analysistype]['baitfile'], 'fasta'):
+            for contig in SeqIO.parse(sample['baitfile'], 'fasta'):
                 # analysis since it probably isn't actually there.
-                bamfile = pysam.AlignmentFile(sample[analysistype]['sortedbam'], 'rb')
+                bamfile = pysam.AlignmentFile(sample['sortedbam'], 'rb')
                 # Initialise dictionaries with the contig name
                 matchdict[contig.id] = int()
                 depthdict[contig.id] = int()
@@ -625,7 +626,7 @@ class Sippr(object):
                                              stepper='samtools',
                                              ignore_orphans=False,
                                              min_base_quality=0,
-                                             fastafile=pysam.FastaFile(sample[analysistype]['baitfile'])):
+                                             fastafile=pysam.FastaFile(sample['baitfile'])):
                     # Find all the attributes!
 
                     # Read depth - just get number of aligned reads at that position.
@@ -789,28 +790,28 @@ class Sippr(object):
             for allele in seqdict:
                 # If the length of the match is greater or equal to the length of the gene/allele (multiplied by the
                 # cutoff value) as determined using faidx indexing, then proceed
-                if matchdict[allele] >= sample[analysistype]['faidict'][allele] * cutoff and has_clips_dict[allele] is False:
+                if matchdict[allele] >= sample['faidict'][allele] * cutoff and has_clips_dict[allele] is False:
                     # Calculate the average depth by dividing the total number of reads observed by the
                     # length of the gene
                     averagedepth = float(depthdict[allele]) / float(matchdict[allele])
                     percentidentity = \
-                        float(matchdict[allele]) / float(sample[analysistype]['faidict'][allele]) * 100
+                        float(matchdict[allele]) / float(sample['faidict'][allele]) * 100
                     # Only report a positive result if this average depth is greater than the desired average depth
                     # and if the percent identity is greater or equal to the cutoff
                     if averagedepth > desired_average_depth and percentidentity >= float(cutoff * 100):
                         # Populate resultsdict with the gene/allele name, the percent identity, and the avg depth
-                        sample[analysistype]['results'][allele] = '{:.2f}'.format(percentidentity)
+                        sample['results'][allele] = '{:.2f}'.format(percentidentity)
 
-                        sample[analysistype]['avgdepth'][allele] = '{:.2f}'.format(averagedepth)
+                        sample['avgdepth'][allele] = '{:.2f}'.format(averagedepth)
                         # Add the results to dictionaries
-                        sample[analysistype]['resultssnp'][allele] = len(snplocationsdict[allele])
-                        sample[analysistype]['snplocations'][allele] = snplocationsdict[allele]
-                        sample[analysistype]['resultsgap'][allele] = len(gaplocationsdict[allele])
-                        sample[analysistype]['gaplocations'][allele] = gaplocationsdict[allele]
-                        sample[analysistype]['sequences'][allele] = seqdict[allele]
-                        sample[analysistype]['maxcoverage'][allele] = maxdict[allele]
-                        sample[analysistype]['mincoverage'][allele] = mindict[allele]
-                        sample[analysistype]['standarddev'][allele] = '{:.2f}'.format(numpy.std(deviationdict[allele], ddof=1))
+                        sample['resultssnp'][allele] = len(snplocationsdict[allele])
+                        sample['snplocations'][allele] = snplocationsdict[allele]
+                        sample['resultsgap'][allele] = len(gaplocationsdict[allele])
+                        sample['gaplocations'][allele] = gaplocationsdict[allele]
+                        sample['sequences'][allele] = seqdict[allele]
+                        sample['maxcoverage'][allele] = maxdict[allele]
+                        sample['mincoverage'][allele] = mindict[allele]
+                        sample['standarddev'][allele] = '{:.2f}'.format(numpy.std(deviationdict[allele], ddof=1))
         return sample
 
     def parsebam(self):
@@ -823,17 +824,21 @@ class Sippr(object):
         # json, and have the processing function turn the object into a dictionary.
         json_files = list()
         with tempfile.TemporaryDirectory() as tmpdir:
+            best_assemblies = list()
+            sample_names = list()
             for sample in self.runmetadata:
                 json_name = os.path.join(tmpdir, '{}.json'.format(sample.name))
+                best_assemblies.append(sample.general.bestassemblyfile)
+                sample_names.append(sample.name)
                 with open(json_name, 'w') as f:
-                    json.dump(sample.dump(), f, sort_keys=True, indent=4)
+                    json.dump(sample[self.analysistype].dump(), f, sort_keys=True, indent=4)
                 json_files.append(json_name)
             p = multiprocessing.Pool(processes=self.cpus)
             analysis_type_list = [self.analysistype] * len(self.runmetadata)
             iupac_list = [self.iupac] * len(self.runmetadata)
             cutoff_list = [self.cutoff] * len(self.runmetadata)
             depth_list = [self.averagedepth] * len(self.runmetadata)
-            sample_results = p.starmap(Sippr.parse_one_sample, zip(json_files, analysis_type_list, iupac_list, cutoff_list, depth_list))
+            sample_results = p.starmap(Sippr.parse_one_sample, zip(json_files, sample_names, best_assemblies, analysis_type_list, iupac_list, cutoff_list, depth_list))
             p.close()
             p.join()
         # Since we had to json-ize the sample objects, we now need to update the metadata for everything.
@@ -852,17 +857,17 @@ class Sippr(object):
                 # Figure out which of the sample results to use.
                 for sample_result in sample_results:
                     if sample_result['name'] == sample.name:
-                        sample[self.analysistype].faidict = sample_result[self.analysistype]['faidict']
-                        sample[self.analysistype].results = sample_result[self.analysistype]['results']
-                        sample[self.analysistype].avgdepth = sample_result[self.analysistype]['avgdepth']
-                        sample[self.analysistype].resultssnp = sample_result[self.analysistype]['resultssnp']
-                        sample[self.analysistype].snplocations = sample_result[self.analysistype]['snplocations']
-                        sample[self.analysistype].resultsgap = sample_result[self.analysistype]['resultsgap']
-                        sample[self.analysistype].gaplocations = sample_result[self.analysistype]['gaplocations']
-                        sample[self.analysistype].sequences = sample_result[self.analysistype]['sequences']
-                        sample[self.analysistype].maxcoverage = sample_result[self.analysistype]['maxcoverage']
-                        sample[self.analysistype].mincoverage = sample_result[self.analysistype]['mincoverage']
-                        sample[self.analysistype].standarddev = sample_result[self.analysistype]['standarddev']
+                        sample[self.analysistype].faidict = sample_result['faidict']
+                        sample[self.analysistype].results = sample_result['results']
+                        sample[self.analysistype].avgdepth = sample_result['avgdepth']
+                        sample[self.analysistype].resultssnp = sample_result['resultssnp']
+                        sample[self.analysistype].snplocations = sample_result['snplocations']
+                        sample[self.analysistype].resultsgap = sample_result['resultsgap']
+                        sample[self.analysistype].gaplocations = sample_result['gaplocations']
+                        sample[self.analysistype].sequences = sample_result['sequences']
+                        sample[self.analysistype].maxcoverage = sample_result['maxcoverage']
+                        sample[self.analysistype].mincoverage = sample_result['mincoverage']
+                        sample[self.analysistype].standarddev = sample_result['standarddev']
 
 
     # TODO: Deprecated, should be removed.

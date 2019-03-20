@@ -642,6 +642,27 @@ class GenObject(object):
                                  .format(key=key,
                                          value=value))
 
+    def dump(self):
+        """Prints only the nested dictionary values; removes __methods__ and __members__ attributes"""
+        metadata = dict()
+        for attr in sorted(self.datastore):
+            # Initialise the attribute (e.g. sample.general) key in the metadata dictionary
+            metadata[attr] = dict()
+            # Ignore attributes that begin with '__'
+            if not attr.startswith('__'):
+                # If self.datastore[attribute] is a primitive datatype, populate the metadata dictionary with
+                # the attr: self.datastore[attr] pair
+                # e.g. attr: name,  self.datastore[attr]: 2013-SEQ-0072
+                if isinstance(self.datastore[attr], str) or \
+                        isinstance(self.datastore[attr], list) or \
+                        isinstance(self.datastore[attr], dict) or \
+                        isinstance(self.datastore[attr], int):
+                    metadata[attr] = self.datastore[attr]
+                else:
+                    # Otherwise, recursively convert GenObjects to nested dictionaries
+                    metadata.update(self.nested_genobject(metadata, attr, self.datastore))
+        return metadata
+
 
 class MetadataObject(object):
     """Object to store static variables"""
