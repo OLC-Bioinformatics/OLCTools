@@ -709,6 +709,45 @@ class Sippr(object):
                         sample[self.analysistype].mincoverage = sample_result['mincoverage']
                         sample[self.analysistype].standarddev = sample_result['standarddev']
 
+    def clipper(self):
+        """
+        Filter out results based on the presence of cigar features such as internal soft-clipping
+        """
+        for sample in self.runmetadata:
+            # Create a dictionary to store all the samples that do not have features
+            replacementresults = dict()
+            try:
+                # SixteenS analyses seem to fail if results are filtered out
+                if self.analysistype != 'sixteens_full' and self.analysistype != 'resfinder':
+                    # Iterate through all the baited genes
+                    for gene in sample[self.analysistype].faidict:
+                        try:
+                            percentidentity = sample[self.analysistype].results[gene]
+                            try:
+                                # Create a list to store whether a feature is present in enough reads to discard the
+                                # sample
+                                passingfeature = list()
+                                for location, feature in sample[self.analysistype].features[gene].items():
+                                    # If the feature is present in under 30% of the reads, set the passing variable
+                                    # to true
+                                    if len(feature) < int(float(sample[self.analysistype].avgdepth[gene])) * 0.3:
+                                        passingfeature.append(True)
+                                    # Otherwise set it to false
+                                    else:
+                                        passingfeature.append(False)
+                                # If all the features are 'true' (present in fewer than 30% of the reads), add this
+                                # contig to the list of passing results
+                                if all(passingfeature):
+                                    replacementresults[gene] = percentidentity
+                            # If the allele does not have any features, it is added to the passing list
+                            except KeyError:
+                                replacementresults[gene] = percentidentity
+                        except KeyError:
+                            pass
+                    # Update the .results attribute with the filtered dictionary
+                    sample[self.analysistype].results = replacementresults
+            except AttributeError:
+                pass
     # noinspection PyDefaultArgument
     def __init__(self, inputobject, cutoff=0.98, averagedepth=2, k=None):
         self.path = inputobject.path
