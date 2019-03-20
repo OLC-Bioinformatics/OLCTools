@@ -366,7 +366,7 @@ class ShortKSippingMethods(Sippr):
         # self.parsing()
         self.parsebam()
         # Filter out any sequences with cigar features such as internal soft-clipping from the results
-        self.clipper()
+        # self.clipper()
 
 
 class ResSippr(GeneSippr):

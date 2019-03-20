@@ -708,6 +708,7 @@ class Sippr(object):
                         sample[self.analysistype].maxcoverage = sample_result['maxcoverage']
                         sample[self.analysistype].mincoverage = sample_result['mincoverage']
                         sample[self.analysistype].standarddev = sample_result['standarddev']
+        logging.info('Done parsing BAM files')
 
     def clipper(self):
         """
@@ -748,6 +749,7 @@ class Sippr(object):
                     sample[self.analysistype].results = replacementresults
             except AttributeError:
                 pass
+
     # noinspection PyDefaultArgument
     def __init__(self, inputobject, cutoff=0.98, averagedepth=2, k=None):
         self.path = inputobject.path
