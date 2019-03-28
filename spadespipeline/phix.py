@@ -56,5 +56,4 @@ class PhiX(object):
 
     def __init__(self, inputobject):
         self.path = inputobject.path
-        self.start = inputobject.starttime
         self.metadata = inputobject.runmetadata.samples
