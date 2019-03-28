@@ -2,7 +2,6 @@
 from accessoryFunctions.accessoryFunctions import GenObject, make_path, MetadataObject
 from Bio import SeqIO, Seq
 from argparse import ArgumentParser
-from click import progressbar
 from itertools import product
 from threading import Thread
 from subprocess import call
@@ -35,7 +34,7 @@ class Vtyper(object):
             # from https://stackoverflow.com/a/27552377 - find any degenerate bases in the primer sequence, and
             # create all possibilities as a list
             degenerates = Seq.IUPAC.IUPACData.ambiguous_dna_values
-            primerlist = list(map("".join, product(*map(degenerates.get, str(record.seq).upper()))))
+            primerlist = list(map(''.join, product(*map(degenerates.get, str(record.seq).upper()))))
             # As the record.id is being updated in the loop below, set the name of the primer here so that will
             # be able to be recalled when setting the new record.ids
             primername = record.id
@@ -122,11 +121,12 @@ class Vtyper(object):
                 # -G (Print alignments in comments)
                 # -o {output file}
                 sample.commands.epcr = \
-                    '{rePCR} -S {outfile}.hash -r + -m 10000 -n 1 -g 0 -G -q -o {outfile}.txt {primers}'\
+                    '{rePCR} -S {outfile}.hash -r + -m 10000 -n {mismatches} -g 0 -G -q -o {outfile}.txt {primers}'\
                     .format(rePCR=os.path.join(self.homepath, 'ePCR', 're-PCR'),
                             outfile=outfile,
+                            mismatches=self.mismatches,
                             primers=sample[self.analysistype].primers)
-                sample[self.analysistype].resultsfile = '{}.txt'.format(outfile)
+                sample[self.analysistype].resultsfile = '{of}.txt'.format(of=outfile)
                 # Add the sample object and the output file to the queue
                 self.epcrqueue.put((sample, outfile))
         # Join the threads
@@ -136,17 +136,17 @@ class Vtyper(object):
         while True:
             sample, linkfile = self.epcrqueue.get()
             # Run the commands if the ePCR output file doesn't exist
-            if not os.path.isfile('{}.txt'.format(linkfile)):
+            if not os.path.isfile('{lf}.txt'.format(lf=linkfile)):
                 call(sample.commands.famap, shell=True, stdout=self.devnull, stderr=self.devnull)
                 call(sample.commands.fahash, shell=True, stdout=self.devnull, stderr=self.devnull)
                 call(sample.commands.epcr, shell=True, stdout=self.devnull, stderr=self.devnull)
             # Clean up the temporary files
             try:
-                os.remove('{}.famap'.format(linkfile))
+                os.remove('{lf}.famap'.format(lf=linkfile))
             except FileNotFoundError:
                 pass
             try:
-                os.remove('{}.hash'.format(linkfile))
+                os.remove('{lf}.hash'.format(lf=linkfile))
             except FileNotFoundError:
                 pass
             # Signal that the thread is complete
@@ -196,6 +196,7 @@ class Vtyper(object):
         self.analysistype = analysistype
         self.start = inputobject.starttime
         self.reportpath = inputobject.reportpath
+        self.mismatches = inputobject.mismatches
         make_path(self.reportpath)
         self.devnull = open(os.devnull, 'wb')
         self.epcrqueue = Queue()
@@ -238,6 +239,9 @@ if __name__ == '__main__':
         parser.add_argument('-s', '--sequencepath',
                             required=True,
                             help='Path to folder containing sequencing reads')
+        parser.add_argument('-m', '--mismatches',
+                            default=1,
+                            help='Number of mismatches to allow for ePCR searches. Default is 1')
         # Get the arguments into an object
         arguments = parser.parse_args()
         arguments.starttime = time()
