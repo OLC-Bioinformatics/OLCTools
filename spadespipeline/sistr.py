@@ -120,10 +120,10 @@ if __name__ == '__main__':
     # Parser for arguments
     parser = ArgumentParser(description='Automate sistr analyses on a folder of .fasta files')
     parser.add_argument('path',
-                        help='Specify input directory')
+                        help='Output directory. Created if it does not already exist.')
     parser.add_argument('-s', '--sequencepath',
                         required=True,
-                        help='Path of .fastq(.gz) files to process.')
+                        help='Path of .fasta files to process.')
     # Get the arguments into an object
     arguments = parser.parse_args()
 
@@ -136,6 +136,10 @@ if __name__ == '__main__':
     # Create a metadata object
     arguments.runmetadata = MetadataObject()
     arguments.runmetadata.samples = list()
+
+    # Have to add logfile to make the SISTR automator happy.
+    arguments.logfile = os.path.join(arguments.path, 'sistr')
+
     for fasta in fastas:
         metadata = MetadataObject()
         metadata.name = os.path.split(fasta)[1].split('.')[0]
@@ -155,6 +159,13 @@ if __name__ == '__main__':
         metadata.general.referencegenus = 'Salmonella'
         # Set the .fasta file as the best assembly
         metadata.general.bestassemblyfile = fasta
+        # Also set the logging attributes, otherwise everything crashes.
+        metadata.general.logerr = os.path.join(arguments.path, 'log_err')
+        metadata.general.logout = os.path.join(arguments.path, 'log_out')
+        if not os.path.isdir(os.path.join(arguments.path, metadata.name, 'sistr')):
+            make_path(os.path.join(arguments.path, metadata.name, 'sistr'))
+
+        # Append to our list of samples
         arguments.runmetadata.samples.append(metadata)
 
     arguments.cpus = multiprocessing.cpu_count()
