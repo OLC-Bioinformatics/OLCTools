@@ -521,6 +521,17 @@ class Sippr(object):
                             elif '^' in querybase:
                                 querybase = querybase[-1]
                         reference_base = contig.seq[column.reference_pos]
+                        # Deletions. See the quoted text above. Briefly, the first reference position with of a deletion
+                        # will look something like T-2TA for position 1237 in reference gene C.coliRM4661_23S_1 for
+                        # sample 2018-LET-0007. This indicates that the query base at this position is 'T', and there is
+                        # a two bp deletion of the reference bases 'T' and 'A'. Split of the extra information, and
+                        # save the query base sequence
+                        if len(querybase) > 1:
+                            querybase = querybase.split('-')[0]
+                        # Continuing the above example, positions 1238 and 1239 are not present in the sample, and are
+                        # returned as '*'. Change this '*' to a '-'
+                        if '*' in querybase:
+                            querybase = '-'
                         # Populate the data dictionaries that we'll need later.
                         # matchdict keeps track of how many identities we have.
                         if reference_base == querybase:
@@ -567,7 +578,9 @@ class Sippr(object):
                     # To get around this, iterate over the pileupreads for this column manually.
                     # https://github.com/pysam-developers/pysam/issues/727
                     # TODO: Unfortunate amounts of code duplication here - get a function or something written.
-                    except AssertionError:  # Very high depth makes us hit an AssertionError - do some more manual parsing then
+                    except AssertionError:  # Very high depth makes us hit an AssertionError - do some more manual
+                        # parsing then
+                        print('AssertionError')
                         baselist = list()
                         start_end_count = 0
                         for pileupread in column.pileups:
@@ -584,6 +597,11 @@ class Sippr(object):
                         reference_base = contig.seq[column.reference_pos]
                         if start_end_count >= 0.5 * depth:
                             has_clips_dict[contig.id] = True
+                        # Deletions. See above for additional details
+                        if len(querybase) > 1:
+                            querybase = querybase.split('-')[0]
+                        if '*' in querybase:
+                            querybase = '-'
                         # Populate the data dictionaries that we'll need later.
                         # matchdict keeps track of how many identities we have.
                         if reference_base == querybase:
@@ -658,7 +676,7 @@ class Sippr(object):
         """
         Parse the dictionaries of the sorted bam files extracted using pysam
         """
-        # Threading is actually the worst - need multiprocessing to make this work at all (or at least, to get a speedup)
+        # Threading is actually the worst - need multiprocessing to make this work at all
         logging.info('Parsing BAM files')
         # The sample objects are too big to get pickled. To hack our way around this, try to dump the sample object to
         # json, and have the processing function turn the object into a dictionary.
@@ -678,7 +696,9 @@ class Sippr(object):
             iupac_list = [self.iupac] * len(self.runmetadata)
             cutoff_list = [self.cutoff] * len(self.runmetadata)
             depth_list = [self.averagedepth] * len(self.runmetadata)
-            sample_results = p.starmap(Sippr.parse_one_sample, zip(json_files, sample_names, best_assemblies, analysis_type_list, iupac_list, cutoff_list, depth_list))
+            sample_results = p.starmap(Sippr.parse_one_sample,
+                                       zip(json_files, sample_names, best_assemblies, analysis_type_list,
+                                           iupac_list, cutoff_list, depth_list))
             p.close()
             p.join()
         # Since we had to json-ize the sample objects, we now need to update the metadata for everything.
@@ -761,7 +781,6 @@ class Sippr(object):
             self.runmetadata = inputobject.runmetadata.samples
         except AttributeError:
             self.runmetadata = inputobject.runmetadata
-        self.start = inputobject.starttime
         self.analysistype = inputobject.analysistype
         self.cpus = inputobject.cpus
         self.threads = inputobject.threads
