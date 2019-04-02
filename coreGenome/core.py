@@ -22,6 +22,15 @@ class CoreGenome(BLAST):
 
     @staticmethod
     def parser(metadata, analysistype, fieldnames, cutoff, program):
+        """
+        Read in the BLAST outputs, and populate dictionaries with the parsed results
+        :param metadata: type LIST: List of metadata objects
+        :param analysistype: type STR: Current analysis type
+        :param fieldnames: type LIST: List of fields used to in BLAST analyses
+        :param cutoff: type INT: Percent identity cutoff to use to determine if a match is present
+        :param program: type STR: BLAST program used in the analyses
+        :return: metadata: List of updated metadata objects
+        """
         for sample in metadata:
             # Initialise a dictionary attribute to store results
             sample[analysistype].blastresults = dict()
@@ -33,8 +42,6 @@ class CoreGenome(BLAST):
                 # Initialise a dictionary to store all the target sequences
                 sample[analysistype].targetsequence = dict()
                 coregenomes = list()
-                # A set to store the number of core genes
-                coregenes = set()
                 # Create a list of all the names of the database files, replace - with _, remove path and extension
                 for fasta in sample[analysistype].targets:
                     fastaname = os.path.basename(os.path.splitext(fasta)[0]).replace('-', '_')
@@ -42,32 +49,36 @@ class CoreGenome(BLAST):
                     coregenomes.append(fastaname)
                 # Go through each BLAST result
                 for row in blastdict:
-                    # Create the subject length variable - if the sequences are DNA (e.g. blastn), use the subject
-                    # length as usual; if the sequences are protein (e.g. tblastx), use the subject length / 3
-                    if program == 'blastn' or program == 'blastp' or program == 'blastx':
-                        subject_length = float(row['subject_length'])
-
+                    # Ignore the headers
+                    if row['query_id'].startswith(fieldnames[0]):
+                        pass
                     else:
-                        subject_length = float(row['subject_length']) / 3
-                    # Calculate the percent identity and extract the bitscore from the row
-                    # Percent identity is the (length of the alignment - number of mismatches) / total subject length
-                    percentidentity = float('{:0.2f}'.format((float(row['positives']) - float(row['gaps'])) /
-                                                             subject_length * 100))
-                    # If the percent identity is greater than the cutoff
-                    if percentidentity >= cutoff:
-                        # Split off any | from the sample name
-                        target = row['subject_id'].split('|')[0]
-                        # As there are variable _ in the name, try to split off the last one only if there are
-                        #  multiple and only keep the first part of the split if there is one _ in the name
-                        underscored = '_'.join(target.split('_')[:-1]) if len(target.split('_')) > 2 else \
-                            target.split('_')[0]
-                        try:
-                            # Update the dictionary with the reference genome and the target
-                            resultset[underscored].add(target)
-                        except KeyError:
-                            # Initialise the dictionary with the first hit
-                            resultset[underscored] = set()
-                            resultset[underscored].add(target)
+                        # Create the subject length variable - if the sequences are DNA (e.g. blastn), use the subject
+                        # length as usual; if the sequences are protein (e.g. tblastx), use the subject length / 3
+                        if program == 'blastn' or program == 'blastp' or program == 'blastx':
+                            subject_length = float(row['subject_length'])
+
+                        else:
+                            subject_length = float(row['subject_length']) / 3
+                        # Calculate the percent identity and extract the bitscore from the row
+                        # Percent identity is: (length of the alignment - number of mismatches) / total subject length
+                        percentidentity = float('{:0.2f}'.format((float(row['positives']) - float(row['gaps'])) /
+                                                                 subject_length * 100))
+                        # If the percent identity is greater than the cutoff
+                        if percentidentity >= cutoff:
+                            # Split off any | from the sample name
+                            target = row['subject_id'].split('|')[0]
+                            # As there are variable _ in the name, try to split off the last one only if there are
+                            #  multiple and only keep the first part of the split if there is one _ in the name
+                            underscored = '_'.join(target.split('_')[:-1]) if len(target.split('_')) > 2 else \
+                                target.split('_')[0]
+                            try:
+                                # Update the dictionary with the reference genome and the target
+                                resultset[underscored].add(target)
+                            except KeyError:
+                                # Initialise the dictionary with the first hit
+                                resultset[underscored] = set()
+                                resultset[underscored].add(target)
                 # Get the number of unique genes per reference genome
                 for underscored, target_set in resultset.items():
                     resultdict[underscored] = len(target_set)
@@ -93,6 +104,13 @@ class CoreGenome(BLAST):
 
     @staticmethod
     def reporter(metadata, analysistype, reportpath):
+        """
+        Create the core genome report
+        :param metadata: type LIST: List of metadata objects
+        :param analysistype: type STR: Current analysis type
+        :param reportpath: type STR: Absolute path to folder in which the reports are to be created
+        :return:
+        """
         header = 'Strain,ClosestRef,GenesPresent/Total,\n'
         data = str()
         for sample in metadata:
@@ -118,11 +136,16 @@ class CoreGenome(BLAST):
                         # Add the data to the object
                         sample[analysistype].targetspresent = coregenes
                         sample[analysistype].totaltargets = totalcore
-                        sample[analysistype].coreresults = '{}/{}'.format(coregenes, totalcore)
-                        row = '{},{},{}/{}\n'.format(sample.name, closestref, coregenes, totalcore)
+                        sample[analysistype].coreresults = '{cg}/{tc}'.format(cg=coregenes,
+                                                                              tc=totalcore)
+                        row = '{sn},{cr},{cg}/{tc}\n'.format(sn=sample.name,
+                                                             cr=closestref,
+                                                             cg=coregenes,
+                                                             tc=totalcore)
                         # Open the report
                         with open(os.path.join(sample[analysistype].reportdir,
-                                               '{}_{}.csv'.format(sample.name, analysistype)), 'w') as report:
+                                               '{sn}_{at}.csv'.format(sn=sample.name,
+                                                                      at=analysistype)), 'w') as report:
                             # Write the row to the report
                             report.write(header)
                             report.write(row)
@@ -161,7 +184,9 @@ class AnnotatedCore(object):
                     # Parse the BLAST report
                     try:
                         report = sample[self.analysistype].report
-                        self.blastparser(report, sample)
+                        self.blastparser(report=report,
+                                         sample=sample,
+                                         fieldnames=self.fieldnames)
                     except KeyError:
                         sample[self.analysistype].coreset = list()
         # Create the report
@@ -177,26 +202,31 @@ class AnnotatedCore(object):
             if gene_name not in self.coregenomes:
                 self.coregenomes.append(gene_name)
 
-    def blastparser(self, report, sample):
+    def blastparser(self, report, sample, fieldnames):
         """
         Parse the number of core genes present in the strain from the BLAST outputs
         :param report: the name and path of the BLAST outputs
         :param sample: the sample object
+        :param fieldnames: type LIST: List of fields used to in BLAST analyses
         """
         try:
             # Open the sequence profile file as a dictionary
             blastdict = DictReader(open(report), fieldnames=self.fieldnames, dialect='excel-tab')
             # Go through each BLAST result
             for row in blastdict:
-                # Calculate the percent identity and extract the bitscore from the row
-                # Percent identity is the (length of the alignment - number of mismatches) / total subject length
-                percentidentity = float('{:0.2f}'.format((float(row['positives']) - float(row['gaps'])) /
-                                                         float(row['subject_length']) * 100))
-                # Split off any | and - from the sample name
-                target = row['subject_id'].split('|')[0].split('-')[0]
-                # If the hit passes the cutoff threshold, add it to the set of core genes present
-                if percentidentity >= self.cutoff:
-                    sample[self.analysistype].coreset.add(target)
+                # Ignore the headers
+                if row['query_id'].startswith(fieldnames[0]):
+                    pass
+                else:
+                    # Calculate the percent identity and extract the bitscore from the row
+                    # Percent identity is the (length of the alignment - number of mismatches) / total subject length
+                    percentidentity = float('{:0.2f}'.format((float(row['positives']) - float(row['gaps'])) /
+                                                             float(row['subject_length']) * 100))
+                    # Split off any | and - from the sample name
+                    target = row['subject_id'].split('|')[0].split('-')[0]
+                    # If the hit passes the cutoff threshold, add it to the set of core genes present
+                    if percentidentity >= self.cutoff:
+                        sample[self.analysistype].coreset.add(target)
         except FileNotFoundError:
             pass
 
@@ -209,10 +239,11 @@ class AnnotatedCore(object):
             for sample in self.runmetadata.samples:
                 # Convert the set to a list for JSON serialization
                 sample[self.analysistype].coreset = list(sample[self.analysistype].coreset)
-                sample[self.analysistype].coreresults = '{}/{}'.format(len(sample[self.analysistype].coreset),
-                                                                       len(self.coregenomes))
+                sample[self.analysistype].coreresults = '{cs}/{cg}'.format(cs=len(sample[self.analysistype].coreset),
+                                                                           cg=len(self.coregenomes))
                 # Add strain name, the number of core genes present, and the number of total core genes to the string
-                data += '{},{}\n'.format(sample.name, sample[self.analysistype].coreresults)
+                data += '{sn},{cr}\n'.format(sn=sample.name,
+                                             cr=sample[self.analysistype].coreresults)
             report.write(data)
 
         for sample in self.metadata:
