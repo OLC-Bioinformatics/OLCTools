@@ -191,12 +191,12 @@ class Vtyper(object):
             # Write the data to the report
             report.write(data)
 
-    def __init__(self, inputobject, analysistype):
+    def __init__(self, inputobject, analysistype, mismatches=2):
         self.metadata = inputobject.runmetadata.samples
         self.analysistype = analysistype
         self.start = inputobject.starttime
         self.reportpath = inputobject.reportpath
-        self.mismatches = inputobject.mismatches
+        self.mismatches = mismatches
         make_path(self.reportpath)
         self.devnull = open(os.devnull, 'wb')
         self.epcrqueue = Queue()
@@ -250,7 +250,9 @@ if __name__ == '__main__':
         # Create metadata objects for the samples
         arguments.runmetadata.samples = filer(arguments)
         # Perform vtx typing
-        vtyper = Vtyper(arguments, 'vtyper_legacy')
+        vtyper = Vtyper(inputobject=arguments,
+                        analysistype='vtyper_legacy',
+                        mismatches=arguments.mismatches)
         vtyper.vtyper()
 
     # Run the script
