@@ -3,8 +3,10 @@ from accessoryFunctions.accessoryFunctions import GenObject, MetadataObject, run
 from argparse import ArgumentParser
 from click import progressbar
 import multiprocessing
+from glob import glob
 import pandas as pd
 import logging
+import csv
 import os
 
 __author__ = 'adamkoziol'
@@ -16,7 +18,10 @@ class MobRecon(object):
         self.recon()
         self.read_tsv()
         self.summary_reporter()
-        self.reporter()
+        if self.matchtype == 'amrsummary':
+            self.amrsummary()
+        else:
+            self.geneseekrsummary()
 
     def recon(self):
         """
@@ -36,11 +41,11 @@ class MobRecon(object):
                 sample[self.analysistype].logerr = os.path.join(sample[self.analysistype].outputdir, 'err')
                 make_path(sample[self.analysistype].outputdir)
                 if sample.general.bestassemblyfile != 'NA':
-                    sample.commands.mobrecon = 'mob_recon -i {fasta} -o {outdir} --run_typer -n {threads} -d {databases}'\
+                    sample.commands.mobrecon = 'mob_recon -i {fasta} -o {outdir} --run_typer -n {threads} -d {db}'\
                         .format(fasta=sample.general.bestassemblyfile,
                                 outdir=sample[self.analysistype].outputdir,
                                 threads=self.threads,
-                                databases=os.path.join(self.databasepath, 'mob_suite'))
+                                db=os.path.join(self.databasepath, 'mob_suite'))
                     # Ensure that the report doesn't already exist
                     if not os.path.isfile(sample[self.analysistype].contig_report):
                         # Run the analyses
@@ -133,7 +138,7 @@ class MobRecon(object):
                                      )
             summary.write(data)
 
-    def reporter(self):
+    def amrsummary(self):
         """
         Create a report combining results from resfinder_assembled and mob_recon_summary reports
         """
@@ -175,8 +180,8 @@ class MobRecon(object):
                             # treated as integers
                             if contig == str(amr_result[-1]):
                                 # Set up the output string
-                                data += '{},'.format(sample.name)
-                                # Add the
+                                data += '{sn},'.format(sn=sample.name)
+                                # Add the resistance and MOB recon outputs for the strain
                                 data += '{amr},{mob}\n'\
                                     .format(amr=','.join(str(res) if str(res) != 'nan' else 'ND' for res in
                                                          amr_result[0:4]),
@@ -190,18 +195,88 @@ class MobRecon(object):
                         pass
             amr.write(data)
 
-    def __init__(self, metadata, analysistype, databasepath, threads, logfile, reportpath):
+    def geneseekrsummary(self):
+        """
+        Create a report combining GeneSeekr and MOB Recon outputs
+        """
+        logging.info('Creating predicted plasmid-borne gene summary table')
+        with open(os.path.join(self.reportpath, 'plasmid_borne_summary.csv'), 'w') as pbs:
+            data = 'Strain,Gene,PercentIdentity,Contig,Location,PlasmidIncompatibilitySets\n'
+            for sample in self.metadata:
+                # Create a flag to determine whether the strain name needs to be added to the data string if there
+                # were no results
+                result_bool = False
+                # Initialise a dictionary to store a set of all the incompatibility types listed for a contig.
+                # As the inc type will only be located on one of possibly several contigs associated with a predicted
+                # plasmid, it is nice to know details about the plasmid
+                inc_dict = dict()
+                # Iterate through all the MOB recon outputs to populate the incompatibility set
+                for primarykey, results in sample[self.analysistype].report_dict.items():
+                    try:
+                        inc = results['cluster_id']
+                        # Convert the rep_type field (predicted incompatibilities) into a more a consistent
+                        # format - pandas will call empty fields 'nan', which is a float
+                        rep = str(results['rep_type']).replace(',', ';') if str(results['rep_type']) != 'nan' else 'ND'
+                        # Add the incompatibility to the set
+                        try:
+                            inc_dict[inc].add(rep)
+                        except KeyError:
+                            inc_dict[inc] = set()
+                            inc_dict[inc].add(rep)
+                    except KeyError:
+                        pass
+                for primarykey, results in sample[self.analysistype].report_dict.items():
+                    try:
+                        contig = results['contig_id'].split('|')[1]
+                        # Unicycler gives contigs names such as: 3_length=187116_depth=1.60x_circular=true - test
+                        # to see if the contig name looks unicycler-like, and set the name appropriately (in this
+                        # case, it would be 3)
+                        if contig.split('_')[1].startswith('length'):
+                            contig = contig.split('_')[0]
+                        for gene, result_dict in sample.geneseekr_results.sampledata.items():
+                            if contig == result_dict['query_id']:
+                                percent_identity = result_dict['PercentIdentity']
+                                # Set up the output string if the percent identity of the match is greater than the
+                                # cutoff
+                                if float(result_dict['PercentIdentity']) >= self.cutoff:
+                                    # As there was at least a single gene passing the threshold, set the boolean to True
+                                    result_bool = True
+                                    data += '{sn},'.format(sn=sample.name)
+                                    data += '{gene},{pi},{contig},{cid},{inc}\n'\
+                                        .format(gene=gene,
+                                                pi=percent_identity,
+                                                contig=contig,
+                                                cid=results['cluster_id'],
+                                                inc=';'.join(sorted(inc_dict[str(results['cluster_id'])])))
+                    except KeyError:
+                        pass
+                # If there were no results associated with the strain, make the row the strain name only
+                if not result_bool:
+                    data += '{sn}\n'.format(sn=sample.name)
+            # Write the string to the report
+            pbs.write(data)
+
+    def __init__(self, metadata, analysistype, databasepath, threads, logfile, reportpath, matchtype='amrsummary',
+                 cutoff=70):
         self.metadata = metadata
         self.analysistype = analysistype
         self.databasepath = os.path.join(databasepath, analysistype)
         self.threads = threads
         self.logfile = logfile
         self.reportpath = reportpath
+        self.matchtype = matchtype
+        self.cutoff = cutoff
 
 
 if __name__ == '__main__':
 
     def resfinder_extract(reportpath, metadata):
+        """
+        Extract the results of the ResFinder analyses, and update the metadata object with these results
+        :param reportpath: type STR: Absolute path to folder in which the report is to be found
+        :param metadata: type LIST: List of metadata objects
+        :return: metadata: Updated metadata object
+        """
         # A dictionary to store the parsed excel file in a more readable format
         nesteddictionary = dict()
         resfinder_report = os.path.join(reportpath, 'resfinder_blastn.xlsx')
@@ -218,11 +293,15 @@ if __name__ == '__main__':
                     nesteddictionary[sample] = dict()
                     nesteddictionary[sample].update({header: value})
         for sample in metadata:
+            # Create the necessary GenObjects
             sample.resfinder_assembled = GenObject()
             sample.resfinder_assembled.sampledata = list()
             for line in nesteddictionary:
+                # Extract the strain name from the dictionary
                 sample_name = nesteddictionary[line]['Strain']
+                # Ensure that the loop is on the correct strain
                 if sample_name == sample.name:
+                    # Append the dictionary to the list of data
                     sample.resfinder_assembled.sampledata.append(([nesteddictionary[line]['Gene'],
                                                                    nesteddictionary[line]['Allele'],
                                                                    nesteddictionary[line]['Resistance'],
@@ -230,6 +309,49 @@ if __name__ == '__main__':
                                                                    nesteddictionary[line]['PercentCovered'],
                                                                    nesteddictionary[line]['Contig']]))
         return metadata
+
+    def geneseekr_extract(reportpath, metadata):
+        """
+        Extract the results of the GeneSeekr analyses, and update the metadata object with these results
+        :param reportpath: type STR: Absolute path to folder in which the report is to be found
+        :param metadata: type LIST: List of metadata objects
+        :return: metadata: Updated metadata object
+        """
+        logging.info('Extracting GeneSeekr results from reports')
+        # Load the GeneSeekr outputs from the combined output file - this file contains all genes in the analysis as
+        # well as the percent identity (if the gene is not present, it has a percent identity of 0)
+        for sample in metadata:
+            # Initialise GenObjects
+            sample.geneseekr_results = GenObject()
+            sample.geneseekr_results.sampledata = dict()
+            report = os.path.join(reportpath, 'geneseekr_blastn.csv')
+            # Open the BLAST report
+            with open(report, 'r') as blast_report:
+                # Create a reader object with csv.reader
+                reader = csv.reader(blast_report)
+                # The headers will be the first line of the report
+                headers = next(reader)
+                for result in reader:
+                    for i, header in enumerate(headers):
+                        # Ensure that the current strain matches the strain of interest, and that the iterator is not 0
+                        # (keeps from adding the strain name to the dictionary)
+                        if result[0] == sample.name and i != 0:
+                            # Add gene name: percent identity to the dictionary
+                            sample.geneseekr_results.sampledata[headers[i]] = {'PercentIdentity': result[i]}
+        # Load the strain-specific BLAST outputs
+        for sample in metadata:
+            report = os.path.join(reportpath, '{sn}_blastn_geneseekr.tsv'.format(sn=sample.name))
+            # Open the report using csv.reader, and set the headers as the first line of the report
+            with open(report, 'r') as blast_report:
+                reader = csv.reader(blast_report, delimiter='\t')
+                headers = next(reader)
+                for result in reader:
+                    for i, header in enumerate(headers):
+                        # Add the raw BLAST outputs (e.g. sample_id, positives, alignment_length, etc.) to the
+                        # dictionary (gene name: header: result)
+                        sample.geneseekr_results.sampledata[result[1]].update({headers[i]: result[i]})
+        return metadata
+
 
     # Parser for arguments
     parser = ArgumentParser(description='Performing the typing component of the COWBAT pipeline on assemblies')
@@ -240,18 +362,34 @@ if __name__ == '__main__':
                         required=True,
                         help='Provide the location of the folder containing the pipeline accessory files (reference '
                              'genomes, MLST data, etc.')
+    parser.add_argument('-a', '--analysistype',
+                        choices=['amrsummary', 'geneseekr'],
+                        default='amrsummary',
+                        help='The analysis to perform. Options are "amrsummary" (combine ResFinder results with '
+                             'MOBRecon outputs), and "geneseekr" combine geneseekr results with MOBRecon. Default is '
+                             'amrsummary')
+    parser.add_argument('-c', '--cutoff',
+                        default=70,
+                        type=int,
+                        help='Integer of the cutoff value to use. Default is 70')
     SetupLogging()
     arguments = parser.parse_args()
     # Extract the list of strains in the sequence path, and create a metadata object with necessary values
-    strains, metadata = strainer(arguments.sequencepath)
+    strains, metadata_object = strainer(arguments.sequencepath)
     report_path = os.path.join(arguments.sequencepath, 'reports')
-    #
-    metadata = resfinder_extract(reportpath=report_path,
-                                 metadata=metadata)
-    mob = MobRecon(metadata=metadata,
+    # Update the metadata object with the correct report outputs
+    if arguments.analysistype == 'amrsummary':
+        metadata_object = resfinder_extract(reportpath=report_path,
+                                            metadata=metadata_object)
+    else:
+        metadata_object = geneseekr_extract(reportpath=report_path,
+                                            metadata=metadata_object)
+    mob = MobRecon(metadata=metadata_object,
                    analysistype='mobrecon',
                    databasepath=arguments.referencefilepath,
-                   threads= multiprocessing.cpu_count() - 1,
+                   threads=multiprocessing.cpu_count() - 1,
                    logfile=os.path.join(arguments.sequencepath, 'log'),
-                   reportpath=report_path)
+                   reportpath=report_path,
+                   matchtype=arguments.analysistype,
+                   cutoff=arguments.cutoff)
     mob.mob_recon()
