@@ -340,7 +340,7 @@ if __name__ == '__main__':
                             sample.geneseekr_results.sampledata[headers[i]] = {'PercentIdentity': result[i]}
         # Load the strain-specific BLAST outputs
         for sample in metadata:
-            report = glob(os.path.join(reportpath, '{sn}_blastn*.tsv'.format(sn=sample.name)))[0]
+            report = glob(os.path.join(reportpath, '{sn}_blast*.tsv'.format(sn=sample.name)))[0]
             # Open the report using csv.reader, and set the headers as the first line of the report
             with open(report, 'r') as blast_report:
                 reader = csv.reader(blast_report, delimiter='\t')
