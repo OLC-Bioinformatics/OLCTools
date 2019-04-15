@@ -53,7 +53,7 @@ class Sippr(object):
         Search the targets folder for FASTA files, create the multi-FASTA file of all targets if necessary, and
         populate objects
         """
-        logging.info('Performing analysis with {} targets folder'.format(self.analysistype))
+        logging.info('Performing analysis with {at} targets folder'.format(at=self.analysistype))
         if self.pipeline:
             for sample in self.runmetadata:
                 setattr(sample, self.analysistype, GenObject())
@@ -82,8 +82,8 @@ class Sippr(object):
                         except IndexError as e:
                             # noinspection PyPropertyAccess
                             e.args = [
-                                'Cannot find the combined fasta file in {}. Please note that the file must have a '
-                                '.fasta extension'.format(sample[self.analysistype].targetpath)]
+                                'Cannot find the combined fasta file in {path}. Please note that the file must have a '
+                                '.fasta extension'.format(path=sample[self.analysistype].targetpath)]
                             if os.path.isdir(sample[self.analysistype].targetpath):
                                 raise
                             else:
@@ -99,7 +99,7 @@ class Sippr(object):
                     sample[self.analysistype].logerr = os.path.join(sample[self.analysistype].outputdir, 'logerr.txt')
                     sample[self.analysistype].baitedfastq = \
                         os.path.join(sample[self.analysistype].outputdir,
-                                     '{}_targetMatches.fastq.gz'.format(self.analysistype))
+                                     '{at}_targetMatches.fastq.gz'.format(at=self.analysistype))
         else:
             # There is a relatively strict databasing scheme necessary for the custom targets. Eventually, there will
             # be a helper script to combine individual files into a properly formatted combined file
@@ -115,8 +115,8 @@ class Sippr(object):
                     self.baitfile = glob(os.path.join(self.targetpath, '*.fasta'))[0]
                 except IndexError as e:
                     # noinspection PyPropertyAccess
-                    e.args = ['Cannot find the combined fasta file in {}. Please note that the file must have a '
-                              '.fasta extension'.format(self.targetpath)]
+                    e.args = ['Cannot find the combined fasta file in {path}. Please note that the file must have a '
+                              '.fasta extension'.format(path=self.targetpath)]
                     raise
             # Set all the necessary attributes
             for sample in self.runmetadata:
@@ -132,7 +132,7 @@ class Sippr(object):
                 sample[self.analysistype].logerr = os.path.join(sample[self.analysistype].outputdir, 'logerr.txt')
                 sample[self.analysistype].baitedfastq = \
                     os.path.join(sample[self.analysistype].outputdir,
-                                 '{}_targetMatches.fastq.gz'.format(self.analysistype))
+                                 '{at}_targetMatches.fastq.gz'.format(at=self.analysistype))
 
     def bait(self, maskmiddle='f', k='19'):
         """
@@ -141,7 +141,7 @@ class Sippr(object):
         in the presence of errors.
         :param k: keyword argument for length of kmers to use in the analyses
         """
-        logging.info('Performing kmer baiting of fastq files with {} targets'.format(self.analysistype))
+        logging.info('Performing kmer baiting of fastq files with {at} targets'.format(at=self.analysistype))
         # There seems to be some sort of issue with java incorrectly calculating the total system memory on certain
         # computers. For now, calculate the memory, and feed it into the bbduk call
         if self.kmer_size is None:
@@ -234,21 +234,21 @@ class Sippr(object):
         Subsampling of reads to 20X coverage of rMLST genes (roughly).
         To be called after rMLST extraction and read trimming, in that order.
         """
-        logging.info('Subsampling {} reads'.format(self.analysistype))
+        logging.info('Subsampling {at} reads'.format(at=self.analysistype))
         with progressbar(self.runmetadata) as bar:
             for sample in bar:
                 if sample.general.bestassemblyfile != 'NA':
                     # Create the name of the subsampled read file
                     sample[self.analysistype].subsampledreads = os.path.join(
                         sample[self.analysistype].outputdir,
-                        '{}_targetMatches_subsampled.fastq.gz'.format(self.analysistype))
+                        '{at}_targetMatches_subsampled.fastq.gz'.format(at=self.analysistype))
                     # Set the reformat.sh command. It will be run multiple times, overwrite previous iterations
                     # each time. Use samplebasestarget to provide an approximate number of bases to include in the
                     # subsampled reads e.g. for rMLST: 700000 (approx. 35000 bp total length of genes x 20X coverage)
                     sample[self.analysistype].subsamplecmd = \
-                        'reformat.sh in={} out={} overwrite samplebasestarget=700000' \
-                        .format(sample[self.analysistype].baitedfastq,
-                                sample[self.analysistype].subsampledreads)
+                        'reformat.sh in={bf} out={ssr} overwrite samplebasestarget=700000' \
+                        .format(bf=sample[self.analysistype].baitedfastq,
+                                ssr=sample[self.analysistype].subsampledreads)
                     if not os.path.isfile(sample[self.analysistype].subsampledreads):
                         # Run the call
                         out, err = run_subprocess(sample[self.analysistype].subsamplecmd)
@@ -276,7 +276,7 @@ class Sippr(object):
             if sample.general.bestassemblyfile != 'NA' and sample[self.analysistype].runanalysis:
                 # Set the path/name for the sorted bam file to be created
                 sample[self.analysistype].sortedbam = os.path.join(sample[self.analysistype].outputdir,
-                                                                   '{}_sorted.bam'.format(self.analysistype))
+                                                                   '{at}_sorted.bam'.format(at=self.analysistype))
                 # Remove the file extension of the bait file for use in the indexing command
                 sample[self.analysistype].baitfilenoext = sample[self.analysistype].baitfile.split('.fasta')[0]
                 # Use bowtie2 wrapper to create index the target file
@@ -294,7 +294,7 @@ class Sippr(object):
                     # SAM header for that read is set to 'secondary alignment', or 256. Please see:
                     # http://davetang.org/muse/2014/03/06/understanding-bam-flags/ The script below reads in
                     # the stdin and subtracts 256 from headers which include 256
-                    'python3 {}'.format(scriptlocation),
+                    'python3 {sl}'.format(sl=scriptlocation),
                     # Use samtools wrapper to set up the samtools view
                     SamtoolsViewCommandline(b=True,
                                             S=True,
@@ -328,7 +328,7 @@ class Sippr(object):
                         if stderrbowtieindex:
                             # Write the standard error to log, bowtie2 puts alignment summary here
                             with open(os.path.join(sample[self.analysistype].targetpath,
-                                                   '{}_bowtie_index.log'.format(self.analysistype)), 'a+') as log:
+                                                   '{at}_bowtie_index.log'.format(at=self.analysistype)), 'a+') as log:
                                 log.writelines(logstr(bowtie2build, stderrbowtieindex.getvalue(),
                                                       stdoutbowtieindex.getvalue()))
                         # Close the stdout and stderr streams
@@ -351,7 +351,7 @@ class Sippr(object):
                     if stderrindex:
                         # Write the standard error to log, bowtie2 puts alignment summary here
                         with open(os.path.join(sample[self.analysistype].targetpath,
-                                               '{}_samtools_index.log'.format(self.analysistype)), 'a+') as log:
+                                               '{at}_samtools_index.log'.format(at=self.analysistype)), 'a+') as log:
                             log.writelines(logstr(samindex, stderrindex.getvalue(), stdoutindex.getvalue()))
                     # Close the stdout and stderr streams
                     stdoutindex.close()
@@ -363,7 +363,7 @@ class Sippr(object):
                     if stderr:
                         # Write the standard error to log, bowtie2 puts alignment summary here
                         with open(os.path.join(sample[self.analysistype].outputdir,
-                                               '{}_bowtie_samtools.log'.format(self.analysistype)), 'a+') as log:
+                                               '{at}_bowtie_samtools.log'.format(at=self.analysistype)), 'a+') as log:
                             log.writelines(logstr([bowtie2align], stderr.getvalue(), stdout.getvalue()))
                     stdout.close()
                     stderr.close()
@@ -398,8 +398,8 @@ class Sippr(object):
                     stdout, stderr = map(StringIO, bamindex(cwd=sample[self.analysistype].outputdir))
                     if stderr:
                         # Write the standard error to log
-                        with open(os.path.join(sample[self.analysistype].outputdir,
-                                               '{}_samtools_bam_index.log'.format(self.analysistype)), 'a+') as log:
+                        with open(os.path.join(sample[self.analysistype].outputdir, '{at}_samtools_bam_index.log'
+                                  .format(at=self.analysistype)), 'a+') as log:
                             log.writelines(logstr(bamindex, stderr.getvalue(), stdout.getvalue()))
                     stderr.close()
             except ApplicationError:
@@ -407,7 +407,8 @@ class Sippr(object):
             self.indexqueue.task_done()
 
     @staticmethod
-    def parse_one_sample(json_file, sample_name, best_assembly_file, analysistype, iupac, cutoff, desired_average_depth):
+    def parse_one_sample(json_file, sample_name, best_assembly_file, analysistype, iupac, cutoff,
+                         desired_average_depth, allow_soft_clips):
         with open(json_file) as f:
             sample = json.load(f)
         if 'faidict' not in sample:
@@ -580,7 +581,6 @@ class Sippr(object):
                     # TODO: Unfortunate amounts of code duplication here - get a function or something written.
                     except AssertionError:  # Very high depth makes us hit an AssertionError - do some more manual
                         # parsing then
-                        print('AssertionError')
                         baselist = list()
                         start_end_count = 0
                         for pileupread in column.pileups:
@@ -648,28 +648,34 @@ class Sippr(object):
             for allele in seqdict:
                 # If the length of the match is greater or equal to the length of the gene/allele (multiplied by the
                 # cutoff value) as determined using faidx indexing, then proceed
-                if matchdict[allele] >= sample['faidict'][allele] * cutoff and has_clips_dict[allele] is False:
-                    # Calculate the average depth by dividing the total number of reads observed by the
-                    # length of the gene
-                    averagedepth = float(depthdict[allele]) / float(matchdict[allele])
-                    percentidentity = \
-                        float(matchdict[allele]) / float(sample['faidict'][allele]) * 100
-                    # Only report a positive result if this average depth is greater than the desired average depth
-                    # and if the percent identity is greater or equal to the cutoff
-                    if averagedepth > desired_average_depth and percentidentity >= float(cutoff * 100):
-                        # Populate resultsdict with the gene/allele name, the percent identity, and the avg depth
-                        sample['results'][allele] = '{:.2f}'.format(percentidentity)
+                if matchdict[allele] >= sample['faidict'][allele] * cutoff:
+                    if has_clips_dict[allele] is False or allow_soft_clips:
+                        # Calculate the average depth by dividing the total number of reads observed by the
+                        # length of the gene
+                        averagedepth = float(depthdict[allele]) / float(matchdict[allele])
+                        percentidentity = \
+                            float(matchdict[allele]) / float(sample['faidict'][allele]) * 100
+                        # Only report a positive result if this average depth is greater than the desired average depth
+                        # and if the percent identity is greater or equal to the cutoff
+                        if averagedepth > desired_average_depth and percentidentity >= float(cutoff * 100):
+                            # Populate resultsdict with the gene/allele name, the percent identity, and the avg depth
+                            sample['results'][allele] = '{:.2f}'.format(percentidentity)
 
-                        sample['avgdepth'][allele] = '{:.2f}'.format(averagedepth)
-                        # Add the results to dictionaries
-                        sample['resultssnp'][allele] = len(snplocationsdict[allele])
-                        sample['snplocations'][allele] = snplocationsdict[allele]
-                        sample['resultsgap'][allele] = len(gaplocationsdict[allele])
-                        sample['gaplocations'][allele] = gaplocationsdict[allele]
-                        sample['sequences'][allele] = seqdict[allele]
-                        sample['maxcoverage'][allele] = maxdict[allele]
-                        sample['mincoverage'][allele] = mindict[allele]
-                        sample['standarddev'][allele] = '{:.2f}'.format(numpy.std(deviationdict[allele], ddof=1))
+                            sample['avgdepth'][allele] = '{:.2f}'.format(averagedepth)
+                            # Add the results to dictionaries
+                            sample['resultssnp'][allele] = len(snplocationsdict[allele])
+                            sample['snplocations'][allele] = snplocationsdict[allele]
+                            sample['resultsgap'][allele] = len(gaplocationsdict[allele])
+                            sample['gaplocations'][allele] = gaplocationsdict[allele]
+                            sample['sequences'][allele] = seqdict[allele]
+                            sample['maxcoverage'][allele] = maxdict[allele]
+                            sample['mincoverage'][allele] = mindict[allele]
+                            sample['standarddev'][allele] = '{:.2f}'.format(numpy.std(deviationdict[allele], ddof=1))
+                # elif matchdict[allele] >= sample['faidict'][allele] * cutoff and has_clips_dict[allele]:
+                #     averagedepth = float(depthdict[allele]) / float(matchdict[allele])
+                #     percentidentity = \
+                #         float(matchdict[allele]) / float(sample['faidict'][allele]) * 100
+                #     print('clips!', sample_name, allele, percentidentity, averagedepth)
         return sample
 
     def parsebam(self):
@@ -685,7 +691,7 @@ class Sippr(object):
             best_assemblies = list()
             sample_names = list()
             for sample in self.runmetadata:
-                json_name = os.path.join(tmpdir, '{}.json'.format(sample.name))
+                json_name = os.path.join(tmpdir, '{sn}.json'.format(sn=sample.name))
                 best_assemblies.append(sample.general.bestassemblyfile)
                 sample_names.append(sample.name)
                 with open(json_name, 'w') as f:
@@ -696,9 +702,10 @@ class Sippr(object):
             iupac_list = [self.iupac] * len(self.runmetadata)
             cutoff_list = [self.cutoff] * len(self.runmetadata)
             depth_list = [self.averagedepth] * len(self.runmetadata)
+            allow_soft_clip_list = [self.allow_soft_clips] * len(self.runmetadata)
             sample_results = p.starmap(Sippr.parse_one_sample,
                                        zip(json_files, sample_names, best_assemblies, analysis_type_list,
-                                           iupac_list, cutoff_list, depth_list))
+                                           iupac_list, cutoff_list, depth_list, allow_soft_clip_list))
             p.close()
             p.join()
         # Since we had to json-ize the sample objects, we now need to update the metadata for everything.
@@ -771,7 +778,7 @@ class Sippr(object):
                 pass
 
     # noinspection PyDefaultArgument
-    def __init__(self, inputobject, cutoff=0.98, averagedepth=2, k=None):
+    def __init__(self, inputobject, cutoff=0.98, averagedepth=2, k=None, allow_soft_clips=False):
         self.path = inputobject.path
         self.kmer_size = k
         self.sequencepath = inputobject.sequencepath
@@ -803,6 +810,7 @@ class Sippr(object):
         self.baitfile = str()
         self.hashfile = str()
         self.hashcall = str()
+        self.allow_soft_clips = allow_soft_clips
         self.devnull = open(os.devnull, 'wb')  # define /dev/null
         self.baitqueue = Queue(maxsize=self.cpus)
         self.mapqueue = Queue(maxsize=self.cpus)
