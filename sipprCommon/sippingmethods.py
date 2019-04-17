@@ -528,7 +528,12 @@ class Sippr(object):
                         # a two bp deletion of the reference bases 'T' and 'A'. Split of the extra information, and
                         # save the query base sequence
                         if len(querybase) > 1:
-                            querybase = querybase.split('-')[0]
+                            if '-' in querybase:
+                                querybase = querybase.split('-')[0]
+                            # Insertions. Similar to insertions, query base will be T+2GC for position 1191 in reference
+                            # C.jejuniNCTC11168 for sample 2018-LET-0009
+                            if '+' in querybase:
+                                querybase = querybase.split('+')[0]
                         # Continuing the above example, positions 1238 and 1239 are not present in the sample, and are
                         # returned as '*'. Change this '*' to a '-'
                         if '*' in querybase:
@@ -554,7 +559,6 @@ class Sippr(object):
 
                         # seqdict is our query sequence
                         seqdict[contig.id] += querybase
-
                         # snplocationsdict keeps track of where snps are in sequence. Append reference position
                         # if ref and query don't match. Add 1, since reference_pos is 0 based.
                         if reference_base != querybase and '-' not in querybase:
@@ -640,11 +644,12 @@ class Sippr(object):
                         if depth < mindict[contig.id]:
                             mindict[contig.id] = depth
 
-                        # Finally, deviationdict just has the depths at every position so we can calculate stdev later
+                        # Finally, deviationdict just has the depths at every position so we can calculate std dev later
                         deviationdict[contig.id].append(depth)
 
                 bamfile.close()
-
+            # Iterate through all the parsed alleles, and filter out ones that are either too short, or, if desired,
+            # contain soft clipped sequences
             for allele in seqdict:
                 # If the length of the match is greater or equal to the length of the gene/allele (multiplied by the
                 # cutoff value) as determined using faidx indexing, then proceed
@@ -660,7 +665,6 @@ class Sippr(object):
                         if averagedepth > desired_average_depth and percentidentity >= float(cutoff * 100):
                             # Populate resultsdict with the gene/allele name, the percent identity, and the avg depth
                             sample['results'][allele] = '{:.2f}'.format(percentidentity)
-
                             sample['avgdepth'][allele] = '{:.2f}'.format(averagedepth)
                             # Add the results to dictionaries
                             sample['resultssnp'][allele] = len(snplocationsdict[allele])
@@ -671,11 +675,6 @@ class Sippr(object):
                             sample['maxcoverage'][allele] = maxdict[allele]
                             sample['mincoverage'][allele] = mindict[allele]
                             sample['standarddev'][allele] = '{:.2f}'.format(numpy.std(deviationdict[allele], ddof=1))
-                # elif matchdict[allele] >= sample['faidict'][allele] * cutoff and has_clips_dict[allele]:
-                #     averagedepth = float(depthdict[allele]) / float(matchdict[allele])
-                #     percentidentity = \
-                #         float(matchdict[allele]) / float(sample['faidict'][allele]) * 100
-                #     print('clips!', sample_name, allele, percentidentity, averagedepth)
         return sample
 
     def parsebam(self):
