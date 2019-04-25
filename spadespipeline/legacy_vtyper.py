@@ -8,6 +8,7 @@ from queue import Queue
 from glob import glob
 from time import time
 import logging
+import shutil
 import os
 import re
 
@@ -378,6 +379,10 @@ class Custom(object):
         self.formattedprimers = os.path.join(os.path.dirname(self.primerfile), 'epcr_formatted_primers',
                                              'formatted_primers.txt')
         make_path(os.path.dirname(self.formattedprimers))
+        try:
+            shutil.rmtree(self.reportpath)
+        except FileNotFoundError:
+            pass
         make_path(self.reportpath)
         self.devnull = open(os.devnull, 'wb')
         self.epcrqueue = Queue()

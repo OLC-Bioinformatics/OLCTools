@@ -15,6 +15,7 @@ from glob import glob
 import itertools
 import operator
 import logging
+import shutil
 import time
 import os
 import sys
@@ -609,6 +610,9 @@ class PrimerFinder(object):
         """
         Create reports of the analyses
         """
+        # Create a folder in which amplicons and raw BLAST results are to be stored
+        detailed_reports = os.path.join(self.path, 'detailed_reports')
+        make_path(detailed_reports)
         # Create the report path if necessary
         make_path(self.reportpath)
         with open(self.report, 'w') as report:
@@ -657,12 +661,23 @@ class PrimerFinder(object):
                                     elif '-R' in entry[0] and entry[1] == reversemismatches:
                                         reverse.append(entry[0])
                                         reversemismatches = entry[1]
-
                                 # Make a variable to prevent writing out this long attribute name multiple times
                                 ntrange = list(sample[self.analysistype].range[contig][gene])
                                 sample[self.analysistype].ntrange[gene] = ntrange
                                 # Extract the amplicons from the sequence file
                                 self.ampliconfile(sample, contig, sorted(ntrange), forward, reverse)
+                                # Copy the amplicons and raw BLAST outputs from FASTQ-formatted files to the
+                                # detailed_reports folder
+                                if sample[self.analysistype].filetype == 'fastq':
+                                    try:
+                                        shutil.copyfile(src=sample[self.analysistype].ampliconfile,
+                                                        dst=os.path.join(detailed_reports,
+                                                                         '{sn}_amplicons.fa'.format(sn=sample.name)))
+                                        shutil.copyfile(src=sample[self.analysistype].report,
+                                                        dst=os.path.join(detailed_reports,
+                                                                         '{sn}_rawresults.csv'.format(sn=sample.name)))
+                                    except FileNotFoundError:
+                                        pass
                                 # This first gene for a sample gets the sample name printed
                                 data += '{sn},'.format(sn=sample.name)
                                 # Populate the string with the gene name, properly formatted range, the length of
