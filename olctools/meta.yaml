@@ -1,8 +1,8 @@
 {% set name = "olctools" %}
-{% set version = "0.6.0" %}
+{% set version = "1.0.1" %}
 {% set file_ext = "tar.gz" %}
 {% set hash_type = "sha256" %}
-{% set hash_value = "0b88e59fcff3ffd8264502c41e89b35d96a7c0f030da81a6e795e6362a35d294" %}
+{% set hash_value = "b044b950472aaa31d3cdb0dc2780f55d6adf5b89e174d10f6fbdacf3efe7539e" %}
 
 package:
   name: '{{ name|lower }}'
@@ -10,7 +10,7 @@ package:
 
 source:
   fn: '{{ name }}-{{ version }}.{{ file_ext }}'
-  url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.{{ file_ext }}
+  url: https://pypi.io/packages/source/O/OLCTools/OLCTools-{{ version }}.{{ file_ext }}
   '{{ hash_type }}': '{{ hash_value }}'
 
 build:
@@ -19,40 +19,10 @@ build:
 
 requirements:
   host:
-    - python
-    - setuptools
-    - biopython
-    - interop
-    - sipprverse
-    - pandas
-    - numpy
-    - geneseekr
-    - psutil
-    - urllib3
-    - confindr
-    - pytest
-    - pysam
-    - xlsxwriter
-    - seaborn
-    - rauth
-    - click
+    - python >=3
   run:
-    - python
-    - biopython
-    - interop
-    - sipprverse
-    - pandas
-    - numpy
-    - geneseekr
-    - psutil
-    - urllib3
-    - confindr
+    - python >=3
     - pytest
-    - pysam
-    - xlsxwriter
-    - seaborn
-    - rauth
-    - click
 
 test:
   imports:

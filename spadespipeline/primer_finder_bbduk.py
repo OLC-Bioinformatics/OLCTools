@@ -777,43 +777,38 @@ class PrimerFinder(object):
             except FileNotFoundError:
                 pass
 
-    def __init__(self, args, analysistype, filetype='fastq'):
-        if args.path.startswith('~'):
-            self.path = os.path.abspath(os.path.expanduser(os.path.join(args.path)))
+    def __init__(self, path, sequence_path, primer_file, mismatches, kmer_length, analysistype, cpus=None,
+                 metadata=None, filetype='fastq'):
+        # Create the class variables from the supplied arguments
+        if path.startswith('~'):
+            self.path = os.path.abspath(os.path.expanduser(os.path.join(path)))
         else:
-            self.path = os.path.abspath(os.path.join(args.path))
-        if args.sequencepath.startswith('~'):
-            self.sequencepath = os.path.abspath(os.path.expanduser(os.path.join(args.sequencepath)))
+            self.path = os.path.abspath(os.path.join(path))
+        if sequence_path.startswith('~'):
+            self.sequencepath = os.path.abspath(os.path.expanduser(os.path.join(sequence_path)))
         else:
-            self.sequencepath = os.path.abspath(os.path.join(args.sequencepath))
-        self.start = args.start
-        if args.primerfile.startswith('~'):
-            self.primerfile = os.path.abspath(os.path.expanduser(os.path.join(args.primerfile)))
+            self.sequencepath = os.path.abspath(os.path.join(sequence_path))
+        if primer_file.startswith('~'):
+            self.primerfile = os.path.abspath(os.path.expanduser(os.path.join(primer_file)))
         else:
-            self.primerfile = os.path.abspath(os.path.join(args.primerfile))
-        self.mismatches = int(args.mismatches)
-        try:
-            self.metadata = args.runmetadata
-        except AttributeError:
+            self.primerfile = os.path.abspath(os.path.join(primer_file))
+        self.mismatches = int(mismatches)
+        if metadata:
+            self.metadata = metadata
+        else:
             self.metadata = list()
         # Use the argument for the number of threads to use, or default to the number of cpus in the system
-        try:
-            self.cpus = int(args.cpus)
-        except (AttributeError, TypeError):
-            self.cpus = multiprocessing.cpu_count()
+        if cpus:
+            self.cpus = int(cpus)
+        else:
+            self.cpus = multiprocessing.cpu_count() - 1
         self.threads = int()
-        try:
-            self.analysistype = args.analysistype
-        except AttributeError:
-            self.analysistype = analysistype
+        self.analysistype = analysistype
         self.formattedprimers = os.path.join(self.path, 'formattedprimers.fa')
         self.faidict = dict()
         self.filetype = filetype
         # Use a long kmer for SPAdes assembly
-        try:
-            self.kmers = args.kmerlength
-        except AttributeError:
-            self.kmers = '99'
+        self.kmers = kmer_length
         self.queue = Queue()
         self.blastqueue = Queue()
         # Fields used for custom outfmt 6 BLAST output:
@@ -840,7 +835,9 @@ if __name__ == '__main__':
                         required=True,
                         help='Path of folder containing .fasta/.fastq(.gz) files to process.')
     parser.add_argument('-n', '--cpus',
-                        help='Number of threads. Default is the number of cores in the system')
+                        default=0,
+                        type=int,
+                        help='Number of threads. Default is the number of cores in the system - 1')
     parser.add_argument('-pf', '--primerfile',
                         required=True,
                         help='Absolute path and name of the primer file (in FASTA format) to test. The file must have'
@@ -863,13 +860,17 @@ if __name__ == '__main__':
                         help='Allow debug-level logging to be printed to the terminal')
     # Get the arguments into an object
     arguments = parser.parse_args()
-    arguments.pipeline = False
     SetupLogging(debug=arguments.debug)
     # Define the start time
     arguments.start = time.time()
 
     # Run the script
-    finder = PrimerFinder(args=arguments, 
+    finder = PrimerFinder(path=arguments.path,
+                          sequence_path=arguments.sequencepath,
+                          primer_file=arguments.primerfile,
+                          mismatches=arguments.mismatches,
+                          kmer_length=arguments.kmerlength,
+                          cpus=arguments.cpus,
                           analysistype='ePCR')
     # Run the script
     finder.main()

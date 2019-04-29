@@ -393,8 +393,9 @@ class Custom(object):
                                     mismatches=self.mismatches)
 
 
-if __name__ == '__main__':
+class Filer(object):
 
+    @staticmethod
     def filer(args):
         """
         Create metadata objects with necessary attributes for each FASTA file found in the sequence path
@@ -416,6 +417,9 @@ if __name__ == '__main__':
             metadata.general.outputdirectory = os.path.join(args.sequencepath, metadata.name)
             samples.append(metadata)
         return samples
+
+
+if __name__ == '__main__':
 
     def argument_parser():
 
@@ -460,7 +464,7 @@ if __name__ == '__main__':
         arguments.reportpath = os.path.join(arguments.sequencepath, 'reports')
         arguments.runmetadata = MetadataObject()
         # Create metadata objects for the samples
-        arguments.runmetadata.samples = filer(arguments)
+        arguments.runmetadata.samples = Filer.filer(arguments)
         if arguments.analysistype == 'vtyper':
             # Perform vtx typing
             vtyper = Vtyper(inputobject=arguments,
