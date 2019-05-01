@@ -310,11 +310,12 @@ if __name__ == '__main__':
                                                                    nesteddictionary[line]['Contig']]))
         return metadata
 
-    def geneseekr_extract(reportpath, metadata):
+    def geneseekr_extract(reportpath, metadata, blast):
         """
         Extract the results of the GeneSeekr analyses, and update the metadata object with these results
         :param reportpath: type STR: Absolute path to folder in which the report is to be found
         :param metadata: type LIST: List of metadata objects
+        :param blast: type STR: BLAST program used to generate reports
         :return: metadata: Updated metadata object
         """
         logging.info('Extracting GeneSeekr results from reports')
@@ -324,7 +325,7 @@ if __name__ == '__main__':
             # Initialise GenObjects
             sample.geneseekr_results = GenObject()
             sample.geneseekr_results.sampledata = dict()
-            report = os.path.join(reportpath, 'geneseekr_blastn.csv')
+            report = os.path.join(reportpath, 'geneseekr_{blast}.csv'.format(blast=blast))
             # Open the BLAST report
             with open(report, 'r') as blast_report:
                 # Create a reader object with csv.reader
@@ -340,7 +341,8 @@ if __name__ == '__main__':
                             sample.geneseekr_results.sampledata[headers[i]] = {'PercentIdentity': result[i]}
         # Load the strain-specific BLAST outputs
         for sample in metadata:
-            report = os.path.join(reportpath, '{sn}_blastn_geneseekr.tsv'.format(sn=sample.name))
+            report = os.path.join(reportpath, '{sn}_{blast}_geneseekr.tsv'.format(sn=sample.name,
+                                                                                  blast=blast))
             # Open the report using csv.reader, and set the headers as the first line of the report
             with open(report, 'r') as blast_report:
                 reader = csv.reader(blast_report, delimiter='\t')
@@ -372,6 +374,11 @@ if __name__ == '__main__':
                         default=70,
                         type=int,
                         help='Integer of the cutoff value to use. Default is 70')
+    parser.add_argument('-b', '--blast',
+                        default='blastn',
+                        choices=['blastn', 'blastp', 'blastx', 'tblastn', 'tblastx'],
+                        help='BLAST program used to generate GeneSeekr results; will be used to determine which '
+                             'reports to parse')
     SetupLogging()
     arguments = parser.parse_args()
     # Extract the list of strains in the sequence path, and create a metadata object with necessary values
@@ -383,7 +390,8 @@ if __name__ == '__main__':
                                             metadata=metadata_object)
     else:
         metadata_object = geneseekr_extract(reportpath=report_path,
-                                            metadata=metadata_object)
+                                            metadata=metadata_object,
+                                            blast=arguments.blast)
     mob = MobRecon(metadata=metadata_object,
                    analysistype='mobrecon',
                    databasepath=arguments.referencefilepath,
