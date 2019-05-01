@@ -469,12 +469,12 @@ class Sippr(object):
                                              min_base_quality=0,
                                              fastafile=pysam.FastaFile(sample['baitfile'])):
                     # Find all the attributes!
-
                     # Read depth - just get number of aligned reads at that position.
                     depth = column.get_num_aligned()
                     # Need to have at least some bases aligned for this to work at all.
                     if depth == 0:
                         seqdict[contig.id] += '-'
+                        print('0', sample_name, contig.id, column.reference_pos)
                         deviationdict[contig.id].append(depth)
                     try:  # This almost always works, except for when we have very high depth.
                         # Get list of bases for our column, marking ends and adding indels samtools style.
@@ -520,7 +520,12 @@ class Sippr(object):
                             if '$' in querybase:
                                 querybase = querybase[0]
                             elif '^' in querybase:
-                                querybase = querybase[-1]
+                                # ^,A
+                                if len(querybase) > 1:
+                                    querybase = querybase[-1]
+                                # ^
+                                else:
+                                    querybase = ''
                         reference_base = contig.seq[column.reference_pos]
                         # Deletions. See the quoted text above. Briefly, the first reference position with of a deletion
                         # will look something like T-2TA for position 1237 in reference gene C.coliRM4661_23S_1 for
@@ -535,9 +540,9 @@ class Sippr(object):
                             if '+' in querybase:
                                 querybase = querybase.split('+')[0]
                         # Continuing the above example, positions 1238 and 1239 are not present in the sample, and are
-                        # returned as '*'. Change this '*' to a '-'
+                        # returned as '*'. Change this '*' to a ''
                         if '*' in querybase:
-                            querybase = '-'
+                            querybase = ''
                         # Populate the data dictionaries that we'll need later.
                         # matchdict keeps track of how many identities we have.
                         if reference_base == querybase:
@@ -561,11 +566,11 @@ class Sippr(object):
                         seqdict[contig.id] += querybase
                         # snplocationsdict keeps track of where snps are in sequence. Append reference position
                         # if ref and query don't match. Add 1, since reference_pos is 0 based.
-                        if reference_base != querybase and '-' not in querybase:
+                        if reference_base != querybase and querybase != '':
                             snplocationsdict[contig.id].append(column.reference_pos + 1)
 
                         # gaplocations, much the same as snplocations. Need to check that querybase shows as a gap
-                        if '-' in querybase:
+                        if querybase == '':
                             gaplocationsdict[contig.id].append(column.reference_pos + 1)
 
                         # Also need to keep track of min and max depth for the gene.
@@ -605,7 +610,7 @@ class Sippr(object):
                         if len(querybase) > 1:
                             querybase = querybase.split('-')[0]
                         if '*' in querybase:
-                            querybase = '-'
+                            querybase = ''
                         # Populate the data dictionaries that we'll need later.
                         # matchdict keeps track of how many identities we have.
                         if reference_base == querybase:
@@ -634,7 +639,7 @@ class Sippr(object):
                             snplocationsdict[contig.id].append(column.reference_pos + 1)
 
                         # gaplocations, much the same as snplocations. Need to check that querybase shows as a gap
-                        if querybase == '-':
+                        if querybase == '':
                             gaplocationsdict[contig.id].append(column.reference_pos + 1)
 
                         # Also need to keep track of min and max depth for the gene.
