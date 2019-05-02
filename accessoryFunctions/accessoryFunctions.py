@@ -475,6 +475,10 @@ def filer(filelist, extension='fastq', returndict=False):
         # _S\d+_L001_R\d_001.fastq(.gz) is a typical unprocessed Illumina fastq file
         if re.search("_S\\d+_L001", seqfile):
             file_name = re.split("_S\\d+_L001", seqfile)[0]
+        # HiSeq names are different: _S\\d+_R\\d_\\d{3}
+        # 2019-SEQ-0001_S1_R1_001.fastq.gz
+        elif re.search("_S\\d+_R\\d_\\d{3}", seqfile):
+            file_name = re.split("_S\\d+_R\\d_\\d{3}", seqfile)[0]
         # Files with _R\d_001.fastq(.gz) are created in the SPAdes assembly pipeline
         elif re.search("_R\\d_001", seqfile):
             file_name = re.split("_R\\d_001", seqfile)[0]
