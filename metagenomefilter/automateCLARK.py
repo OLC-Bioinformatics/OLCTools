@@ -173,7 +173,7 @@ class CLARK(object):
         """
         Create reports from the abundance estimation
         """
-        logging.info('Creating CLARK report for {} files'.format(self.extension))
+        logging.info('Creating CLARK report for {ft} files'.format(ft=self.extension))
         # Create a workbook to store the report. Using xlsxwriter rather than a simple csv format, as I want to be
         # able to have appropriately sized, multi-line cells
         workbook = xlsxwriter.Workbook(self.report)
@@ -280,7 +280,7 @@ class CLARK(object):
                     row += 1
                     # Set the column to 1
                     col = 1
-            except KeyError:
+            except (KeyError, AttributeError):
                 # Increase the row
                 row += 1
         # Close the workbook
@@ -293,7 +293,7 @@ class CLARK(object):
         self.homepath = scriptpath
         # Define variables based on supplied arguments
         self.args = args
-        self.path = os.path.join(args.path, '')
+        self.path = os.path.join(args.path)
         assert os.path.isdir(self.path), u'Supplied path is not a valid directory {0!r:s}'.format(self.path)
         self.sequencepath = os.path.join(args.sequencepath, '')
         assert os.path.isdir(self.sequencepath), u'Supplied sequence path is not a valid directory {0!r:s}' \
@@ -302,7 +302,7 @@ class CLARK(object):
         assert os.path.isdir(self.databasepath), u'Supplied database path is not a valid directory {0!r:s}' \
             .format(self.databasepath)
         # There seems to be an issue with CLARK when running with a very high number of cores. Limit self.cpus to 1
-        self.cpus = 1
+        self.cpus = 4
         # Set variables from the arguments
         self.database = args.database
         self.rank = args.rank
@@ -331,10 +331,10 @@ class CLARK(object):
             if args.runmetadata:
                 self.runmetadata = args.runmetadata
                 # Create the name of the final report
-                self.report = os.path.join(self.reportpath, '{}'.format('abundance{}.xlsx'.format(self.extension)))
+                self.report = os.path.join(self.reportpath, 'abundance_{ft}.xlsx'.format(ft=self.extension))
                 # Only re-run the CLARK analyses if the CLARK report doesn't exist. All files created by CLARK
                 if not os.path.isfile(self.report):
-                    logging.info('Performing CLARK analysis on {} files'.format(self.extension))
+                    logging.info('Performing CLARK analysis on {ft} files'.format(ft=self.extension))
                     if self.extension != 'fastq':
                         for sample in self.runmetadata.samples:
                             sample.general.combined = sample.general.bestassemblyfile
@@ -357,13 +357,13 @@ class CLARK(object):
                             self.main()
                     # Clean up the files and create/delete attributes to be consistent with pipeline Metadata objects
                     for sample in self.runmetadata.samples:
+                        # Create a GenObject to store metadata when this script is run as part of the pipeline
+                        clarkextension = 'clark{}'.format(self.extension)
+                        setattr(sample, clarkextension, GenObject())
+                        # Create a folder to store all the CLARK files
+                        sample[clarkextension].outputpath = os.path.join(sample.general.outputdirectory, 'CLARK')
+                        make_path(sample[clarkextension].outputpath)
                         if sample.general.bestassemblyfile != 'NA':
-                            # Create a GenObject to store metadata when this script is run as part of the pipeline
-                            clarkextension = 'clark{}'.format(self.extension)
-                            setattr(sample, clarkextension, GenObject())
-                            # Create a folder to store all the CLARK files
-                            sample[clarkextension].outputpath = os.path.join(sample.general.outputdirectory, 'CLARK')
-                            make_path(sample[clarkextension].outputpath)
                             # Move the files to the CLARK folder
                             try:
                                 move(sample.general.abundance,

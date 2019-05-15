@@ -95,13 +95,13 @@ class Reporter(object):
             # MLST_gene_X_alleles
             try:
                 # Create a set of all the genes present in the results (gene name split from allele)
-                gene_set = {gene.split('_')[0] for gene in sample.mlst.results}
+                gene_set = {gene.split('_')[0] for gene in sample.mlst.combined_metdata_results}
                 for gene in sorted(gene_set):
                     allele_list = list()
                     # Determine all the alleles that are present for each gene
-                    for allele in sample.mlst.results:
+                    for allele in sample.mlst.combined_metdata_results:
                         if gene in allele:
-                            allele_list.append(allele)
+                            allele_list.append(allele.replace(' ', '_'))
                     # If there is more than one allele in the sample, add both to the string separated by a ';'
                     if len(allele_list) > 1:
                         data += '{},'.format(';'.join(allele_list))
@@ -119,24 +119,42 @@ class Reporter(object):
             # E_coli_Serotype
             try:
                 # If no O-type was found, set the output to be O-untypeable
-                if ';'.join(sample.serosippr.o_set) == '-':
+                if ';'.join(sample.ectyper.o_type) == '-':
                     otype = 'O-untypeable'
                 else:
-                    otype = '{oset} ({opid})'.format(oset=';'.join(sample.serosippr.o_set),
-                                                     opid=sample.serosippr.best_o_pid)
+                    otype = sample.ectyper.o_type
                 # Same as above for the H-type
-                if ';'.join(sample.serosippr.h_set) == '-':
+                if ';'.join(sample.ectyper.h_type) == '-':
                     htype = 'H-untypeable'
 
                 else:
-                    htype = '{hset} ({hpid})'.format(hset=';'.join(sample.serosippr.h_set),
-                                                     hpid=sample.serosippr.best_h_pid)
+                    htype = sample.ectyper.h_type
                 serotype = '{otype}:{htype},'.format(otype=otype,
                                                      htype=htype)
                 # Add the serotype to the data string unless neither O-type not H-type were found; add ND instead
                 data += serotype if serotype != 'O-untypeable:H-untypeable,' else 'ND,'
             except AttributeError:
                 data += 'ND,'
+            # try:
+            #     # If no O-type was found, set the output to be O-untypeable
+            #     if ';'.join(sample.serosippr.o_set) == '-':
+            #         otype = 'O-untypeable'
+            #     else:
+            #         otype = '{oset} ({opid})'.format(oset=';'.join(sample.serosippr.o_set),
+            #                                          opid=sample.serosippr.best_o_pid)
+            #     # Same as above for the H-type
+            #     if ';'.join(sample.serosippr.h_set) == '-':
+            #         htype = 'H-untypeable'
+            #
+            #     else:
+            #         htype = '{hset} ({hpid})'.format(hset=';'.join(sample.serosippr.h_set),
+            #                                          hpid=sample.serosippr.best_h_pid)
+            #     serotype = '{otype}:{htype},'.format(otype=otype,
+            #                                          htype=htype)
+            #     # Add the serotype to the data string unless neither O-type not H-type were found; add ND instead
+            #     data += serotype if serotype != 'O-untypeable:H-untypeable,' else 'ND,'
+            # except AttributeError:
+            #     data += 'ND,'
             # SISTR_serovar_antigen
             data += GenObject.returnattr(sample.sistr, 'serovar_antigen').rstrip(';')
             # SISTR_serovar_cgMLST

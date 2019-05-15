@@ -14,11 +14,11 @@ __author__ = 'adamkoziol'
 class CoreGenome(BLAST):
 
     def parse_results(self):
-        self.parser(self.metadata,
-                    self.analysistype,
-                    self.fieldnames,
-                    self.cutoff,
-                    self.program)
+        self.parser(metadata=self.metadata,
+                    analysistype=self.analysistype,
+                    fieldnames=self.fieldnames,
+                    cutoff=self.cutoff,
+                    program=self.program)
 
     @staticmethod
     def parser(metadata, analysistype, fieldnames, cutoff, program):
@@ -98,9 +98,11 @@ class CoreGenome(BLAST):
 
     def create_reports(self):
         # Create dictionaries
-        self.metadata = self.geneseekr.dict_initialise(self.metadata,
-                                                       self.analysistype)
-        self.reporter(self.metadata, self.analysistype, self.reportpath)
+        self.metadata = self.geneseekr.dict_initialise(metadata=self.metadata,
+                                                       analysistype=self.analysistype)
+        self.reporter(metadata=self.metadata,
+                      analysistype=self.analysistype,
+                      reportpath=self.reportpath)
 
     @staticmethod
     def reporter(metadata, analysistype, reportpath):
@@ -116,7 +118,7 @@ class CoreGenome(BLAST):
         for sample in metadata:
             try:
                 if sample[analysistype].blastresults != 'NA':
-                    if sample.general.closestrefseqgenus == 'Listeria':
+                    if sample.general.referencegenus == 'Listeria' or sample.general.closestrefseqgenus == 'Listeria':
                         # Write the sample name, closest ref genome, and the # of genes found / total # of genes
                         closestref = list(sample[analysistype].blastresults.items())[0][0]
                         coregenes = list(sample[analysistype].blastresults.items())[0][1][0]
@@ -151,13 +153,13 @@ class CoreGenome(BLAST):
                             report.write(row)
                         data += row
                     else:
-                        sample[analysistype].targetspresent = 'NA'
-                        sample[analysistype].totaltargets = 'NA'
-                        sample[analysistype].coreresults = 'NA'
-            except KeyError:
-                sample[analysistype].targetspresent = 'NA'
-                sample[analysistype].totaltargets = 'NA'
-                sample[analysistype].coreresults = 'NA'
+                        sample[analysistype].targetspresent = 'ND'
+                        sample[analysistype].totaltargets = 'ND'
+                        sample[analysistype].coreresults = 'ND'
+            except (IndexError, KeyError):
+                sample[analysistype].targetspresent = 'ND'
+                sample[analysistype].totaltargets = 'ND'
+                sample[analysistype].coreresults = 'ND'
         with open(os.path.join(reportpath, 'coregenome.csv'), 'w') as report:
             # Write the data to the report
             report.write(header)
@@ -178,7 +180,7 @@ class AnnotatedCore(object):
             if sample.general.bestassemblyfile != 'NA':
                 # Create a set to store the names of all the core genes in this strain
                 sample[self.analysistype].coreset = set()
-                if sample.general.referencegenus == 'Escherichia':
+                if sample.general.referencegenus == 'Escherichia' or sample.general.closestrefseqgenus == 'Escherichia':
                     # Add the Escherichia sample to the runmetadata
                     self.runmetadata.samples.append(sample)
                     # Parse the BLAST report

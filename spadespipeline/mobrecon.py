@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-from accessoryFunctions.accessoryFunctions import GenObject, MetadataObject, run_subprocess, strainer, write_to_logfile, make_path, SetupLogging
+from accessoryFunctions.accessoryFunctions import GenObject, run_subprocess, strainer, write_to_logfile, make_path, \
+    SetupLogging
 from argparse import ArgumentParser
 from click import progressbar
 import multiprocessing
-from glob import glob
 import pandas as pd
 import logging
 import csv
@@ -178,7 +178,7 @@ class MobRecon(object):
                             # Ensure that the current contig is the same as the one in the resfinder results. Ensure
                             # that the slice of the amr result is treated as a string. Unicycler contigs seem to be
                             # treated as integers
-                            if contig == str(amr_result[-1]):
+                            if contig == str(amr_result[5]):
                                 # Set up the output string
                                 data += '{sn},'.format(sn=sample.name)
                                 # Add the resistance and MOB recon outputs for the strain
@@ -279,7 +279,8 @@ if __name__ == '__main__':
         """
         # A dictionary to store the parsed excel file in a more readable format
         nesteddictionary = dict()
-        resfinder_report = os.path.join(reportpath, 'resfinder_blastn.xlsx')
+        resfinder_report = os.path.join(reportpath, 'resfinder_blastn.xlsx') if os.path.isfile(os.path.join(
+            reportpath, 'resfinder_blastn.xlsx')) else os.path.join(reportpath, 'resfinder_assembled_blastn.xlsx')
         assert os.path.isfile(resfinder_report), 'Missing ResFinder Report!'
         dictionary = pd.read_excel(resfinder_report).to_dict()
         for header in dictionary:

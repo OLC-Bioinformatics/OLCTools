@@ -1,8 +1,8 @@
+from accessoryFunctions.accessoryFunctions import combinetargets, dependency_check, filer, find_paired_reads, find_unpaired_reads, make_path
+import pytest
 import shutil
 import glob
 import os
-import pytest
-from accessoryFunctions.accessoryFunctions import *
 
 
 def test_dependency_check_good():
@@ -52,8 +52,14 @@ def test_filer_fastq():
                                'tests/dummy_fastq/test3', 'tests/dummy_fastq/test4'}
 
 
-def test_combine_fastqs():  # TODO: Actually inspect contents of created file.
-    combinetargets(glob.glob('tests/dummy_fastq/*fasta'), 'tests')
+def test_combine_fastas():  # TODO: Actually inspect contents of created file.
+    combinetargets(targets=glob.glob('tests/dummy_fasta/*fasta'), targetpath='tests')
     assert os.path.isfile('tests/combinedtargets.fasta')
+    assert os.path.getsize('tests/combinedtargets.fasta')
     os.remove('tests/combinedtargets.fasta')
+
+
+def test_combine_fastqs():
+    combinetargets(targets=glob.glob('tests/dummy_fasta/*fastq'), targetpath='tests')
+    assert os.path.isfile('tests/combinedtargets.fasta') is False
 

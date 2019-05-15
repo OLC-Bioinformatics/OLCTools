@@ -1,16 +1,24 @@
 #!/usr/bin/env python
-import subprocess
-from threading import Thread
-from csv import DictReader
-from accessoryFunctions.accessoryFunctions import *
+from accessoryFunctions.accessoryFunctions import GenObject, make_path, MetadataObject
 import accessoryFunctions.metadataprinter as metadataprinter
+from spadespipeline import createobject
+from argparse import ArgumentParser
+from threading import Thread
+from subprocess import call
+from csv import DictReader
+from queue import Queue
+import multiprocessing
+from time import time
+import subprocess
+import logging
+import os
 __author__ = 'adamkoziol'
 
 
 class FilterGenome(object):
 
     def objectprep(self):
-        from spadespipeline import createobject
+
         # Only find the data files if a datapath is provided
         if self.datapath:
             self.runmetadata = createobject.ObjectCreation(self)
@@ -49,8 +57,10 @@ class FilterGenome(object):
         self.loadassignment()
 
     def loadassignment(self):
-        """Load the taxonomic assignment for each read"""
-        printtime('Finding taxonomic assignments', self.start)
+        """
+        Load the taxonomic assignment for each read
+        """
+        logging.info('Finding taxonomic assignments')
         # Create and start threads
         for i in range(self.cpus):
             # Send the threads to the appropriate destination function
@@ -72,7 +82,7 @@ class FilterGenome(object):
             sample.general.fastqassignment = dict()
             sample.general.reads = dict()
             # Read the assignment file into a dictionary
-            with open(sample.general.assignmentfile, 'rb') as assignmentcsv:
+            with open(sample.general.assignmentfile, 'r') as assignmentcsv:
                 for row in assignmentcsv:
                     # Split on ','
                     data = row.split(',')
@@ -84,8 +94,10 @@ class FilterGenome(object):
             self.loadqueue.task_done()
 
     def readlist(self):
-        """Sort the reads, and create lists to be used in creating sorted .fastq files"""
-        printtime('Sorting reads', self.start)
+        """
+        Sort the reads, and create lists to be used in creating sorted .fastq files
+        """
+        logging.info('Sorting reads')
         # Create and start threads
         for i in range(self.cpus):
             # Send the threads to the appropriate destination function
@@ -112,19 +124,23 @@ class FilterGenome(object):
             # Iterate through the taxIDs
             for taxid in sample.general.taxids:
                 # Set the name of the list to store all the reads associated with the taxID
-                sample.general.fastqlist[taxid] = '{}/{}_{}.txt'.format(sample.general.sortedfastqpath, sample.name,
-                                                                        taxid)
+                sample.general.fastqlist[taxid] = os.path.join(sample.general.sortedfastqpath,
+                                                               '{sn}_{taxid}.txt'.format(sn=sample.name,
+                                                                                         taxid=taxid))
                 # Set the name of the .fastq file that will store the filtered reads
-                sample.general.filteredfastq[taxid] = '{}/{}_{}.fastq.gz'.format(sample.general.sortedfastqpath,
-                                                                                 sample.name, taxid)
+                sample.general.filteredfastq[taxid] = os.path.join(sample.general.sortedfastqpath,
+                                                                   '{sn}_{taxid}.fastq.gz'.format(sn=sample.name,
+                                                                                                  taxid=taxid))
                 # Open the list, and write the list of all reads, one per line
                 with open(sample.general.fastqlist[taxid], 'w') as binned:
                     binned.write('\n'.join(set(sample[taxid].readlist)))
             self.listqueue.task_done()
 
     def fastqfilter(self):
-        """Filter the reads into separate files based on taxonomic assignment"""
-        printtime('Creating filtered .fastqfiles', self.start)
+        """
+        Filter the reads into separate files based on taxonomic assignment
+        """
+        logging.info('Creating filtered .fastqfiles')
         # Create and start threads
         for i in range(self.cpus):
             # Send the threads to the appropriate destination function
@@ -140,16 +156,15 @@ class FilterGenome(object):
         metadataprinter.MetadataPrinter(self)
 
     def filterfastq(self):
-        from subprocess import call
         while True:
             sample = self.filterqueue.get()
             # Iterate through the taxIDs
             for taxid in sample.general.taxids:
                 # Set the system call to seqtk to subsequence the fastq file
-                sample.general.seqtkcall = 'seqtk subseq {} {} | gzip > {}' \
-                    .format(sample.general.fastqfiles[0],
-                            sample.general.fastqlist[taxid],
-                            sample.general.filteredfastq[taxid])
+                sample.general.seqtkcall = 'seqtk subseq {fastq} {list} | gzip > {filtered}' \
+                    .format(fastq=sample.general.fastqfiles[0],
+                            list=sample.general.fastqlist[taxid],
+                            filtered=sample.general.filteredfastq[taxid])
                 # Run the system call only if the filtered file does not exist
                 if not os.path.isfile(sample.general.filteredfastq[taxid]):
                     call(sample.general.seqtkcall, shell=True, stdout=self.devnull, stderr=self.devnull)
@@ -158,7 +173,6 @@ class FilterGenome(object):
             self.filterqueue.task_done()
 
     def __init__(self, inputobject):
-        from queue import Queue
         # Define variables based on supplied arguments
         self.start = inputobject.start
         self.path = inputobject.path
@@ -177,13 +191,13 @@ class FilterGenome(object):
         self.filterqueue = Queue()
         self.devnull = open(os.devnull, 'wb')
 
+
 # If the script is called from the command line, then call the argument parser
 if __name__ == '__main__':
     class Parser(object):
 
         def __init__(self):
-            from time import time
-            import os
+
             # Get the current commit of the pipeline from git
             # Extract the path of the current script from the full path + file name
             homepath = os.path.split(os.path.abspath(__file__))[0]
@@ -191,7 +205,6 @@ if __name__ == '__main__':
             # run a git command to return the short version of the commit hash
             commit = subprocess.Popen('cd {} && git tag | tail -n 1'.format(homepath),
                                       shell=True, stdout=subprocess.PIPE).communicate()[0].rstrip()
-            from argparse import ArgumentParser
             # Parser for arguments
             parser = ArgumentParser(description='Filter reads based on taxonomic assignment')
             parser.add_argument('-v', '--version',
@@ -216,14 +229,13 @@ if __name__ == '__main__':
             # Get the arguments into an object
             args = parser.parse_args()
             self.start = time()
-            import multiprocessing
             # Define variables based on supplied arguments
-            self.path = os.path.join(args.path, '')
-            assert os.path.isdir(self.path), u'Supplied path is not a valid directory {0!r:s}'.format(self.path)
-            self.sequencepath = os.path.join(args.sequencepath, '')
-            assert os.path.isdir(self.sequencepath), u'Sequence location supplied is not a valid directory {0!r:s}' \
-                .format(self.sequencepath)
-            self.datapath = os.path.join(args.datapath, '')
+            self.path = os.path.join(args.path)
+            assert os.path.isdir(self.path), 'Supplied path is not a valid directory {path}'.format(path=self.path)
+            self.sequencepath = os.path.join(args.sequencepath)
+            assert os.path.isdir(self.sequencepath), 'Sequence location supplied is not a valid directory {seq_path}' \
+                .format(seq_path=self.sequencepath)
+            self.datapath = os.path.join(args.datapath)
             self.reportpath = os.path.join(self.path, 'reports')
             # Use the argument for the number of threads to use, or default to the number of cpus in the system
             self.cpus = args.threads if args.threads else multiprocessing.cpu_count()
@@ -233,7 +245,7 @@ if __name__ == '__main__':
             self.runmetadata = MetadataObject()
             genome = FilterGenome(self)
             genome.objectprep()
-            printtime('Filtering complete', self.start)
+            logging.info('Filtering complete')
     # Run the script
     Parser()
 
@@ -241,7 +253,6 @@ if __name__ == '__main__':
 class PipelineInit(object):
 
     def __init__(self, inputobject):
-        from queue import Queue
         # Define variables based on supplied arguments
         self.start = inputobject.start
         self.path = inputobject.path
@@ -262,4 +273,4 @@ class PipelineInit(object):
         # Run the pipeline
         genome = FilterGenome(self)
         genome.objectprep()
-        printtime('Filtering complete', self.start)
+        logging.info('Filtering complete')

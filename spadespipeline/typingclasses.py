@@ -69,10 +69,6 @@ class GDCS(Sippr):
         for key in nesteddictionary:
             strain = nesteddictionary[key]['Strain']
             report_strains.append(strain)
-            genus = nesteddictionary[key]['Genus']
-            matches = nesteddictionary[key]['Matches']
-            mean_cov = nesteddictionary[key]['MeanCoverage']
-            pass_fail = nesteddictionary[key]['Pass/Fail']
             for sample in self.runmetadata:
                 if strain == sample.name:
                     self.genobject_populate(key=key,
@@ -91,17 +87,21 @@ class GDCS(Sippr):
         sample[self.analysistype].avgdepth = dict()
         sample[self.analysistype].standarddev = dict()
         sample[self.analysistype].targetpath = \
-            os.path.join(self.targetpath, self.analysistype, sample.general.closestrefseqgenus, '')
+            os.path.join(self.targetpath, self.analysistype, sample.general.closestrefseqgenus)
         # Set the necessary attributes
-        sample[self.analysistype].outputdir = os.path.join(sample.run.outputdirectory,
-                                                           self.analysistype)
+        try:
+            sample[self.analysistype].outputdir = os.path.join(sample.run.outputdirectory,
+                                                               self.analysistype)
+        except AttributeError:
+            sample.run.outputdirectory = os.path.join(self.path, sample.name)
+            sample[self.analysistype].outputdir = os.path.join(sample.run.outputdirectory, self.analysistype)
         sample[self.analysistype].logout = os.path.join(sample[self.analysistype].outputdir,
                                                         'logout.txt')
         sample[self.analysistype].logerr = os.path.join(sample[self.analysistype].outputdir,
                                                         'logerr.txt')
         sample[self.analysistype].baitedfastq = \
             os.path.join(sample[self.analysistype].outputdir,
-                         '{}_targetMatches.fastq.gz'.format(self.analysistype))
+                         '{at}_targetMatches.fastq.gz'.format(at=self.analysistype))
         sample[self.analysistype].baitfile = os.path.join(sample[self.analysistype].outputdir,
                                                           'baitedtargets.fa')
         sample[self.analysistype].faifile = sample[self.analysistype].baitfile + '.fai'
@@ -337,11 +337,17 @@ class Serotype(SeroSippr):
                             setattr(sample, self.analysistype, GenObject())
                             o_results, h_results = data[1].split(':')
                             sample[self.analysistype].o_set = [o_results.split(' ')[0]]
-                            sample[self.analysistype].best_o_pid = o_results.split(' ')[1].replace('(', '')\
-                                .replace(')', '')
+                            try:
+                                sample[self.analysistype].best_o_pid = o_results.split(' ')[1].replace('(', '')\
+                                    .replace(')', '')
+                            except IndexError:
+                                sample[self.analysistype].best_o_pid = 'ND'
                             sample[self.analysistype].h_set = [h_results.split(' ')[0]]
-                            sample[self.analysistype].best_h_pid = h_results.split(' ')[1].replace('(', '')\
-                                .replace(')', '')
+                            try:
+                                sample[self.analysistype].best_h_pid = h_results.split(' ')[1].replace('(', '')\
+                                    .replace(')', '')
+                            except IndexError:
+                                sample[self.analysistype].best_h_pid = 'ND'
 
 
 class ShortKSippingMethods(Sippr):

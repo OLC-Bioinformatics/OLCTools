@@ -809,8 +809,8 @@ class PrimerFinder(object):
         self.filetype = filetype
         # Use a long kmer for SPAdes assembly
         self.kmers = kmer_length
-        self.queue = Queue()
-        self.blastqueue = Queue()
+        self.queue = Queue(maxsize=self.cpus)
+        self.blastqueue = Queue(maxsize=self.cpus)
         # Fields used for custom outfmt 6 BLAST output:
         self.fieldnames = ['query_id', 'subject_id', 'positives', 'mismatches', 'gaps',
                            'evalue', 'bit_score', 'subject_length', 'alignment_length',

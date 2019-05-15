@@ -505,25 +505,25 @@ def filer(filelist, extension='fastq', returndict=False):
         return filedict
 
 
-def relativesymlink(src_file, dest_file):
-    """
-    https://stackoverflow.com/questions/9793631/creating-a-relative-symlink-in-python-without-using-os-chdir
-    :param src_file: the file to be linked
-    :param dest_file: the path and filename to which the file is to be linked
-    """
-    # Perform relative symlinking
-    try:
-        print(os.path.relpath(src_file), os.path.relpath(dest_file))
-        os.symlink(
-            # Find the relative path for the source file and the destination file
-            os.path.relpath(src_file),
-            os.path.relpath(dest_file)
-        )
-    # Except os errors
-    except OSError as exception:
-        # If the os error is anything but directory exists, then raise
-        if exception.errno != errno.EEXIST:
-            raise
+# def relativesymlink(src_file, dest_file):
+#     """
+#     https://stackoverflow.com/questions/9793631/creating-a-relative-symlink-in-python-without-using-os-chdir
+#     :param src_file: the file to be linked
+#     :param dest_file: the path and filename to which the file is to be linked
+#     """
+#     # Perform relative symlinking
+#     try:
+#         print(os.path.relpath(src_file), os.path.relpath(dest_file))
+#         os.symlink(
+#             # Find the relative path for the source file and the destination file
+#             os.path.relpath(src_file),
+#             os.path.relpath(dest_file)
+#         )
+#     # Except os errors
+#     except OSError as exception:
+#         # If the os error is anything but directory exists, then raise
+#         if exception.errno != errno.EEXIST:
+#             raise
 
 
 def relative_symlink(src_file, output_dir, output_name=None, export_output=False):
@@ -809,86 +809,95 @@ class MakeBlastDB(AbstractCommandline):
         AbstractCommandline.__init__(self, cmd, **kwargs)
 
 
-def combinetargets(targets, targetpath, mol_type='nt'):
+def combinetargets(targets, targetpath, mol_type='nt', clear_format=False):
     """
     Creates a set of all unique sequences in a list of supplied FASTA files. Properly formats headers and sequences
     to be compatible with local pipelines. Splits hybrid entries. Removes illegal characters.
     :param targets: fasta gene targets to combine
     :param targetpath: folder containing the targets
+    :param mol_type: type STR: nt or prot sequence. Default is nt
+    :param clear_format: type BOOL: Remove any NCBI-like formatting, and attempt to use the accession/gi as the
+    record.id. Default is False
     """
-    make_path(targetpath)
-    with open(os.path.join(targetpath, 'combinedtargets.fasta'), 'w') as combined:
-        idset = set()
-        for target in targets:
-            # Remove non-unicode characters present in the FASTA files
-            cleanedstring = str()
-            # Read in the file as binary
-            with open(target, 'rb') as fasta:
-                # Import all the text
-                text = fasta.read()
-                # Convert the binary variable to a string, ignoring non-UTF-8 characters
-                cleanedstring += text.decode('utf-8', 'ignore')
-            # Overwrite the file with the clean string
-            with open(target, 'w') as fasta:
-                fasta.write(cleanedstring)
-            # Clean up each record
-            for record in SeqIO.parse(target, 'fasta'):
-                # In case FASTA records have been spliced together, allow for the splitting of
-                # these records
-                if '>' in record.seq:
-                    # Split the two records apart on '>' symbols
-                    record.seq, hybrid = record.seq.split('>')
-                    # Split the header from the sequence e.g. sspC:6:CP003808.1ATGGAAAGTACATTAGA...
-                    # will be split into sspC:6:CP003808.1 and ATGGAAAGTACATTAGA
-                    hybridid, seq = re.findall('(.+\\d+\\.\\d)(.+)', str(hybrid))[0]
-                    # Replace and dashes in the record.id with underscores
-                    hybridid = hybridid.replace('-', '_')
-                    # Convert the string to a seq object
-                    if mol_type == 'nt':
-                        hybridseq = Seq(seq, generic_dna)
+    # As part of the automated pipeline, this method can be called without having target files. Ensure that
+    # there actually are files before proceeding
+    if targets:
+        make_path(targetpath)
+        with open(os.path.join(targetpath, 'combinedtargets.fasta'), 'w') as combined:
+            idset = set()
+            for target in targets:
+                # Remove non-unicode characters present in the FASTA files
+                cleanedstring = str()
+                # Read in the file as binary
+                with open(target, 'rb') as fasta:
+                    # Import all the text
+                    text = fasta.read()
+                    # Convert the binary variable to a string, ignoring non-UTF-8 characters
+                    cleanedstring += text.decode('utf-8', 'ignore')
+                # Overwrite the file with the clean string
+                with open(target, 'w') as fasta:
+                    fasta.write(cleanedstring)
+                # Clean up each record
+                for record in SeqIO.parse(target, 'fasta'):
+                    # In case FASTA records have been spliced together, allow for the splitting of
+                    # these records
+                    if '>' in record.seq:
+                        # Split the two records apart on '>' symbols
+                        record.seq, hybrid = record.seq.split('>')
+                        # Split the header from the sequence e.g. sspC:6:CP003808.1ATGGAAAGTACATTAGA...
+                        # will be split into sspC:6:CP003808.1 and ATGGAAAGTACATTAGA
+                        hybridid, seq = re.findall('(.+\\d+\\.\\d)(.+)', str(hybrid))[0]
+                        # Replace and dashes in the record.id with underscores
+                        hybridid = hybridid.replace('-', '_')
+                        # Convert the string to a seq object
+                        if mol_type == 'nt':
+                            hybridseq = Seq(seq, generic_dna)
+                        else:
+                            hybridseq = Seq(seq, generic_protein)
+                        # Create a SeqRecord of the sequence - use the sequence object and id
+                        hybridrecord = SeqRecord(hybridseq,
+                                                 description='',
+                                                 id=hybridid)
+
+                        # Remove and dashes or 'N's from the sequence data - makeblastdb can't handle sequences
+                        # with gaps
+                        # noinspection PyProtectedMember
+                        hybridrecord.seq._data = hybridrecord.seq._data.replace('-', '').replace('N', '')
+                        # Write the original record to the file
+                        # Extract the sequence record from each entry in the multifasta
+                        # Replace and dashes in the record.id with underscores
+                        record.id = record.id.replace('-', '_')
+                        # Remove and dashes or 'N's from the sequence data - makeblastdb can't handle sequences
+                        # with gaps
+                        # noinspection PyProtectedMember
+                        record.seq._data = record.seq._data.replace('-', '').replace('N', '')
+                        # Clear the name and description attributes of the record
+                        record.name = ''
+                        record.description = ''
+                        if record.id not in idset:
+                            SeqIO.write(record, combined, 'fasta')
+                        if hybridrecord.id not in idset:
+                            # Write the second record to file
+                            SeqIO.write(hybridrecord, combined, 'fasta')
+                            idset.add(hybridrecord.id)
+
                     else:
-                        hybridseq = Seq(seq, generic_protein)
-                    # Create a SeqRecord of the sequence - use the sequence object and id
-                    hybridrecord = SeqRecord(hybridseq,
-                                             description='',
-                                             id=hybridid)
-
-                    # Remove and dashes or 'N's from the sequence data - makeblastdb can't handle sequences
-                    # with gaps
-                    # noinspection PyProtectedMember
-                    hybridrecord.seq._data = hybridrecord.seq._data.replace('-', '').replace('N', '')
-                    # Write the original record to the file
-                    # Extract the sequence record from each entry in the multifasta
-                    # Replace and dashes in the record.id with underscores
-                    record.id = record.id.replace('-', '_')
-                    # Remove and dashes or 'N's from the sequence data - makeblastdb can't handle sequences
-                    # with gaps
-                    # noinspection PyProtectedMember
-                    record.seq._data = record.seq._data.replace('-', '').replace('N', '')
-                    # Clear the name and description attributes of the record
-                    record.name = ''
-                    record.description = ''
-                    if record.id not in idset:
-                        SeqIO.write(record, combined, 'fasta')
-                    if hybridrecord.id not in idset:
-                        # Write the second record to file
-                        SeqIO.write(hybridrecord, combined, 'fasta')
-                        idset.add(hybridrecord.id)
-
-                else:
-                    # Extract the sequence record from each entry in the multifasta
-                    # Replace and dashes in the record.id with underscores
-                    record.id = record.id.replace('-', '_')
-                    # Remove and dashes or 'N's from the sequence data - makeblastdb can't handle sequences
-                    # with gaps
-                    # noinspection PyProtectedMember
-                    record.seq._data = record.seq._data.replace('-', '').replace('N', '')
-                    # Clear the name and description attributes of the record
-                    record.name = ''
-                    record.description = ''
-                    if record.id not in idset:
-                        SeqIO.write(record, combined, 'fasta')
-                        idset.add(record.id)
+                        # Extract the sequence record from each entry in the multifasta
+                        # Replace and dashes in the record.id with underscores
+                        record.id = record.id.replace('-', '_')
+                        # Remove any NCBI formatting, e.g. gi|07PF0776_00001|ref|1234| becomes 07PF0776_00001
+                        if '|' in record.id and clear_format:
+                            record.id = record.id.split('|')[1]
+                        # Remove and dashes or 'N's from the sequence data - makeblastdb can't handle sequences
+                        # with gaps
+                        # noinspection PyProtectedMember
+                        record.seq._data = record.seq._data.replace('-', '').replace('N', '')
+                        # Clear the name and description attributes of the record
+                        record.name = ''
+                        record.description = ''
+                        if record.id not in idset:
+                            SeqIO.write(record, combined, 'fasta')
+                            idset.add(record.id)
 
 
 class KeyboardInterruptError(Exception):

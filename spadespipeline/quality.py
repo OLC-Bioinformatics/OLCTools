@@ -362,7 +362,7 @@ class Quality(object):
                 pass
             make_path(reportpath)
             # Run confindr
-            systemcall = 'confindr.py -i {input_dir} -o {output_dir} -d {database_dir} -bf 0.05'\
+            systemcall = 'confindr.py -i {input_dir} -o {output_dir} -d {database_dir} --rmlst -bf 0.05'\
                 .format(input_dir=input_dir,
                         output_dir=os.path.join(input_dir, 'confindr'),
                         database_dir=os.path.join(self.reffilepath, 'ConFindr', 'databases'))

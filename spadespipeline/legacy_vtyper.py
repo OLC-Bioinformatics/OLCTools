@@ -5,6 +5,7 @@ from argparse import ArgumentParser
 from itertools import product
 from threading import Thread
 from queue import Queue
+import multiprocessing
 from glob import glob
 from time import time
 import logging
@@ -179,7 +180,7 @@ class Vtyper(object):
                 sample[self.analysistype].toxinprofile = ";".join(sorted(list(toxin_set))) if toxin_set else 'ND'
             else:
                 setattr(sample, self.analysistype, GenObject())
-                sample[self.analysistype].toxinprofile = 'NA'
+                sample[self.analysistype].toxinprofile = 'ND'
 
     def epcr_report(self):
         """
@@ -385,7 +386,7 @@ class Custom(object):
             pass
         make_path(self.reportpath)
         self.devnull = open(os.devnull, 'wb')
-        self.epcrqueue = Queue()
+        self.epcrqueue = Queue(maxsize=multiprocessing.cpu_count())
         self.export_amplicons = export_amplicons
         # Create an object, so that the script can call methods from the Vtyper class
         self.vtyper_object = Vtyper(inputobject=self,

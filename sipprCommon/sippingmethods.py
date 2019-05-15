@@ -328,7 +328,7 @@ class Sippr(object):
                         if stderrbowtieindex:
                             # Write the standard error to log, bowtie2 puts alignment summary here
                             with open(os.path.join(sample[self.analysistype].targetpath,
-                                                   '{at}_bowtie_index.log'.format(at=self.analysistype)), 'a+') as log:
+                                                   '{at}_bowtie_index.log'.format(at=self.analysistype)), 'w') as log:
                                 log.writelines(logstr(bowtie2build, stderrbowtieindex.getvalue(),
                                                       stdoutbowtieindex.getvalue()))
                         # Close the stdout and stderr streams
@@ -351,7 +351,7 @@ class Sippr(object):
                     if stderrindex:
                         # Write the standard error to log, bowtie2 puts alignment summary here
                         with open(os.path.join(sample[self.analysistype].targetpath,
-                                               '{at}_samtools_index.log'.format(at=self.analysistype)), 'a+') as log:
+                                               '{at}_samtools_index.log'.format(at=self.analysistype)), 'w') as log:
                             log.writelines(logstr(samindex, stderrindex.getvalue(), stdoutindex.getvalue()))
                     # Close the stdout and stderr streams
                     stdoutindex.close()
