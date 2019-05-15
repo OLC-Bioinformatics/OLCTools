@@ -1,8 +1,8 @@
 {% set name = "olctools" %}
-{% set version = "1.0.4" %}
+{% set version = "1.0.6" %}
 {% set file_ext = "tar.gz" %}
 {% set hash_type = "sha256" %}
-{% set hash_value = "d49c180f7527f77816aa5efee1022e1de56da5a4eb02fece26af68d21827e9f6" %}
+{% set hash_value = "bb693268fc0bf368affb31a2609d55d62d5d4ada452852f211bbefdb55f07ff4" %}
 
 package:
   name: '{{ name|lower }}'
