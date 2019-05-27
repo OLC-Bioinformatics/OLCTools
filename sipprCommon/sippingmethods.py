@@ -474,7 +474,6 @@ class Sippr(object):
                     # Need to have at least some bases aligned for this to work at all.
                     if depth == 0:
                         seqdict[contig.id] += '-'
-                        print('0', sample_name, contig.id, column.reference_pos)
                         deviationdict[contig.id].append(depth)
                     try:  # This almost always works, except for when we have very high depth.
                         # Get list of bases for our column, marking ends and adding indels samtools style.
@@ -658,7 +657,7 @@ class Sippr(object):
             for allele in seqdict:
                 # If the length of the match is greater or equal to the length of the gene/allele (multiplied by the
                 # cutoff value) as determined using faidx indexing, then proceed
-                if matchdict[allele] >= sample['faidict'][allele] * cutoff:
+                if matchdict[allele] >= float(sample['faidict'][allele]) * cutoff:
                     if has_clips_dict[allele] is False or allow_soft_clips:
                         # Calculate the average depth by dividing the total number of reads observed by the
                         # length of the gene

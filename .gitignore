@@ -5,3 +5,15 @@
 # Edited text files #
 #####################
 *~
+
+# dist folder #
+###############
+dist/
+
+# .cache #
+##########
+.cache/
+
+# .egg #
+########
+*.egg-info/
