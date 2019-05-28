@@ -1,6 +1,6 @@
-#!/usr/bin/env python 3
-from accessoryFunctions.accessoryFunctions import make_path
-from databasesetup import rest_auth_class
+#!/usr/bin/env python3
+from olctools.accessoryFunctions.accessoryFunctions import make_path
+from olctools.databasesetup import rest_auth_class
 from Bio import SeqIO
 from argparse import ArgumentParser
 from glob import glob

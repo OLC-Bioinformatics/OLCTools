@@ -1,8 +1,7 @@
-#!/usr/bin/env python 3
-from accessoryFunctions.accessoryFunctions import combinetargets, MetadataObject, make_path, \
+#!/usr/bin/env python3
+from olctools.accessoryFunctions.accessoryFunctions import combinetargets, MetadataObject, make_path, \
     run_subprocess, SetupLogging
-from databasesetup import get_mlst, get_rmlst
-from confindr_src import database_setup as confindr_db_setup
+from olctools.databasesetup import get_mlst, get_rmlst
 from argparse import ArgumentParser
 import urllib.request
 from glob import glob

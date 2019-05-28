@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # noinspection PyProtectedMember
 from Bio.Application import _Option, AbstractCommandline, _Switch
 from Bio.Alphabet import generic_dna, generic_protein
@@ -11,7 +11,6 @@ import subprocess
 import datetime
 import logging
 import shutil
-import errno
 import shlex
 import time
 import glob

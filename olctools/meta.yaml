@@ -1,8 +1,8 @@
 {% set name = "olctools" %}
-{% set version = "1.0.6" %}
+{% set version = "1.1.0" %}
 {% set file_ext = "tar.gz" %}
 {% set hash_type = "sha256" %}
-{% set hash_value = "bb693268fc0bf368affb31a2609d55d62d5d4ada452852f211bbefdb55f07ff4" %}
+{% set hash_value = "bbb76579b12b397b788fd1b71c46c3c9f7090895f3488444bc34e818c7df30d2" %}
 
 package:
   name: '{{ name|lower }}'
@@ -14,6 +14,7 @@ source:
   '{{ hash_type }}': '{{ hash_value }}'
 
 build:
+  noarch: python
   number: 0
   script: python setup.py install --single-version-externally-managed --record=record.txt
 
@@ -21,18 +22,25 @@ requirements:
   host:
     - python >=3
   run:
-    - python >=3
-    - pytest
+    - python=3.6.8=h0371630_0
+    - pytest=4.5.0=py36_0
+    - illumina-interop=1.1.8=hfc679d8_0
+    - bbmap=38.22=h470a237_0
+    - biopython=1.72=py36_0
+    - rauth=0.7.3=py_0
+    - click=7.0=py_0
+    - xlsxwriter=1.1.8=py_0
+    - pandas=0.23.4=py36hf8a1672_0
+    - mash=2.1=h9dd4a16_0
 
 test:
   imports:
     - accessoryFunctions
     - biotools
-    - coreGenome
     - databasesetup
     - metagenomefilter
-    - sipprCommon
     - spadespipeline
+    - tests
 
 about:
   home: https://github.com/lowandrew/OLCTools

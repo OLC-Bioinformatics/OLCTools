@@ -1,5 +1,5 @@
-#!/usr/bin/python3
-from accessoryFunctions.accessoryFunctions import GenObject, MetadataObject, make_path, printtime
+#!/usr/bin/env python3
+from olctools.accessoryFunctions.accessoryFunctions import GenObject, MetadataObject, make_path, printtime
 from argparse import ArgumentParser
 from glob import glob
 import time

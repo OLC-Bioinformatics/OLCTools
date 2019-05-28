@@ -1,4 +1,4 @@
-#!/usr/bin/env python 3
+#!/usr/bin/env python3
 from rauth import OAuth1Session
 import multiprocessing
 import os

@@ -8,13 +8,13 @@ def test_imports():
     """
     for root, dirs, files in os.walk('.'):
         for f in files:
-            package = os.path.basename(root)
+            package = '.'.join(os.path.split(root.lstrip('./')))
             module = os.path.splitext(f)[0]
             if f.endswith('.py') and '__' not in f and 'test_' not in f and root != '.' and f != 'setup.py':
                 import_statement = 'import {package}.{module}'.format(package=package,
                                                                       module=module)
                 if 'blaster' not in import_statement and 'tests' not in import_statement and 'PointFinder' \
-                        not in import_statement:
+                        not in import_statement and 'confindr' not in import_statement:
                     print(import_statement.rstrip())
                     exec(import_statement.rstrip())
                     # Try all the imports from within the file

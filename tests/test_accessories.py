@@ -1,4 +1,5 @@
-from accessoryFunctions.accessoryFunctions import combinetargets, dependency_check, filer, find_paired_reads, find_unpaired_reads, make_path
+from olctools.accessoryFunctions.accessoryFunctions import combinetargets, dependency_check, filer, \
+    find_paired_reads, find_unpaired_reads, make_path
 import pytest
 import shutil
 import glob
@@ -32,9 +33,9 @@ def test_make_path():
     shutil.rmtree('tests/new_folder')
 
 
-def test_make_path_butfile():
+def test_make_path_but_file_exists():
     with pytest.raises(OSError):
-        make_path('tests/test_mash.py')
+        make_path('tests/test_imports.py')
 
 
 def test_make_path_nested():
