@@ -55,8 +55,6 @@ class DatabaseSetup(object):
                                    dbname='pointfinder_db')
         if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'clark')):
             self.clark(databasepath=self.databasepath)
-        # if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'mob_suite')):
-        #     self.mob_suite_targets()
 
     def sipprverse_full(self):
         """
@@ -99,7 +97,7 @@ class DatabaseSetup(object):
         if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'mash')):
             self.mash(databasepath=self.databasepath)
 
-    def sipprverse_targets(self, databasepath, database_name='sipprverse', download_id='15086378'):
+    def sipprverse_targets(self, databasepath, database_name='sipprverse', download_id='17435927'):
         """
         Download OLC-specific sipprverse targets
         :param databasepath: path to use to save the database
@@ -110,7 +108,7 @@ class DatabaseSetup(object):
                               database_name=database_name,
                               download_id=download_id)
 
-    def cowbat_targets(self, databasepath, database_name='COWBAT', download_id='15073856'):
+    def cowbat_targets(self, databasepath, database_name='COWBAT', download_id='17435717'):
         """
         Download OLC-specific COWBAT targets
         :param databasepath: path to use to save the database
@@ -132,18 +130,7 @@ class DatabaseSetup(object):
         condfindr_download = 'confindr_database_setup -s {secret} -o {output}'\
             .format(secret=secret_file,
                     output=os.path.join(self.databasepath, database_name))
-        from subprocess import call
-        call(condfindr_download, shell=True)
-
-    def mob_suite_targets(self, database_name='mob_suite'):
-        """
-        Download MOB-suite databases
-        :param database_name: name of current database
-        """
-        logging.info('Download MOB-suite databases')
-        # NOTE: This requires mob_suite >=1.4.9.1. Versions before that don't have the -d option.
-        cmd = 'mob_init -d {}'.format(os.path.join(self.databasepath, database_name))
-        run_subprocess(cmd)
+        run_subprocess(condfindr_download)
 
     @staticmethod
     def mlst(databasepath, genera=('Escherichia', 'Vibrio', 'Campylobacter', 'Listeria',
