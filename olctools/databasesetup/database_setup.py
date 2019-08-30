@@ -3,6 +3,7 @@ from olctools.accessoryFunctions.accessoryFunctions import combinetargets, Metad
     run_subprocess, SetupLogging
 from olctools.databasesetup import get_mlst, get_rmlst
 from argparse import ArgumentParser
+from subprocess import call
 import urllib.request
 from glob import glob
 import logging
@@ -130,7 +131,8 @@ class DatabaseSetup(object):
         condfindr_download = 'confindr_database_setup -s {secret} -o {output}'\
             .format(secret=secret_file,
                     output=os.path.join(self.databasepath, database_name))
-        run_subprocess(condfindr_download)
+        # Use subprocess.call rather than run_subprocess, as there is a prompt for input from the user
+        call(condfindr_download, shell=True)
 
     @staticmethod
     def mlst(databasepath, genera=('Escherichia', 'Vibrio', 'Campylobacter', 'Listeria',
@@ -471,7 +473,7 @@ class DatabaseSetup(object):
                                              'type {type}'.format(var=self.overwrite,
                                                                   type=type(self.overwrite))
         # Determine the location of the CLARK scripts
-        self.clarkpath = shutil.which('CLARK')
+        self.clarkpath = os.path.dirname(shutil.which('CLARK'))
         if self.clarkpath is not None:
             self.clarkpath = os.path.join(self.clarkpath)
 
