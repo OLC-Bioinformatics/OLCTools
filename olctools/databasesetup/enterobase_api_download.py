@@ -1,5 +1,10 @@
 from olctools.accessoryFunctions.accessoryFunctions import make_path, SetupLogging
-from olctools.databasesetup.env import ECOLI, SENTERICA, YERSINIA
+try:
+	from olctools.databasesetup.env import ECOLI, SENTERICA, YERSINIA
+except ImportError:
+	ECOLI =  str()
+	SENTERICA = str()
+	YERSINIA = str()
 from urllib3.exceptions import HTTPError
 from argparse import ArgumentParser
 from subprocess import call
