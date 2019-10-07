@@ -17,3 +17,5 @@ dist/
 # .egg #
 ########
 *.egg-info/
+
+env.py
