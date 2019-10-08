@@ -135,7 +135,7 @@ class DatabaseSetup(object):
         call(condfindr_download, shell=True)
 
     @staticmethod
-    def mlst(databasepath, genera=('Escherichia', 'Vibrio', 'Campylobacter', 'Listeria',
+    def mlst(databasepath, genera=('Escherichia', 'Vibrio', 'Campylobacter', 'Cronobacter', 'Listeria',
                                    'Bacillus', 'Staphylococcus', 'Salmonella')):
         """
         Download the necessary up-to-date MLST profiles and alleles
