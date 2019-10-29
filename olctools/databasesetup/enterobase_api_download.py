@@ -1,10 +1,17 @@
 from olctools.accessoryFunctions.accessoryFunctions import make_path, SetupLogging
+import olctools.databasesetup.settings
 try:
-	from olctools.databasesetup.env import ECOLI, SENTERICA, YERSINIA
-except ImportError:
-	ECOLI =  str()
-	SENTERICA = str()
-	YERSINIA = str()
+    from olctools.databasesetup.settings import ECOLI
+except (NameError, ImportError):
+    ECOLI = str()
+try:
+    from olctools.databasesetup.settings import SENTERICA
+except (NameError, ImportError):
+    SENTERICA = str()
+try:
+    from olctools.databasesetup.settings import YERSINIA
+except (NameError, ImportError):
+    YERSINIA = str()
 from urllib3.exceptions import HTTPError
 from argparse import ArgumentParser
 from subprocess import call
@@ -33,7 +40,7 @@ class DownloadScheme(object):
         profile_list = os.path.join(self.output_path, '{scheme}-profiles'.format(scheme=self.scheme))
         profile_text = os.path.join(self.output_path, 'profile.txt')
         if not os.path.isfile(profile_output) and not os.path.isfile(profile_text):
-            address = '{address}{org}/schemes?scheme_name={sn}&limit={limit}&only_fields=download_sts_link'\
+            address = '{address}{org}/schemes?scheme_name={sn}&limit={limit}&only_fields=download_sts_link' \
                 .format(address=self.server_address,
                         org=self.organism,
                         sn=self.scheme,
@@ -75,7 +82,7 @@ class DownloadScheme(object):
             call(pigz_cmd, shell=True)
         try:
             shutil.move(profile_list, profile_text)
-        except (FileNotFoundError, FileExistsError) as e:
+        except (FileNotFoundError, FileExistsError):
             pass
 
     def download_alleles(self):
@@ -145,10 +152,34 @@ class DownloadScheme(object):
         make_path(self.output_path)
         if self.organism == 'ecoli':
             self.api_key = ECOLI
+            if not self.api_key:
+                # Use the user input to set the verifier code
+                self.api_key = input('Enter API token from http://enterobase.warwick.ac.uk/species/index/ecoli ')
+                try:
+                    with open(olctools.databasesetup.settings.__file__, 'a+') as env:
+                        env.write("ECOLI = '{api}'\n".format(api=self.api_key))
+                except:
+                    raise
         elif self.organism == 'senterica':
             self.api_key = SENTERICA
+            if not self.api_key:
+                # Use the user input to set the verifier code
+                self.api_key = input('Enter API token from http://enterobase.warwick.ac.uk/species/index/senterica ')
+                try:
+                    with open(olctools.databasesetup.settings.__file__, 'a+') as env:
+                        env.write("SENTERICA = '{api}'\n".format(api=self.api_key))
+                except:
+                    raise
         else:
             self.api_key = YERSINIA
+            if not self.api_key:
+                # Use the user input to set the verifier code
+                self.api_key = input('Enter API token from http://enterobase.warwick.ac.uk/species/index/yersinia ')
+                try:
+                    with open(olctools.databasesetup.settings.__file__, 'a+') as env:
+                        env.write("YERSINIA = '{api}'\n".format(api=self.api_key))
+                except:
+                    raise
 
 
 def cli():

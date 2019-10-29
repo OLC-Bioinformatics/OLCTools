@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 from olctools.accessoryFunctions.accessoryFunctions import combinetargets, MetadataObject, make_path, \
     run_subprocess, SetupLogging
-from olctools.databasesetup import get_mlst, get_rmlst
+from olctools.databasesetup import enterobase_api_download, get_mlst, get_rmlst
+from datetime import datetime
 from argparse import ArgumentParser
 from subprocess import call
 import urllib.request
@@ -32,10 +33,18 @@ class DatabaseSetup(object):
         if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'mash')):
             self.mash(databasepath=self.databasepath)
         if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'MLST')):
-            self.mlst(databasepath=self.databasepath)
+            if self.enterobase:
+                self.enterobase_mlst(databasepath=self.databasepath)
+                self.mlst(databasepath=self.databasepath)
+            else:
+                self.mlst(databasepath=self.databasepath,
+                          genera=('Bacillus', 'Campylobacter', 'Cronobacter', 'Escherichia', 'Listeria',
+                                  'Salmonella', 'Staphylococcus', 'Vibrio', 'Yersinia'))
         if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'rMLST')):
             self.rmlst(databasepath=self.databasepath,
                        credentials=self.credentials)
+        if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'cgMLST')):
+            self.enterobase_cgmlst(databasepath=self.databasepath)
         if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'univec')):
             self.univec(databasepath=self.databasepath)
         if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'resfinder')):
@@ -56,6 +65,7 @@ class DatabaseSetup(object):
                                    dbname='pointfinder_db')
         if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'clark')):
             self.clark(databasepath=self.databasepath)
+        self.download_date()
 
     def sipprverse_full(self):
         """
@@ -98,7 +108,7 @@ class DatabaseSetup(object):
         if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'mash')):
             self.mash(databasepath=self.databasepath)
 
-    def sipprverse_targets(self, databasepath, database_name='sipprverse', download_id='17435927'):
+    def sipprverse_targets(self, databasepath, database_name='sipprverse', download_id='18130808'):
         """
         Download OLC-specific sipprverse targets
         :param databasepath: path to use to save the database
@@ -109,7 +119,7 @@ class DatabaseSetup(object):
                               database_name=database_name,
                               download_id=download_id)
 
-    def cowbat_targets(self, databasepath, database_name='COWBAT', download_id='17435717'):
+    def cowbat_targets(self, databasepath, database_name='COWBAT', download_id='18130850'):
         """
         Download OLC-specific COWBAT targets
         :param databasepath: path to use to save the database
@@ -135,14 +145,14 @@ class DatabaseSetup(object):
         call(condfindr_download, shell=True)
 
     @staticmethod
-    def mlst(databasepath, genera=('Escherichia', 'Vibrio', 'Campylobacter', 'Cronobacter', 'Listeria',
-                                   'Bacillus', 'Staphylococcus', 'Salmonella')):
+    def mlst(databasepath, genera=('Campylobacter', 'Cronobacter', 'Listeria',
+                                   'Bacillus', 'Staphylococcus', 'Vibrio')):
         """
-        Download the necessary up-to-date MLST profiles and alleles
+        Download the necessary up-to-date MLST profiles and alleles from pubmlst
         :param databasepath: path to use to save the database
         :param genera: default genera for which alleles and profiles should be downloaded
         """
-        logging.info('Downloading MLST databases')
+        logging.info('Downloading MLST databases from PubMLST')
         for genus in genera:
             # Create an object to pass to the get_mlst script
             args = MetadataObject()
@@ -160,6 +170,35 @@ class DatabaseSetup(object):
                 # Create and populate the complete.txt file
                 with open(completefile, 'w') as complete:
                     complete.write('\n'.join(glob(os.path.join(args.path, '*'))))
+
+    def enterobase_mlst(self, databasepath, genera=('Escherichia', 'Salmonella', 'Yersinia')):
+        """
+        Download the necessary up-to-date MLST profiles and alleles from Enterobase
+        :param databasepath: path to use to save the database
+        :param genera: default genera for which alleles and profiles should be downloaded
+        """
+        logging.info('Downloading MLST databases from Enterobase')
+        for genus in genera:
+            self.enterobase_download(scheme='MLST_Achtman',
+                                     databasepath=databasepath,
+                                     analysis='MLST',
+                                     genus=genus)
+
+    def enterobase_download(self, scheme, databasepath, analysis, genus):
+        """
+        Download the appropriate scheme (MLST_Achtman/cgMLST) for the requested genus
+        :param scheme: Scheme to download
+        :param databasepath: path to use to save the database
+        :param analysis: MLST or cgMLST
+        :param genus: Genus for which alleles and profiles should be downloaded
+        """
+        enterobase_genus = self.genus_dict[genus]
+        enterobase_cmd = 'python -m olctools.databasesetup.enterobase_api_download -o {eg} -s {scheme} -d {db}' \
+            .format(eg=enterobase_genus,
+                    scheme=scheme,
+                    db=databasepath)
+        if not os.path.isdir(os.path.join(databasepath, analysis, genus)):
+            call(enterobase_cmd, shell=True)
 
     @staticmethod
     def rmlst(databasepath, credentials):
@@ -184,6 +223,19 @@ class DatabaseSetup(object):
             # Create and populate the complete.txt file
             with open(completefile, 'w') as complete:
                 complete.write('\n'.join(glob(os.path.join(databasepath, 'rMLST', '*'))))
+
+    def enterobase_cgmlst(self, databasepath, genera=('Escherichia', 'Yersinia')):
+        """
+        Download the necessary up-to-date cgMLST profiles and alleles from Enterobase
+        :param databasepath: path to use to save the database
+        :param genera: default genera for which alleles and profiles should be downloaded
+        """
+        logging.info('Downloading MLST databases from Enterobase')
+        for genus in genera:
+            self.enterobase_download(scheme='cgMLST',
+                                     databasepath=databasepath,
+                                     analysis='cgMLST',
+                                     genus=genus)
 
     def clark(self, databasepath):
         """
@@ -445,7 +497,14 @@ class DatabaseSetup(object):
                     complete.write(out)
                     complete.write(err)
 
-    def __init__(self, databasepath=None, debug=False, credentials=None, overwrite=False):
+    def download_date(self):
+        """
+        Write the current date to file.
+        """
+        with open(os.path.join(self.databasepath, 'download_date'), 'w') as download:
+            download.write('{:%Y-%m-%d}'.format(datetime.today()))
+
+    def __init__(self, databasepath=None, debug=False, credentials=None, overwrite=False, enterobase=False):
         # Initialise the custom logging handler
         SetupLogging(debug)
         # Create class variables from arguments
@@ -476,6 +535,13 @@ class DatabaseSetup(object):
         self.clarkpath = os.path.dirname(shutil.which('CLARK'))
         if self.clarkpath is not None:
             self.clarkpath = os.path.join(self.clarkpath)
+        # Enterobase
+        self.enterobase = enterobase
+        self.genus_dict = {
+            'Escherichia': 'ecoli',
+            'Salmonella': 'senterica',
+            'Yersinia': 'yersinia'
+        }
 
 
 # If the script is called from the command line, then call the argument parser
@@ -490,23 +556,23 @@ if __name__ == '__main__':
                         required=True,
                         help='Name and path of folder containing required rMLST credentials.')
     parser.add_argument('-o', '--overwrite',
-                        default=False,
                         action='store_true',
                         help='Optionally allow for the overwriting of database files in the databasepath. Defaults to '
                              'False, so if the output folder exists, that part of the download will be skipped.')
     parser.add_argument('-s', '--sipprverse_full',
-                        default=False,
                         action='store_true',
                         help='Optionally only download the databases used in the sipprverse. These include: genesippr, '
                              'GDCS, sixteenS, ConFindr, MASH, MLST, rMLST, ResFindr, VirulenceFinder, '
                              'and SerotypeFinder')
     parser.add_argument('-m', '--sipprverse_method',
-                        default=False,
                         action='store_true',
                         help='Optionally only download the databases used by the sipprverse method: genesippr, '
                              'sixteenS, GDCS, MASH, and ConFindr')
+    parser.add_argument('-e', '--enterobase',
+                        action='store_false',
+                        help='Use Enterobase to download MLST definifitions for Escherichia, Salmonella, and Yersinia, '
+                             'as well as cgMLST schemes for Escherichia and Yersinia. Enabled by default')
     parser.add_argument('-v', '--verbose',
-                        default=False,
                         action='store_true',
                         help='Option to include debug level logging messages. Default is false')
     # Get the arguments into an object
@@ -515,7 +581,8 @@ if __name__ == '__main__':
     pipeline = DatabaseSetup(databasepath=arguments.databasepath,
                              debug=arguments.verbose,
                              credentials=arguments.credentials,
-                             overwrite=arguments.overwrite)
+                             overwrite=arguments.overwrite,
+                             enterobase=arguments.enterobase)
     # Run the appropriate analyses
     if arguments.sipprverse_full:
         pipeline.sipprverse_full()
