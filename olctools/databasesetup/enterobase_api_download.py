@@ -35,9 +35,10 @@ class DownloadScheme(object):
                                                                    scheme=self.scheme))
         if self.organism == 'senterica':
             profile_output = os.path.join(self.output_path, '{scheme}-profiles.list.gz'.format(scheme=self.scheme))
+            profile_list = os.path.join(self.output_path, '{scheme}-profiles.list'.format(scheme=self.scheme))
         else:
             profile_output = os.path.join(self.output_path, '{scheme}-profiles.gz'.format(scheme=self.scheme))
-        profile_list = os.path.join(self.output_path, '{scheme}-profiles'.format(scheme=self.scheme))
+            profile_list = os.path.join(self.output_path, '{scheme}-profiles'.format(scheme=self.scheme))
         profile_text = os.path.join(self.output_path, 'profile.txt')
         if not os.path.isfile(profile_output) and not os.path.isfile(profile_text):
             address = '{address}{org}/schemes?scheme_name={sn}&limit={limit}&only_fields=download_sts_link' \
