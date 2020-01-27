@@ -214,8 +214,15 @@ class CustomLogs(logging.StreamHandler):
 
     def emit(self, record):
         try:
+            # Format the record
+            try:
+                self.stream.write(self.format(record))
+            # If several variables are passed to the logger, try to flatten everything into a string
+            except TypeError:
+                record.msg = '{msg} {args}'.format(msg=record.msg, args=' '.join(record.args))
+                record.args = list()
+                self.stream.write(self.format(record))
             # Write the formatted record to the stream
-            self.stream.write(self.format(record))
             self.stream.write(getattr(self, 'terminator', '\n'))
             # Flush the output to terminal
             self.flush()
@@ -249,7 +256,7 @@ class SetupLogging(object):
     Runs the CustomLogs class
     """
 
-    def __init__(self, debug=False):
+    def __init__(self, log_level=logging.INFO, debug=False, filehandle=str(), logfile_level=None):
         # Create a logging object
         logger = logging.getLogger()
         # Set whether debug level messages should be displayed
@@ -261,6 +268,15 @@ class SetupLogging(object):
         # Only add a handler if it hasn't been added by another script in the pipeline
         if not logger.handlers:
             logger.addHandler(CustomLogs())
+            if filehandle:
+                # create a file handler
+                handler = logging.FileHandler(filename=filehandle,
+                                              mode='w')
+                if logfile_level:
+                    handler.setLevel(logfile_level)
+                else:
+                    handler.setLevel(log_level)
+                logger.addHandler(handler)
 
 
 def printtime(string, start, option=None, output=None):
