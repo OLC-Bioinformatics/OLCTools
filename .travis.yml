@@ -8,6 +8,8 @@ before_install:
   - hash -r
   - conda config --set always_yes yes --set changeps1 no
   - conda install python=3.6.8
+  - conda config --add channels conda-forge
+  - conda config --add channels bioconda
   - conda config --add channels olcbioinformatics
   - conda install -c olcbioinformatics olctools=1.1.9=py_0
 
