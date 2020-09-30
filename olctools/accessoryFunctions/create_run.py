@@ -123,11 +123,11 @@ class CreateRun(object):
             # -o: prefix of output filename
             # zl=9: Compression level set to 9 (maximum)
             # t=1: Cap the number of compression threads to one
-            art_cmd = 'art_illumina -1 {forward} -2 {reverse} -i {assembly} -l {read_length} -f {fcov} ' \
-                      '-m {frag_length} -s {frag_stdev} -p -na -rs {seed} -o {reads} ' \
+            art_cmd = 'art_illumina -1 {forward_profile} -2 {reverse_profile} -i {assembly} -l {read_length} ' \
+                      '-f {fcov} -m {frag_length} -s {frag_stdev} -p -na -rs {seed} -o {reads} ' \
                       '&& reformat.sh zl=9 in={in_for} in2={in_rev} out={out_for} out2={out_rev} t=1' \
-                .format(forward=self.profile_dictionary[quality]['forward'],
-                        reverse=self.profile_dictionary[quality]['reverse'],
+                .format(forward_profile=self.profile_dictionary[quality]['forward'],
+                        reverse_profile=self.profile_dictionary[quality]['reverse'],
                         read_length=self.read_length,
                         fcov=self.coverage,
                         frag_length=self.frag_length,
@@ -168,8 +168,10 @@ class CreateRun(object):
         missing_cont_ids = set()
         empirical_ids = set()
         duplicate_empirical = set()
-        oc_ids = set()
-        duplicate_oc = set()
+        soc_ids = set()
+        voc_ids = set()
+        duplicate_soc = set()
+        duplicate_voc = set()
         illegal_rows = dict()
         for i, entry in enumerate(csv_dict):
             # The row number will be stored for certain errors. It is the current enumerator + 2 (0-based vs 1-based,
@@ -201,14 +203,22 @@ class CreateRun(object):
 
                         else:
                             duplicate_empirical.add(entry['EID'])
-                    else:
-                        # Store the over-clustered sample ID
-                        sample_id = entry['OCID']
-                        # Make sure that all the over-clustered IDs are unique
-                        if entry['OCID'] not in oc_ids:
-                            oc_ids.add(entry['OCID'])
+                    elif quality == 'slightly-over-clustered':
+                        # Store the slightly over-clustered sample ID
+                        sample_id = entry['SOCID']
+                        # Make sure that all the slightly over-clustered IDs are unique
+                        if entry['SOCID'] not in soc_ids:
+                            soc_ids.add(entry['SOCID'])
                         else:
-                            duplicate_oc.add(entry['OCID'])
+                            duplicate_soc.add(entry['SOCID'])
+                    else:
+                        # Store the very over-clustered sample ID
+                        sample_id = entry['VOCID']
+                        # Make sure that all the over-clustered IDs are unique
+                        if entry['OCID'] not in voc_ids:
+                            voc_ids.add(entry['VOCID'])
+                        else:
+                            duplicate_voc.add(entry['VOCID'])
                     # Ensure that a base ID has been supplied
                     if not entry['BaseID']:
                         self.dict_append(dictionary=illegal_rows,
@@ -288,7 +298,7 @@ class CreateRun(object):
         quit_message = list()
         # Report all the errors
         if illegal_headers or missing_headers or illegal_rows or missing_base_ids or missing_cont_ids or \
-                duplicate_empirical or duplicate_oc:
+                duplicate_empirical or duplicate_soc or duplicate_voc:
             logging.error('Errors in supplied mix file: {mf}'.format(mf=self.mixfile))
         if missing_base_ids or missing_cont_ids:
             logging.error('Possibly missing assemblies in folder {ap}'.format(ap=self.assembly_path))
@@ -308,11 +318,19 @@ class CreateRun(object):
             quit_message.append('Please remove the duplicate Empirical Sample IDs ({dupid}) from {mf}'
                                 .format(dupid=', '.join(sorted(duplicate_empirical)),
                                         mf=self.mixfile))
-        if duplicate_oc:
-            logging.error('The following Over-Clustered Sample IDs are present more than once in your mix file: {dupid}'
-                          .format(dupid=', '.join(sorted(duplicate_oc))))
-            quit_message.append('Please remove the duplicate Over-clustered Sample IDs ({dupid}) from {mf}'
-                                .format(dupid=', '.join(sorted(duplicate_oc)),
+        if duplicate_soc:
+            logging.error('The following Slightly-Over-Clustered Sample IDs are present more than once in your mix '
+                          'file: {dupid}'
+                          .format(dupid=', '.join(sorted(duplicate_soc))))
+            quit_message.append('Please remove the duplicate Slightly-Over-clustered Sample IDs ({dupid}) from {mf}'
+                                .format(dupid=', '.join(sorted(duplicate_soc)),
+                                        mf=self.mixfile))
+        if duplicate_voc:
+            logging.error('The following Very-Over-Clustered Sample IDs are present more than once in your mix file: '
+                          '{dupid}'
+                          .format(dupid=', '.join(sorted(duplicate_voc))))
+            quit_message.append('Please remove the duplicate Very-Over-clustered Sample IDs ({dupid}) from {mf}'
+                                .format(dupid=', '.join(sorted(duplicate_voc)),
                                         mf=self.mixfile))
         if missing_headers:
             logging.error('The following headers are missing from the mix file: {mh}'
@@ -464,9 +482,12 @@ class CreateRun(object):
             if quality == 'empirical':
                 run_num = 1
                 flowcell_id = 'GCRSR001'
-            else:
+            elif quality == 'very-over-clustered':
                 run_num = 2
                 flowcell_id = 'GCRSR002'
+            else:
+                run_num = 3
+                flowcell_id = 'GCRSR003'
             # Initialise a count for setting the file names
             count = 1
             # Perform mixing for the requested qualities
@@ -480,7 +501,7 @@ class CreateRun(object):
     def threaded_mix(self):
         while True:
             sample, quality, instrument_id, control_num, lane, tiles, run_num, flowcell_id, count = self.mix_queue.get()
-            # Ensure that the ouput files do not exist before taking time to read in FASTQ files
+            # Ensure that the output files do not exist before taking time to read in FASTQ files
             if not os.path.isfile(self.sample_dict[sample]['sample_f']) \
                     and not os.path.isfile(self.sample_dict[sample]['sample_r']):
                 # https://wiki-bsse.ethz.ch/display/DBSSEQGF/Header+description+for+FASTQs+generated+with+
@@ -715,22 +736,29 @@ class CreateRun(object):
         self.read_dictionary = dict()
         self.sample_dict = dict()
         self.genome_size = dict()
-        if profile == 0:
+        if profile == '0':
             self.qualities = ['empirical']
-        elif profile == 1:
-            self.qualities = ['over-clustered']
+        elif profile == '1':
+            self.qualities = ['slightly-over-clustered']
+        elif profile == '2':
+            self.qualities = ['very-over-clustered']
         else:
-            self.qualities = ['empirical', 'over-clustered']
+            self.qualities = ['empirical', 'slightly-over-clustered', 'very-over-clustered']
         self.profile_dictionary = {
             'empirical': {
-                'forward': 'EmpMiSeq250R1.txt',
-                'reverse': 'EmpMiSeq250R2.txt',
+                'forward': os.path.join(self.assembly_path, 'EmpMiSeq250R1.txt'),
+                'reverse': os.path.join(self.assembly_path, 'EmpMiSeq250R2.txt'),
                 'output': os.path.join(self.output_path, 'empirical')
             },
-            'over-clustered': {
-                'forward': '181019_profile_1.txt',
-                'reverse': '181019_profile_2.txt',
-                'output': os.path.join(self.output_path, 'over-clustered')
+            'slightly-over-clustered': {
+                'forward': os.path.join(self.assembly_path, '200811_profile_1.txt'),
+                'reverse': os.path.join(self.assembly_path, '200811_profile_2.txt'),
+                'output': os.path.join(self.output_path, 'slightly-over-clustered')
+            },
+            'very-over-clustered': {
+                'forward': os.path.join(self.assembly_path, '181019_profile_1.txt'),
+                'reverse': os.path.join(self.assembly_path, '181019_profile_2.txt'),
+                'output': os.path.join(self.output_path, 'very-over-clustered')
             }
         }
         self.basenames = list()
@@ -749,7 +777,8 @@ class CreateRun(object):
         self.simulate_queue = Queue(maxsize=self.threads)
         self.subsample_queue = Queue(maxsize=self.reformat_threads)
         self.mix_queue = Queue(maxsize=self.threads)
-        self.headers = ['SampleNum', 'EID', 'OCID', 'BaseID', 'BaseFraction', 'ContaminantID', 'ContaminantFraction']
+        self.headers = ['SampleNum', 'EID', 'SOCID', 'VOCID', 'BaseID', 'BaseFraction', 'ContaminantID',
+                        'ContaminantFraction']
         logging.info('Welcome to the CFIA FASTQ read simulator')
 
 
@@ -759,7 +788,7 @@ def cli():
                                         'ART profile. Optionally mix reads to create contaminated samples.')
     parser.add_argument('-a', '--assemblypath',
                         required=True,
-                        help='Path to folder containing assemblies')
+                        help='Path to folder containing assemblies, profiles, and mix file')
     parser.add_argument('-o', '--output',
                         type=str,
                         default=str(),
@@ -778,10 +807,11 @@ def cli():
                              'ContaminantFraction=fraction of contaminant genome to use in mix (may be left blank. If '
                              'included BaseFraction + ContaminantFraction must equal 1.0)')
     parser.add_argument('-p', '--profiles',
-                        choices=[0, 1, 2],
-                        default=2,
+                        choices=['0', '1', '2', '3'],
+                        default='3',
                         help='Profiles to use for simulating reads. Acceptable options are 0: Empirical MiSeq, '
-                             '1: Over-clustered MiSeq, 2: Empirical AND over-clustered MiSeq. Default is 2')
+                             '1: Slightly over-clustered MiSeq, 2: Very-over clustered MiSeq, '
+                             '3: Empirical AND both over-clustered MiSeq. Default is 3')
     parser.add_argument('-r', '--readlength',
                         type=float,
                         default=250,
