@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 # noinspection PyProtectedMember
 from Bio.Application import _Option, AbstractCommandline, _Switch
-from Bio.Alphabet import generic_dna, generic_protein
 from Bio.SeqRecord import SeqRecord
 from Bio.Seq import Seq
 from Bio import SeqIO
@@ -866,9 +865,9 @@ def combinetargets(targets, targetpath, mol_type='nt', clear_format=False):
                         hybridid = hybridid.replace('-', '_')
                         # Convert the string to a seq object
                         if mol_type == 'nt':
-                            hybridseq = Seq(seq, generic_dna)
+                            hybridseq = Seq(seq, annotations={"molecule_type": "DNA"})
                         else:
-                            hybridseq = Seq(seq, generic_protein)
+                            hybridseq = Seq(seq, annotations={"molecule_type": "protein"})
                         # Create a SeqRecord of the sequence - use the sequence object and id
                         hybridrecord = SeqRecord(hybridseq,
                                                  description='',
