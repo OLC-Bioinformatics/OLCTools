@@ -11,7 +11,7 @@ before_install:
   - conda config --add channels conda-forge
   - conda config --add channels bioconda
   - conda config --add channels olcbioinformatics
-  - conda install -c olcbioinformatics olctools=1.1.9=py_0
+  - conda install -c olcbioinformatics olctools=1.2.0=py_0
 
 script:
   - python -m pytest -s -vv --maxfail=1
