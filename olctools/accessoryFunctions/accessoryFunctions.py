@@ -661,7 +661,9 @@ class GenObject(object):
                                          value=value))
 
     def dump(self):
-        """Prints only the nested dictionary values; removes __methods__ and __members__ attributes"""
+        """
+        Prints only the nested dictionary values; removes __methods__ and __members__ attributes
+        """
         metadata = dict()
         for attr in sorted(self.datastore):
             # Initialise the attribute (e.g. sample.general) key in the metadata dictionary
@@ -865,9 +867,9 @@ def combinetargets(targets, targetpath, mol_type='nt', clear_format=False):
                         hybridid = hybridid.replace('-', '_')
                         # Convert the string to a seq object
                         if mol_type == 'nt':
-                            hybridseq = Seq(seq, annotations={"molecule_type": "DNA"})
+                            hybridseq = Seq(seq)
                         else:
-                            hybridseq = Seq(seq, annotations={"molecule_type": "protein"})
+                            hybridseq = Seq(seq)
                         # Create a SeqRecord of the sequence - use the sequence object and id
                         hybridrecord = SeqRecord(hybridseq,
                                                  description='',
