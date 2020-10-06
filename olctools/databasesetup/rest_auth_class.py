@@ -172,7 +172,7 @@ class REST(object):
 
     def write_token(self, token_type, token, secret):
         """
-        Write a token to file. Format is secret='secret'\,token='token'
+        Write a token to file. Format is secret='secret'\n,token='token'
         :param token_type: The type of token. Options are 'request', 'session', and 'access'
         :param token: The string of the token extracted from the GET request
         :param secret:
