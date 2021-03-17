@@ -24,11 +24,25 @@ import os
 
 class DownloadScheme(object):
 
+    def main(self):
+        self.download_profile()
+        if self.name_file:
+            self.read_names()
+        self.download_alleles()
+
     def create_request(self, request_str):
         http = urllib3.PoolManager()
         headers = urllib3.util.make_headers(basic_auth='{token}:'.format(token=self.api_key))
         request = http.request(method='GET', url=request_str, headers=headers, preload_content=False)
         return request
+
+    def read_names(self):
+        """
+        Read in all the names of the genes of interest
+        """
+        logging.info('Reading names file')
+        with open(self.name_file, 'r') as names:
+            self.names = [name.rstrip() for name in names.readlines()]
 
     def download_profile(self):
         logging.info('Downloading {genus} {scheme} profile'.format(genus=self.genus,
@@ -106,6 +120,8 @@ class DownloadScheme(object):
             for locus_record in data['loci']:
                 locus_link = locus_record['download_alleles_link']
                 locus_file_name = locus_link.split('/')[-1]
+                print(locus_file_name)
+                quit()
                 locus_output = os.path.join(self.output_path, locus_file_name)
                 locus_file = os.path.splitext(locus_output)[0]
                 locus_tfa = locus_file.replace('.fasta', '.tfa')
@@ -135,7 +151,7 @@ class DownloadScheme(object):
             print('HTTPError: {error}'.format(error=error_string))
             quit()
 
-    def __init__(self, databasepath, organism, scheme):
+    def __init__(self, databasepath, organism, scheme, genes=None):
         self.server_address = 'http://enterobase.warwick.ac.uk/api/v2.0/'
         self.organism = organism
         self.scheme = scheme
@@ -151,6 +167,12 @@ class DownloadScheme(object):
         self.genus = genus_dict[self.organism]
         self.output_path = os.path.join(self.databasepath, self.scheme.split('_')[0], self.genus)
         make_path(self.output_path)
+        if genes.startswith('~'):
+            self.name_file = os.path.abspath(os.path.expanduser(os.path.join(genes)))
+        else:
+            self.name_file = os.path.abspath(os.path.join(genes))
+        self.names = list()
+        assert os.path.isfile(self.name_file), f'Cannot find the supplied file with gene names: {self.name_file}'
         if self.organism == 'ecoli':
             self.api_key = ECOLI
             if not self.api_key:
@@ -198,6 +220,9 @@ def cli():
     parser.add_argument('-s', '--scheme',
                         required=True,
                         choices=['MLST_Achtman', 'cgMLST', 'wgMLST'])
+    parser.add_argument('-g', '--genes',
+                        help='Name and path to a file containing the gene names (one per line) to be extracted '
+                             'from the profile')
     parser.add_argument('-v', '--verbose',
                         action='store_true',
                         help='Print debug level messages')
@@ -207,7 +232,8 @@ def cli():
     SetupLogging(debug=arguments.verbose)
     download = DownloadScheme(databasepath=arguments.databasepath,
                               organism=arguments.organism,
-                              scheme=arguments.scheme)
+                              scheme=arguments.scheme,
+                              genes=arguments.genes)
     download.download_profile()
     download.download_alleles()
 
