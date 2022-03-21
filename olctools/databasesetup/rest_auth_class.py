@@ -3,6 +3,12 @@ from rauth import OAuth1Session
 import multiprocessing
 import os
 import re
+import chromedriver_autoinstaller
+
+#selenium automation
+from selenium import webdriver
+# from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
 
 """
 Script to test access to authenticated resources via REST interface.
@@ -63,7 +69,7 @@ class REST(object):
         else:
             print('"Cannot find the secret.txt file required for authorization. '
                   'Please ensure that this file exists, and that the supplied consumer key is on the '
-                  'first line, and the consumer secret is on he second line. '
+                  'first line, and the consumer secret is on the second line. '
                   'Contact keith.jolley@zoo.ox.ac.uk for an account, and the necessary keys')
             quit()
 
@@ -92,12 +98,57 @@ class REST(object):
         """
         Request an access token
         """
-        print('Obtaining access token')
+        print("Authorizing access")
         # Set URL to use for the verification
         authorize_url = self.test_web_url + '&page=authorizeClient&oauth_token=' + self.request_token
-        print('Visit this URL in your browser: ' + authorize_url)
-        # Use the user input to set the verifier code
-        verifier = input('Enter oauth_verifier from browser: ')
+               
+        answer = "n"
+        correct = "y" or "Y"
+
+        if answer != correct:
+            while answer != correct:
+                login_user = input("Enter your PubMLST username: ")
+                login_pass = input("Enter your PubMLST password: ")
+                answer = str(input("Is this login information correct (y/n)? "))
+        else:
+            return login_user, login_pass        
+                
+        try:
+            chromedriver_autoinstaller.install()
+        except: 
+            print("Chromedriver-autoinstaller failed to install")        
+            
+        # Setup chrome options
+        chrome_options = Options()
+        chrome_options.add_argument("--headless") # Ensure GUI is off
+        chrome_options.add_argument("--no-sandbox")
+        
+        # Start up browser
+        browser = webdriver.Chrome(options=chrome_options)
+
+        # Get page
+        browser.get(authorize_url)
+        assert "Log in" in browser.title
+
+        # Find and fill inputs
+        user = browser.find_element_by_name("user")
+        user.clear()
+        user.send_keys(login_user)
+        password = browser.find_element_by_name("password_field")
+        password.clear()
+        password.send_keys(login_pass)
+        
+        login_button = browser.find_element_by_name("submit")
+        login_button.click()
+        authorize_button = browser.find_element_by_name("submit")
+        authorize_button.click()
+
+        assert "Authorize third-party client" in browser.title
+        code = browser.find_element_by_xpath("/html/body/div[2]/div[2]/div/div[2]/p[3]/b").get_attribute("innerHTML")
+        verifier = code.split()[2]
+        browser.quit()    
+        print("Selenium Authorization Successful")
+
         # Create a new session
         session_request = OAuth1Session(consumer_key=self.consumer_key,
                                         consumer_secret=self.consumer_secret,
@@ -316,8 +367,8 @@ class REST(object):
                     allele.write(decoded)
 
     def __init__(self, args):
-        self.test_rest_url = 'http://rest.pubmlst.org/db/pubmlst_rmlst_seqdef'
-        self.test_web_url = 'http://pubmlst.org/cgi-bin/bigsdb/bigsdb.pl?db=pubmlst_rmlst_seqdef'
+        self.test_rest_url = 'https://rest.pubmlst.org/db/pubmlst_rmlst_seqdef'
+        self.test_web_url = 'https://pubmlst.org/bigsdb/bigsdb.pl?db=pubmlst_rmlst_seqdef'
         self.request_token_url = self.test_rest_url + '/oauth/get_request_token'
         self.session_token_url = self.test_rest_url + '/oauth/get_session_token'
         self.access_token_url = self.test_rest_url + '/oauth/get_access_token'

@@ -7,9 +7,7 @@ setup(
     version="1.2.3",
     packages=find_packages(),
     include_package_data=True,
-    author="Andrew Low",
-    author_email="andrew.low@canada.ca",
-    url="https://github.com/lowandrew/OLCTools",
+    url="https://github.com/OLC-Bioinformatics/OLCTools",
     install_requires=['biopython',
                       'interop',
                       'sipprverse',
@@ -24,5 +22,8 @@ setup(
                       'xlsxwriter',
                       'seaborn',
                       'rauth',
+                      'requests',
+                      'selenium',
+                      'chromedriver-autoinstaller',
                       'click']
 )
