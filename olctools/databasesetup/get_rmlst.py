@@ -4,6 +4,7 @@ from olctools.databasesetup import rest_auth_class
 from Bio import SeqIO
 from argparse import ArgumentParser
 from glob import glob
+import logging
 import os
 
 __author__ = 'adamkoziol'
@@ -59,6 +60,7 @@ class Get(object):
 
     def __init__(self, args):
         self.path = os.path.join(args.path)
+        os.makedirs(self.path, exist_ok=True)
         self.logging = args.logging
         self.analysistype = 'rMLST'
         self.credentials = args.credentials
@@ -69,10 +71,14 @@ if __name__ == '__main__':
     # Argument parser for user-inputted values, and a nifty help menu
     # Parser for arguments
     parser = ArgumentParser(description='')
-    parser.add_argument('path',
+    parser.add_argument('--path',
+                        required=True,
                         help='Specify input directory')
-
+    parser.add_argument('--credentials',
+                        required=True,
+                        help='Specify directory storing rMLST credentials')
     # Get the arguments into an object
     arguments = parser.parse_args()
+    arguments.logging = logging
     # Run the script
     Get(arguments)

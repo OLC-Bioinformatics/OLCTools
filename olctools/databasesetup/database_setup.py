@@ -108,6 +108,14 @@ class DatabaseSetup(object):
         if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'mash')):
             self.mash(databasepath=self.databasepath)
 
+    def rmlst_method(self):
+        """
+        Run only the rMLST download
+        """
+        if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'rMLST')):
+            self.rmlst(databasepath=self.databasepath,
+                       credentials=self.credentials)
+
     def sipprverse_targets(self, databasepath, database_name='sipprverse', download_id='18130808'):
         """
         Download OLC-specific sipprverse targets
@@ -243,6 +251,10 @@ class DatabaseSetup(object):
         type, and species for taxonomic level
         :param databasepath: path to use to save the database
         """
+        # Determine the location of the CLARK scripts
+        self.clarkpath = os.path.dirname(shutil.which('CLARK'))
+        if self.clarkpath is not None:
+            self.clarkpath = os.path.join(self.clarkpath)
         if self.clarkpath:
             logging.info('Downloading CLARK database')
             # Create the folder in which the database is to be stored
@@ -508,33 +520,22 @@ class DatabaseSetup(object):
         # Initialise the custom logging handler
         SetupLogging(debug)
         # Create class variables from arguments
-        if databasepath is not None:
-            try:
-                self.databasepath = os.path.join(databasepath)
-                make_path(self.databasepath)
-                assert os.path.isdir(self.databasepath)
-            except TypeError:
-                logging.warning('Invalid database path provided: {db_path}'.format(db_path=databasepath))
-            except AssertionError:
-                logging.warning('Could not create database path as provided: {db_path}'
-                                .format(db_path=self.databasepath))
+        if databasepath.startswith('~'):
+            self.databasepath = os.path.abspath(os.path.expanduser(os.path.join(databasepath)))
         else:
-            self.databasepath = databasepath
-        if credentials is not None:
-            try:
-                self.credentials = os.path.join(credentials)
-            except TypeError:
-                self.credentials = None
-        else:
-            self.credentials = credentials
+            self.databasepath = os.path.abspath(os.path.join(databasepath))
+        make_path(self.databasepath)
+        assert os.path.isdir(self.databasepath)
+        if credentials:
+            if credentials.startswith('~'):
+                self.credentials = os.path.abspath(os.path.expanduser(os.path.join(credentials)))
+            else:
+                self.credentials = os.path.abspath(os.path.join(credentials))
         self.overwrite = overwrite
         assert type(self.overwrite) is bool, 'Overwrite variable must be a Boolean. You provided "{var}" with ' \
                                              'type {type}'.format(var=self.overwrite,
                                                                   type=type(self.overwrite))
-        # Determine the location of the CLARK scripts
-        self.clarkpath = os.path.dirname(shutil.which('CLARK'))
-        if self.clarkpath is not None:
-            self.clarkpath = os.path.join(self.clarkpath)
+        self.clarkpath = str()
         # Enterobase
         self.enterobase = enterobase
         self.genus_dict = {
@@ -553,7 +554,6 @@ if __name__ == '__main__':
                         help='Absolute path to location to store database files. Include any version numbers if '
                              'required.')
     parser.add_argument('-c,', '--credentials',
-                        required=True,
                         help='Name and path of folder containing required rMLST credentials.')
     parser.add_argument('-o', '--overwrite',
                         action='store_true',
@@ -570,11 +570,17 @@ if __name__ == '__main__':
                              'sixteenS, GDCS, MASH, and ConFindr')
     parser.add_argument('-e', '--enterobase',
                         action='store_false',
-                        help='Use Enterobase to download MLST definifitions for Escherichia, Salmonella, and Yersinia, '
+                        help='Use Enterobase to download MLST definitions for Escherichia, Salmonella, and Yersinia, '
                              'as well as cgMLST schemes for Escherichia and Yersinia. Enabled by default')
     parser.add_argument('-v', '--verbose',
                         action='store_true',
                         help='Option to include debug level logging messages. Default is false')
+    parser.add_argument('-r', '--rmlst',
+                        action='store_true',
+                        help='Optionally only download the rMLST database')
+    parser.add_argument('-res', '--resfinder',
+                        action='store_true',
+                        help='Only download the Resfinder database')
     # Get the arguments into an object
     arguments = parser.parse_args()
     # Create an object
@@ -584,9 +590,22 @@ if __name__ == '__main__':
                              overwrite=arguments.overwrite,
                              enterobase=arguments.enterobase)
     # Run the appropriate analyses
+    if arguments.resfinder:
+        pipeline.cge_db_downloader(
+            databasepath=pipeline.databasepath,
+            analysistype='resfinder',
+            dbname='resfinder_db'
+        )
+        raise SystemExit
+    if not arguments.credentials:
+        logging.error('Please provide the name and path of the folder containing your rMLST credentials with the -c '
+                      'argument.')
+        raise SystemExit
     if arguments.sipprverse_full:
         pipeline.sipprverse_full()
     elif arguments.sipprverse_method:
         pipeline.sipprverse_method()
+    elif arguments.rmlst:
+        pipeline.rmlst_method()
     else:
         pipeline.cowbat()

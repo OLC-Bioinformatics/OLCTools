@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 from rauth import OAuth1Session
 import multiprocessing
+import getpass
 import os
 import re
-import chromedriver_autoinstaller
-
-#selenium automation
+# import chromedriver_autoinstaller
+import chromedriver_binary
+from cryptography.fernet import Fernet
+# selenium automation
 from selenium import webdriver
 # from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
@@ -94,6 +96,55 @@ class REST(object):
             self.get_request_token()
             self.get_access_token()
 
+    def create_encryption_key_file(self):
+        # key generation
+        key = Fernet.generate_key()
+
+        # string the key in a file
+        with open(self.credentials_key, 'wb') as file_key:
+            file_key.write(key)
+
+    def read_encryption_key(self):
+        # Open the key file
+        with open(self.credentials_key, 'rb') as file_key:
+            key = file_key.read()
+        # Use the generated key
+        fernet = Fernet(key)
+        return fernet
+
+    def encrypt_credentials(self):
+
+        login_user = input("Please enter your PubMLST username:\n")
+        login_pass = getpass.getpass(prompt='Please enter your PubMLST password:\n').encode('utf-8').decode()
+        # Write the credentials to file
+        with open(self.credentials_file, 'w') as credentials:
+            credentials.write(f'{login_user}\n{login_pass}')
+        # Create an encryption key to encrypt the file
+        self.create_encryption_key_file()
+        fernet = self.read_encryption_key()
+        # Open the original file to encrypt
+        with open(self.credentials_file, 'rb') as file:
+            original = file.read()
+        # Encrypt the file
+        encrypted = fernet.encrypt(original)
+        # Open the file in write mode and write the encrypted data
+        with open(self.credentials_file, 'wb') as encrypted_file:
+            encrypted_file.write(encrypted)
+        return login_user, login_pass
+
+    def decrypt_credentials(self):
+
+        # Read in and decrypt the encryption key
+        fernet = self.read_encryption_key()
+        # Open the encrypted file
+        with open(self.credentials_file, 'rb') as enc_file:
+            encrypted = enc_file.read()
+        # Decrypt the file
+        decrypted = fernet.decrypt(encrypted).decode()
+        # Set the username and password from the decrypted, decoded string
+        login_user, login_pass = decrypted.split('\n')
+        return login_user, login_pass
+
     def get_access_token(self):
         """
         Request an access token
@@ -101,26 +152,16 @@ class REST(object):
         print("Authorizing access")
         # Set URL to use for the verification
         authorize_url = self.test_web_url + '&page=authorizeClient&oauth_token=' + self.request_token
-               
-        answer = "n"
-        correct = "y" or "Y"
-
-        if answer != correct:
-            while answer != correct:
-                login_user = input("Enter your PubMLST username: ")
-                login_pass = input("Enter your PubMLST password: ")
-                answer = str(input("Is this login information correct (y/n)? "))
+        if not os.path.isfile(self.credentials_file):
+            login_user, login_pass = self.encrypt_credentials()
         else:
-            return login_user, login_pass        
-                
-        try:
-            chromedriver_autoinstaller.install()
-        except: 
-            print("Chromedriver-autoinstaller failed to install")        
-            
+            login_user, login_pass = self.decrypt_credentials()
+            if not login_user or login_pass:
+                login_user, login_pass = self.encrypt_credentials()
+
         # Setup chrome options
         chrome_options = Options()
-        chrome_options.add_argument("--headless") # Ensure GUI is off
+        chrome_options.add_argument("--headless")  # Ensure GUI is off
         chrome_options.add_argument("--no-sandbox")
         
         # Start up browser
@@ -191,7 +232,7 @@ class REST(object):
             # Write the token and secret to file
             self.write_token('request_token', self.request_token, self.request_secret)
 
-    def get_session_token(self):
+    def get_session_token(self, attempt=0):
         """
         Use the accession token to request a new session token
         """
@@ -220,6 +261,13 @@ class REST(object):
         else:
             print('Failed:')
             print(r.json()['message'])
+            if 'Invalid access token.  Generate new access token' in str(r.json()['message']) and not attempt:
+                self.overwrite_access_token()
+
+    def overwrite_access_token(self):
+        self.get_request_token()
+        self.get_access_token()
+        self.get_session_token(attempt=1)
 
     def write_token(self, token_type, token, secret):
         """
@@ -375,6 +423,8 @@ class REST(object):
         self.authorize_url = self.test_web_url + '&page=authorizeClient'
         self.secret_file = args.secret_file
         self.file_path = args.file_path
+        self.credentials_file = os.path.join(self.file_path, 'credentials.txt')
+        self.credentials_key = os.path.join(self.file_path, 'credentials.key')
         self.output_path = args.output_path
         self.consumer_key = str()
         self.consumer_secret = str()
