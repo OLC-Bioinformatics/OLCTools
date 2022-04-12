@@ -1,7 +1,4 @@
-[![Build status](https://travis-ci.org/lowandrew/OLCTools.svg?master)](https://travis-ci.org/lowandrew)
-
 # OLC Tools
-
 
 ### Program Dependencies
 
@@ -18,5 +15,5 @@ Other versions of these programs should work, but no guarantees.
 
 ### Functionality
 
-See https://lowandrew.github.io/OLCTools/ for descriptions of what OLCTools can do and full documentation.
+See https://olc-bioinformatics.github.io/OLCTools/ for descriptions of what OLCTools can do and full documentation.
 
