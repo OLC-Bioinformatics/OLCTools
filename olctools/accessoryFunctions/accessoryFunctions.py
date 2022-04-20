@@ -886,7 +886,10 @@ def combinetargets(targets, targetpath, mol_type='nt', clear_format=False):
                         # Remove and dashes or 'N's from the sequence data - makeblastdb can't handle sequences
                         # with gaps
                         # noinspection PyProtectedMember
-                        record.seq._data = record.seq._data.replace('-', '').replace('N', '')
+                        try:
+                            record.seq._data = record.seq._data.replace('-', '').replace('N', '')
+                        except TypeError:
+                            record.seq._data = record.seq._data.replace(b'-', b'').replace(b'N', b'')
                         # Clear the name and description attributes of the record
                         record.name = ''
                         record.description = ''
@@ -907,7 +910,10 @@ def combinetargets(targets, targetpath, mol_type='nt', clear_format=False):
                         # Remove and dashes or 'N's from the sequence data - makeblastdb can't handle sequences
                         # with gaps
                         # noinspection PyProtectedMember
-                        record.seq._data = record.seq._data.replace('-', '').replace('N', '')
+                        try:
+                            record.seq._data = record.seq._data.replace('-', '').replace('N', '')
+                        except TypeError:
+                            record.seq._data = record.seq._data.replace(b'-', b'').replace(b'N', b'')
                         # Clear the name and description attributes of the record
                         record.name = ''
                         record.description = ''
