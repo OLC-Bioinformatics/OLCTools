@@ -13,6 +13,7 @@ import zipfile
 import shutil
 import click
 import gzip
+import ssl
 import os
 __author__ = 'adamkoziol'
 
@@ -206,7 +207,9 @@ class DatabaseSetup(object):
                     scheme=scheme,
                     db=databasepath)
         if not os.path.isdir(os.path.join(databasepath, analysis, genus)):
-            call(enterobase_cmd, shell=True)
+            #call(enterobase_cmd, shell=True)
+            out, err = run_subprocess(enterobase_cmd)
+            print(out, err)
 
     @staticmethod
     def rmlst(databasepath, credentials):
@@ -291,7 +294,7 @@ class DatabaseSetup(object):
         if not os.path.isfile(output_file):
             self.database_download(output_file=output_file,
                                    database_path=databasepath,
-                                   target_url='https://gembox.cbcb.umd.edu/mash/refseq.genomes.k21s1000.msh',
+                                   target_url='https://obj.umiacs.umd.edu/marbl_publications/mash/refseq.genomes.k21s1000.msh',
                                    complete=True)
 
     def univec(self, databasepath):
@@ -313,15 +316,17 @@ class DatabaseSetup(object):
             shutil.copy(outputfile, renamed)
 
     @staticmethod
-    def url_request(target_url, output_file):
+    def url_request(target_url, output_file, context):
         """
         Use urllib to download the requested file from the target URL. Use the click progress bar to print download
         progress
         :param target_url: URL from which the file is to be downloaded
         :param output_file: Name and path of local copy of file
+        :param context: ssl.create_default_context() with check_hostname set to False, and verify_mode 
+        set to ssl.CERT_NONE
         """
         # Create the request
-        request = urllib.request.urlopen(target_url)
+        request = urllib.request.urlopen(target_url, context=context)
         # Open the destination file to write
         with open(output_file, 'wb') as targets:
             # Calculate the total file size - will be used by the progress bar
@@ -372,7 +377,8 @@ class DatabaseSetup(object):
         logging.debug(target_url)
         if not os.path.isfile(completefile):
             self.url_request(target_url=target_url,
-                             output_file=tar_file)
+                             output_file=tar_file,
+                             context=self.context)
         # Decompress the file
         self.decompress(databasepath=databasepath,
                         database_name=database_name,
@@ -427,8 +433,8 @@ class DatabaseSetup(object):
         logging.info('Downloading {} database'.format(analysistype))
         if analysistype == 'serosippr':
             databasepath = os.path.join(databasepath, analysistype, 'Escherichia')
-        elif analysistype == 'resfinder':
-            databasepath = databasepath
+        #elif analysistype == 'resfinder':
+        #    databasepath = databasepath
         else:
             databasepath = os.path.join(databasepath, analysistype)
         targetcall = 'git clone https://bitbucket.org/genomicepidemiology/{db}.git {atype}'\
@@ -485,7 +491,8 @@ class DatabaseSetup(object):
         completefile = os.path.join(database_path, 'complete')
         if not os.path.isfile(completefile):
             self.url_request(target_url=target_url,
-                             output_file=output_file)
+                             output_file=output_file,
+                             context=self.context)
             if complete:
                 # Create the completefile
                 with open(completefile, 'w') as complete:
@@ -545,6 +552,10 @@ class DatabaseSetup(object):
             'Salmonella': 'senterica',
             'Yersinia': 'yersinia'
         }
+        # Create a context to all for disabling SSL verifying
+        self.context = ssl.create_default_context()
+        self.context.check_hostname = False
+        self.context.verify_mode = ssl.CERT_NONE
 
 
 # If the script is called from the command line, then call the argument parser
