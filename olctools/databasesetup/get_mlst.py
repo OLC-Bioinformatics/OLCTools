@@ -4,6 +4,7 @@ from argparse import ArgumentParser
 from urllib.parse import urlparse
 import xml.dom.minidom as xml
 import urllib.request as url
+import ssl
 import os
 """
 Software Copyright License Agreement (BSD License)
@@ -28,6 +29,7 @@ xml file, the script simply reports the possible matches so the user can
 try again.
 '''
 
+ssl._create_default_https_context = ssl._create_unverified_context
 
 def parse_args():
     parser = ArgumentParser(description='Download MLST datasets by species'
@@ -110,7 +112,7 @@ def getspeciesinfo(species_node, species, exact):
                 for database_child_node in database_node.childNodes:
                     if testelementtag(database_child_node, 'url'):
                         info.database_url = gettext(database_child_node)
-                    elif testelementtag(database_child_node, 'retrieved'):
+                    elif testelementtag(database_child_node, 'retrieved') or testelementtag(database_child_node, b'retrieved'):
                         info.retrieved = gettext(database_child_node)
                     elif testelementtag(database_child_node, 'profiles'):
                         for profile_count in database_child_node.getElementsByTagName('count'):
@@ -141,13 +143,17 @@ def main(args):
                           'Listeria': 'Listeria monocytogenes',
                           'Bacillus': 'Bacillus cereus',
                           'Staphylococcus': "Staphylococcus aureus",
-                          'Salmonella': 'Salmonella enterica'}
+                          'Salmonella': 'Salmonella enterica',
+                          'Yersinia': 'Yersinia ruckeri'}
     # Set the appropriate profile based on the dictionary key:value pairs
     try:
         args.genus = organismdictionary[args.genus]
     except (KeyError, AttributeError):
         pass
-    with url.urlopen(args.repository_url) as docfile:
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    with url.urlopen(args.repository_url, context=ctx) as docfile:
         doc = xml.parse(docfile)
         root = doc.childNodes[0]
         found_species = []
@@ -164,7 +170,6 @@ def main(args):
                 print(info.name)
                 return
         # exit(2)
-
     # output information for the single matching species
     assert len(found_species) == 1
     species_info = found_species[0]
@@ -172,9 +177,9 @@ def main(args):
     species_name_underscores = species_name_underscores.replace('/', '_')
     species_all_fasta_filename = species_name_underscores + '.fasta'
     species_all_fasta_file = open('{}/{}'.format(args.path, species_all_fasta_filename), 'w')
-    log_filename = "mlst_data_download_{}_{}.log".format(species_name_underscores, species_info.retrieved)
+    log_filename = "mlst_data_download_{}.log".format(species_name_underscores)
     log_file = open('{}/{}'.format(args.path, log_filename), "w")
-    log_file.write(species_info.retrieved + '\n')
+    #log_file.write(species_info.retrieved + '\n')
     profile_path = urlparse(species_info.profiles_url).path
     profile_filename = profile_path.split('/')[-1]
     log_file.write("definitions: {}\n".format(profile_filename))
