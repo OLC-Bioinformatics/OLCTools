@@ -582,9 +582,9 @@ if __name__ == '__main__':
                         help='Optionally only download the databases used by the sipprverse method: genesippr, '
                              'sixteenS, GDCS, MASH, and ConFindr')
     parser.add_argument('-e', '--enterobase',
-                        action='store_false',
+                        action='store_true',
                         help='Use Enterobase to download MLST definitions for Escherichia, Salmonella, and Yersinia, '
-                             'as well as cgMLST schemes for Escherichia and Yersinia. Enabled by default')
+                             'as well as cgMLST schemes for Escherichia and Yersinia. Disabled by default')
     parser.add_argument('-v', '--verbose',
                         action='store_true',
                         help='Option to include debug level logging messages. Default is false')
