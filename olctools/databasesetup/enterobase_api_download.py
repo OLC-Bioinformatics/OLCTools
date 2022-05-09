@@ -19,6 +19,7 @@ import logging
 import urllib3
 import shutil
 import json
+import ssl
 import os
 
 
@@ -31,7 +32,7 @@ class DownloadScheme(object):
         self.download_alleles()
 
     def create_request(self, request_str):
-        http = urllib3.PoolManager()
+        http = urllib3.PoolManager(cert_reqs='CERT_NONE')
         headers = urllib3.util.make_headers(basic_auth='{token}:'.format(token=self.api_key))
         request = http.request(method='GET', url=request_str, headers=headers, preload_content=False)
         return request
@@ -167,12 +168,13 @@ class DownloadScheme(object):
         self.genus = genus_dict[self.organism]
         self.output_path = os.path.join(self.databasepath, self.scheme.split('_')[0], self.genus)
         make_path(self.output_path)
-        if genes.startswith('~'):
-            self.name_file = os.path.abspath(os.path.expanduser(os.path.join(genes)))
-        else:
-            self.name_file = os.path.abspath(os.path.join(genes))
+        if genes:
+            if genes.startswith('~'):
+                self.name_file = os.path.abspath(os.path.expanduser(os.path.join(genes)))
+            else:
+                self.name_file = os.path.abspath(os.path.join(genes))
+            assert os.path.isfile(self.name_file), f'Cannot find the supplied file with gene names: {self.name_file}'
         self.names = list()
-        assert os.path.isfile(self.name_file), f'Cannot find the supplied file with gene names: {self.name_file}'
         if self.organism == 'ecoli':
             self.api_key = ECOLI
             if not self.api_key:
