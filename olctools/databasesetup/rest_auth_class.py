@@ -40,6 +40,7 @@ databases (https://pubmlst.org/site_accounts.shtml#registering_with_databases)
 'modified by adamkoziol'
 
 
+
 class REST(object):
 
     def main(self):
@@ -163,7 +164,7 @@ class REST(object):
         chrome_options = Options()
         chrome_options.add_argument("--headless")  # Ensure GUI is off
         chrome_options.add_argument("--no-sandbox")
-        
+        chrome_options.add_argument("ignore-certificate-errors")
         # Start up browser
         browser = webdriver.Chrome(options=chrome_options)
 
@@ -197,6 +198,7 @@ class REST(object):
                                         access_token_secret=self.request_secret)
         # Perform a GET request with the appropriate keys and tokens
         r = session_request.get(self.access_token_url,
+                                verify=False,
                                 params={
                                     'oauth_verifier': verifier
                                 })
@@ -223,6 +225,7 @@ class REST(object):
         # Use the test URL in the GET request
         r = session.request(method='GET',
                             url=self.request_token_url,
+                            verify=False,
                             params={'oauth_callback': 'oob'})
         # If the status code is '200' (OK), proceed
         if r.status_code == 200:
@@ -249,7 +252,8 @@ class REST(object):
                                         access_token=self.access_token,
                                         access_token_secret=self.access_secret)
         # Perform a GET request with the appropriate keys and tokens
-        r = session_request.get(self.session_token_url)
+        r = session_request.get(self.session_token_url,
+                                verify=False)
         # If the status code is '200' (OK), proceed
         if r.status_code == 200:
             # Save the JSON-decoded token secret and token
@@ -310,7 +314,8 @@ class REST(object):
                                 access_token=self.session_token,
                                 access_token_secret=self.session_secret)
         # Use the test URL in the GET request
-        r = session.get(self.test_rest_url)
+        r = session.get(self.test_rest_url,
+                        verify=False)
         if r.status_code == 200 or r.status_code == 201:
             if re.search('json', r.headers['content-type'], flags=0):
                 decoded = r.json()
@@ -341,7 +346,8 @@ class REST(object):
                                     access_token=self.session_token,
                                     access_token_secret=self.session_secret)
             # The profile file is called profiles_csv on the server. Updated the URL appropriately
-            r = session.get(self.profile + '/1/profiles_csv')
+            r = session.get(self.profile + '/1/profiles_csv',
+                            verify=False)
             # On a successful GET request, parse the returned data appropriately
             if r.status_code == 200 or r.status_code == 201:
                 if re.search('json', r.headers['content-type'], flags=0):
@@ -361,7 +367,8 @@ class REST(object):
                                 access_token=self.session_token,
                                 access_token_secret=self.session_secret)
         # Use the URL for all loci determined above
-        r = session.get(self.loci)
+        r = session.get(self.loci,
+                        verify=False)
         if r.status_code == 200 or r.status_code == 201:
             if re.search('json', r.headers['content-type'], flags=0):
                 decoded = r.json()
@@ -404,7 +411,8 @@ class REST(object):
                                     access_token=self.session_token,
                                     access_token_secret=self.session_secret)
             # The allele file on the server is called alleles_fasta. Update the URL appropriately
-            r = session.get(url + '/alleles_fasta')
+            r = session.get(url + '/alleles_fasta',
+                            verify=False)
             if r.status_code == 200 or r.status_code == 201:
                 if re.search('json', r.headers['content-type'], flags=0):
                     decoded = r.json()
