@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
+from olctools.accessoryFunctions.accessoryFunctions import run_subprocess
+import selenium.common.exceptions
 from rauth import OAuth1Session
 import multiprocessing
+import subprocess
 import getpass
+import sys
 import os
 import re
 # import chromedriver_autoinstaller
@@ -38,7 +42,6 @@ databases (https://pubmlst.org/site_accounts.shtml#registering_with_databases)
 
 
 'modified by adamkoziol'
-
 
 
 class REST(object):
@@ -159,6 +162,43 @@ class REST(object):
             login_user, login_pass = self.decrypt_credentials()
             if not login_user or login_pass:
                 login_user, login_pass = self.encrypt_credentials()
+        try:
+            verifier = self.selenium_authorise(authorize_url=authorize_url,
+                                               login_user=login_user,
+                                               login_pass=login_pass)
+        except selenium.common.exceptions.SessionNotCreatedException:
+            try:
+                # Attempt to install the correct version of chromedriver
+                run_subprocess('python -m pip install chromedriver-autoinstaller')
+                import chromedriver_autoinstaller
+                chromedriver_autoinstaller.install()
+                verifier = self.selenium_authorise(authorize_url=authorize_url,
+                                                   login_user=login_user,
+                                                   login_pass=login_pass)
+            except selenium.common.exceptions.SessionNotCreatedException:
+                print('Visit this URL in your browser: ' + authorize_url)
+                # Use the user input to set the verifier code
+                verifier = input('Enter oauth_verifier from browser: ')
+        # Create a new session
+        session_request = OAuth1Session(consumer_key=self.consumer_key,
+                                        consumer_secret=self.consumer_secret,
+                                        access_token=self.request_token,
+                                        access_token_secret=self.request_secret)
+        # Perform a GET request with the appropriate keys and tokens
+        r = session_request.get(self.access_token_url,
+                                verify=False,
+                                params={
+                                    'oauth_verifier': verifier
+                                })
+        # If the status code is '200' (OK), proceed
+        if r.status_code == 200:
+            # Save the JSON-decoded token secret and token
+            self.access_token = r.json()['oauth_token']
+            self.access_secret = r.json()['oauth_token_secret']
+            # Write the token and secret to file
+            self.write_token('access_token', self.access_token, self.access_secret)
+
+    def selenium_authorise(self, authorize_url, login_user, login_pass):
 
         # Setup chrome options
         chrome_options = Options()
@@ -179,7 +219,14 @@ class REST(object):
         password = browser.find_element_by_name("password_field")
         password.clear()
         password.send_keys(login_pass)
-        
+        # If the cookie compliance element is present, it will intercept the login click
+        try:
+            cookie_dismiss = browser.find_element_by_class_name('cc-compliance')
+            cookie_dismiss.click()
+        except (selenium.common.exceptions.ElementNotInteractableException,
+                selenium.common.exceptions.NoSuchElementException,
+                selenium.common.exceptions.InvalidElementStateException):
+            pass
         login_button = browser.find_element_by_name("submit")
         login_button.click()
         authorize_button = browser.find_element_by_name("submit")
@@ -188,27 +235,9 @@ class REST(object):
         assert "Authorize third-party client" in browser.title
         code = browser.find_element_by_xpath("/html/body/div[2]/div[2]/div/div[2]/p[3]/b").get_attribute("innerHTML")
         verifier = code.split()[2]
-        browser.quit()    
+        browser.quit()
         print("Selenium Authorization Successful")
-
-        # Create a new session
-        session_request = OAuth1Session(consumer_key=self.consumer_key,
-                                        consumer_secret=self.consumer_secret,
-                                        access_token=self.request_token,
-                                        access_token_secret=self.request_secret)
-        # Perform a GET request with the appropriate keys and tokens
-        r = session_request.get(self.access_token_url,
-                                verify=False,
-                                params={
-                                    'oauth_verifier': verifier
-                                })
-        # If the status code is '200' (OK), proceed
-        if r.status_code == 200:
-            # Save the JSON-decoded token secret and token
-            self.access_token = r.json()['oauth_token']
-            self.access_secret = r.json()['oauth_token_secret']
-            # Write the token and secret to file
-            self.write_token('access_token', self.access_token, self.access_secret)
+        return verifier
 
     def get_request_token(self):
         """

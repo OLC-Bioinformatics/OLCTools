@@ -433,8 +433,6 @@ class DatabaseSetup(object):
         logging.info('Downloading {} database'.format(analysistype))
         if analysistype == 'serosippr':
             databasepath = os.path.join(databasepath, analysistype, 'Escherichia')
-        #elif analysistype == 'resfinder':
-        #    databasepath = databasepath
         else:
             databasepath = os.path.join(databasepath, analysistype)
         targetcall = 'git clone https://bitbucket.org/genomicepidemiology/{db}.git {atype}'\
