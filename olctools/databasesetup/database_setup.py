@@ -128,7 +128,7 @@ class DatabaseSetup(object):
                               database_name=database_name,
                               download_id=download_id)
 
-    def cowbat_targets(self, databasepath, database_name='COWBAT', download_id='18130850'):
+    def cowbat_targets(self, databasepath, database_name='COWBAT', download_id='25319129'):
         """
         Download OLC-specific COWBAT targets
         :param databasepath: path to use to save the database
@@ -154,7 +154,8 @@ class DatabaseSetup(object):
         call(condfindr_download, shell=True)
 
     @staticmethod
-    def mlst(databasepath, genera=('Campylobacter', 'Cronobacter', 'Listeria',
+    def mlst(databasepath, genera=('Escherichia', 'Salmonella', 'Yersinia',
+                                   'Campylobacter', 'Cronobacter', 'Listeria',
                                    'Bacillus', 'Staphylococcus', 'Vibrio')):
         """
         Download the necessary up-to-date MLST profiles and alleles from pubmlst
