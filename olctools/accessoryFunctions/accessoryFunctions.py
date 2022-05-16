@@ -874,12 +874,6 @@ def combinetargets(targets, targetpath, mol_type='nt', clear_format=False):
                         hybridrecord = SeqRecord(hybridseq,
                                                  description='',
                                                  id=hybridid)
-
-                        # Remove and dashes or 'N's from the sequence data - makeblastdb can't handle sequences
-                        # with gaps
-                        # noinspection PyProtectedMember
-                        hybridrecord.seq._data = hybridrecord.seq._data.replace('-', '').replace('N', '')
-                        # Write the original record to the file
                         # Extract the sequence record from each entry in the multifasta
                         # Replace and dashes in the record.id with underscores
                         record.id = record.id.replace('-', '_')
@@ -924,6 +918,23 @@ def combinetargets(targets, targetpath, mol_type='nt', clear_format=False):
 
 class KeyboardInterruptError(Exception):
     pass
+
+
+def target_names(sample, analysistype):
+    """
+    Extract all unique target names (anything before the first underscore) from a FASTA-file
+    :param sample: type Metadata object
+    :param analysistype: type str: Name of current analysis. Used for extract appropriate attribute from sample
+    :return: record_set: List of all unique records contained in the provided FASTA file
+    """
+    record_set = list()
+    for record in SeqIO.parse(sample[analysistype].combinedtargets, 'fasta'):
+        # Extract the string before the first underscore (if any)
+        base_name = record.id.split('_')[0]
+        # Add the base name to the list if it is not already present
+        if base_name not in record_set:
+            record_set.append(base_name)
+    return sorted(record_set)
 
 
 def strainer(sequencepath):
