@@ -21,6 +21,8 @@ class MetadataPrinter(object):
                 # Print useful information in case of an error
                 logging.warning('Error creating .json file for {sample}'.format(sample=sample.name))
                 raise
+            except TypeError as e:
+                logging.debug(f'Encountered TypeError writing metadata to file with the following details: {e}')
 
     def __init__(self, inputobject):
         try:
