@@ -169,13 +169,14 @@ class REST(object):
         except selenium.common.exceptions.SessionNotCreatedException:
             try:
                 # Attempt to install the correct version of chromedriver
-                run_subprocess('python -m pip install chromedriver-autoinstaller')
+                run_subprocess('python -m pip install chromedriver-autoinstaller --trusted-host pypi.org '
+                               '--trusted-host files.pythonhosted.org --trusted-host pypi.python.org ')
                 import chromedriver_autoinstaller
                 chromedriver_autoinstaller.install()
                 verifier = self.selenium_authorise(authorize_url=authorize_url,
                                                    login_user=login_user,
                                                    login_pass=login_pass)
-            except selenium.common.exceptions.SessionNotCreatedException:
+            except (ModuleNotFoundError, selenium.common.exceptions.SessionNotCreatedException):
                 print('Visit this URL in your browser: ' + authorize_url)
                 # Use the user input to set the verifier code
                 verifier = input('Enter oauth_verifier from browser: ')
