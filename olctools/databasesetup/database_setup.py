@@ -44,8 +44,8 @@ class DatabaseSetup(object):
         if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'rMLST')):
             self.rmlst(databasepath=self.databasepath,
                        credentials=self.credentials)
-        if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'cgMLST')):
-            self.enterobase_cgmlst(databasepath=self.databasepath)
+        # if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'cgMLST')):
+        #     self.enterobase_cgmlst(databasepath=self.databasepath)
         if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'univec')):
             self.univec(databasepath=self.databasepath)
         if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'resfinder')):
@@ -64,8 +64,8 @@ class DatabaseSetup(object):
             self.cge_db_downloader(databasepath=self.databasepath,
                                    analysistype='pointfinder',
                                    dbname='pointfinder_db')
-        if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'clark')):
-            self.clark(databasepath=self.databasepath)
+        # if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'clark')):
+        #     self.clark(databasepath=self.databasepath)
         self.download_date()
 
     def sipprverse_full(self):
@@ -242,7 +242,7 @@ class DatabaseSetup(object):
         :param databasepath: path to use to save the database
         :param genera: default genera for which alleles and profiles should be downloaded
         """
-        logging.info('Downloading MLST databases from Enterobase')
+        logging.info('Downloading cMLST databases from Enterobase')
         for genus in genera:
             self.enterobase_download(scheme='cgMLST',
                                      databasepath=databasepath,
