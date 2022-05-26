@@ -31,6 +31,9 @@ class DatabaseSetup(object):
             self.cowbat_targets(databasepath=self.databasepath)
         if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'ConFindr')):
             self.confindr_targets()
+        if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'rMLST')):
+            self.rmlst(databasepath=self.databasepath,
+                       credentials=self.credentials)
         if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'mash')):
             self.mash(databasepath=self.databasepath)
         if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'MLST')):
@@ -41,9 +44,6 @@ class DatabaseSetup(object):
                 self.mlst(databasepath=self.databasepath,
                           genera=('Bacillus', 'Campylobacter', 'Cronobacter', 'Escherichia', 'Listeria',
                                   'Salmonella', 'Staphylococcus', 'Vibrio', 'Yersinia'))
-        if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'rMLST')):
-            self.rmlst(databasepath=self.databasepath,
-                       credentials=self.credentials)
         # if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'cgMLST')):
         #     self.enterobase_cgmlst(databasepath=self.databasepath)
         if self.overwrite or not os.path.isdir(os.path.join(self.databasepath, 'univec')):

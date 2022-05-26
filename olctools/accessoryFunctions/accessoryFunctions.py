@@ -928,13 +928,17 @@ def target_names(sample, analysistype):
     :return: record_set: List of all unique records contained in the provided FASTA file
     """
     record_set = list()
-    for record in SeqIO.parse(sample[analysistype].combinedtargets, 'fasta'):
-        # Extract the string before the first underscore (if any)
-        base_name = record.id.split('_')[0]
-        # Add the base name to the list if it is not already present
-        if base_name not in record_set:
-            record_set.append(base_name)
-    return sorted(record_set)
+    try:
+        for record in SeqIO.parse(sample[analysistype].combinedtargets, 'fasta'):
+            # Extract the string before the first underscore (if any)
+            base_name = record.id.split('_')[0]
+            # Add the base name to the list if it is not already present
+            if base_name not in record_set:
+                record_set.append(base_name)
+        record_set = sorted(record_set)
+    except FileNotFoundError:
+        record_set = 'NA'
+    return record_set
 
 
 def strainer(sequencepath):
