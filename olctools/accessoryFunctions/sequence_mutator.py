@@ -7,6 +7,7 @@ from argparse import ArgumentParser, RawTextHelpFormatter
 import itertools
 import logging
 import random
+import math
 import sys
 import os
 
@@ -29,7 +30,7 @@ def read_target_file(target_file):
     return records[0]
 
 
-def mutate_bases(location, record, random_seed, mutation_dict, mutated_seq, mutated_header):
+def mutate_bases(location, record, random_seed, mutation_dict, mutated_seq, mutated_header, adjust=True):
     """
     Mutate the base of the target sequence at the requested location
     :param location: type int: Index of the base in the target sequence to be mutated
@@ -38,11 +39,15 @@ def mutate_bases(location, record, random_seed, mutation_dict, mutated_seq, muta
     :param mutation_dict: type dict: Dictionary storing the list of potential replacement bases for each nucleotide
     :param mutated_seq: type str: Target sequence to be modified with the mutated bases
     :param mutated_header: type header: Header of the target sequence to be modified with details of the mutations
+    :param adjust: type bool: Boolean whether the location needs to be adjusted to base-1. Default is True
     :return: mutated_seq: Target sequence modified with the mutations
     :return: mutated_header: Target header modified with details of the mutations
     """
-    # Adjust the location to be consistent with base-1
-    adjusted_location = int(location) - 1
+    # Adjust the location to be consistent with base-1 as required
+    if adjust:
+        adjusted_location = int(location) + 1
+    else:
+        adjusted_location = location
     # If a random seed wasn't provided, the choice will not be repeatable. Otherwise, adjust the random seed,
     # so that there is some randomness (but is still repeatable) based on the position, name, and length of
     # the record
@@ -63,6 +68,63 @@ def mutate_bases(location, record, random_seed, mutation_dict, mutated_seq, muta
     # Add the current location, the original base, and the mutated base to the header
     mutated_header += f'_base_{location}_{current_base}_to_{mutated_base}'
     return mutated_seq, mutated_header
+
+
+def mutate_target_locations(record, locations, mutation_dict, random_seed, adjust=True):
+    """
+    Mutate the target sequence at the requested location(s)
+    :param record: type: Bio.SeqRecord.SeqRecord object created from the target sequence by SeqIO
+    :param locations: type list: List of locations to mutate
+    :param mutation_dict: type dict: Dictionary storing the list of potential replacement bases for each nucleotide
+    :param random_seed: type int: User-provided seed value to allow consistent outputs
+    :param adjust: type bool: Boolean whether the location needs to be adjusted to base-1. Default is True
+    """
+    logging.info('Mutating requested base(s)')
+    # Initialise the string of the target sequence, so it can be iteratively mutated at each desired location
+    mutated_seq = str(record.seq)
+    # Initialise the header of the output sequence, so it can be iteratively updated after each mutation
+    mutated_header = record.id
+    # Update the header and sequence for each mutated location
+    for location in locations:
+        mutated_seq, mutated_header = \
+            mutate_bases(
+                location=location,
+                record=record,
+                random_seed=random_seed,
+                mutation_dict=mutation_dict,
+                mutated_seq=mutated_seq,
+                mutated_header=mutated_header,
+                adjust=adjust)
+    # Create a SeqRecord object using a Seq object of the sequence and the updated header
+    mutated_record = SeqRecord(seq=Seq(mutated_seq),
+                               description=str(),
+                               id=mutated_header)
+    logging.debug(f'Mutated target sequence is {str(mutated_record.seq)}')
+    return mutated_record
+
+
+def create_mutation_location_list(record, number, random_seed):
+    """
+    Create a list of mutations to locate in the target sequence
+    :param record: type: Bio.SeqRecord.SeqRecord object created from the target sequence by SeqIO
+    :param number: type int: User-provided number of mutations to introduce
+    :param random_seed: type int: User-provided seed value to allow consistent outputs
+    :return: locations: Sorted list of bases to mutate in the target sequence
+    """
+    # Find all target locations by creating a list of the range of the length of the sequence
+    target_locations = list(range(len(record.seq)))
+    # If a random seed wasn't provided, the choice will not be repeatable. Otherwise, adjust the random seed,
+    # so that there is some randomness (but is still repeatable) the name and length of the record
+    if random_seed:
+        # Set the random seed by adding the user-provided seed, the length of the record, and the length of the
+        # record header to the adjusted location to create a target, and position-specific repeatable change
+        adjusted_random_seed = random_seed + len(record.seq) + len(record.id)
+        logging.debug(f'Using random seed: {adjusted_random_seed} for {record.id}')
+        random.seed(adjusted_random_seed)
+    locations = sorted(random.sample(target_locations, number))
+    logging.debug(f'The following location(s) will be mutated in {record.id}: {", ".join(str(i) for i in locations)}')
+    return locations
+
 
 
 def write_outputs(output_file, mutated_record):
@@ -93,7 +155,7 @@ class SequenceMutatorLocation(object):
             locations=self.locations
         )
         # Create the mutated SeqRecord from the target sequence
-        mutated_record = self.mutate_target_locations(
+        mutated_record = mutate_target_locations(
             record=record,
             locations=self.locations,
             mutation_dict=self.mutation_dict,
@@ -137,37 +199,9 @@ class SequenceMutatorLocation(object):
                     cleaned_locations.append(location)
         # If there are locations that do not fall within the length of the target sequence, inform the user, and exit
         if missing:
-            logging.error(f'Missing the following positions in {seq_name}: {", ".join(missing)}')
+            logging.error(f'Missing the following position(s) in {seq_name}: {", ".join(missing)}')
             raise SystemExit
         return cleaned_locations
-
-    @staticmethod
-    def mutate_target_locations(record, locations, mutation_dict, random_seed):
-        """
-        Mutate the target sequence at the requested location(s)
-        :param record: type: Bio.SeqRecord.SeqRecord object created from the target sequence by SeqIO
-        :param locations: type list: User-provided locations to mutate
-        :param mutation_dict: type dict: Dictionary storing the list of potential replacement bases for each nucleotide
-        :param random_seed: type int: User-provided seed value to allow consistent outputs
-        """
-        logging.info('Mutating requested base(s)')
-        # Initialise the string of the target sequence, so it can be iteratively mutated at each desired location
-        mutated_seq = str(record.seq)
-        # Initialise the header of the output sequence, so it can be iteratively updated after each mutation
-        mutated_header = record.id
-        # Update the header and sequence for each mutated location
-        for location in locations:
-            mutated_seq, mutated_header = mutate_bases(location=location,
-                                                       record=record,
-                                                       random_seed=random_seed,
-                                                       mutation_dict=mutation_dict,
-                                                       mutated_seq=mutated_seq,
-                                                       mutated_header=mutated_header)
-        # Create a SeqRecord object using a Seq object of the sequence and the updated header
-        mutated_record = SeqRecord(seq=Seq(mutated_seq),
-                                   description=str(),
-                                   id=mutated_header)
-        return mutated_record
 
     def __init__(self, target_file, locations, output_path, random_seed):
         # Expand the path of the target file as necessary
@@ -277,7 +311,8 @@ class SequenceMutatorRange(object):
                                                        random_seed=random_seed,
                                                        mutation_dict=mutation_dict,
                                                        mutated_seq=mutated_seq,
-                                                       mutated_header=mutated_header)
+                                                       mutated_header=mutated_header,
+                                                       adjust=False)
         # Create a SeqRecord object using a Seq object of the sequence and the updated header
         mutated_record = SeqRecord(seq=Seq(mutated_seq),
                                    description=str(),
@@ -334,7 +369,7 @@ class SequenceMutatorRange(object):
         # e.g. for a 50 bp target, and 10 bp spacing, 10, 20, 30, 40 would be returned. 0 is skipped from starting at
         # the first interval, and 50 is skipped from the nature of slices not including the stop value
         spaced_bases = [i for i in range(len(record.seq))][spacing::spacing]
-        logging.debug(f'The following bases will be used in the mutation analyses '
+        logging.debug(f'The following base(s) will be used in the mutation analyses '
                       f'{", ".join([str(base) for base in spaced_bases])}')
         # Initialise a list to store all the mutated records
         mutated_records = list()
@@ -350,11 +385,12 @@ class SequenceMutatorRange(object):
             # Iterate through all the tuples of locations in the list of combinations e.g. (20, 30)
             for locations in combinations:
                 # Use SequenceMutatorLocation.mutate_target_locations to mutate the requested locations
-                mutated_record = SequenceMutatorLocation.mutate_target_locations(
+                mutated_record = mutate_target_locations(
                     record=record,
                     locations=list(locations),
                     mutation_dict=mutation_dict,
                     random_seed=random_seed,
+                    adjust=False,
                 )
                 mutated_records.append(mutated_record)
         # Write all the mutated records to the output file
@@ -401,12 +437,153 @@ class SequenceMutatorRange(object):
         }
 
 
+class SequenceMutatorNumber(object):
+
+    def main(self):
+        # Parse the target sequence with SeqIO
+        record = read_target_file(target_file=self.target_file)
+        target_length = len(str(record.seq))
+        if self.number > target_length:
+            logging.warning(
+                f'You have asked for the sequence to be mutated in {self.number} locations, however, the sequence is '
+                f'only {target_length}. The number of mutations will be decreased to {target_length}')
+            self.number = target_length
+        self.locations = create_mutation_location_list(
+            record=record,
+            number=self.number,
+            random_seed=self.random_seed)
+        # Create the mutated SeqRecord from the target sequence
+        mutated_record = mutate_target_locations(
+            record=record,
+            locations=self.locations,
+            mutation_dict=self.mutation_dict,
+            random_seed=self.random_seed,
+            adjust=False,
+        )
+        # Write the mutated record to the output file
+        write_outputs(output_file=self.output_file,
+                      mutated_record=mutated_record)
+
+    def __init__(self, target_file, number, output_path, random_seed):
+        # Expand the path of the target file as necessary
+        if target_file.startswith('~'):
+            self.target_file = os.path.abspath(os.path.expanduser(os.path.join(target_file)))
+        else:
+            self.target_file = os.path.abspath(os.path.join(target_file))
+        try:
+            assert os.path.isfile(self.target_file), \
+                f'Cannot located target file: {self.target_file}. ' \
+                f'Please ensure that you entered the correct name and path'
+        except AssertionError:
+            raise SystemExit
+        if not output_path:
+            self.output_path = os.path.join(os.path.dirname(self.target_file), 'outputs')
+        else:
+            if output_path.startswith('~'):
+                self.output_path = os.path.abspath(os.path.expanduser(os.path.join(output_path)))
+            else:
+                self.output_path = os.path.abspath(os.path.join(output_path))
+        make_path(self.output_path)
+        self.output_file = os.path.join(self.output_path, 'mutated_target.fasta')
+        self.number = number
+        self.locations = list()
+        self.random_seed = int(random_seed)
+        self.mutation_dict = {
+            'A': ['C', 'G', 'T'],
+            'C': ['A', 'G', 'T'],
+            'G': ['A', 'C', 'T'],
+            'T': ['A', 'C', 'G']
+        }
+
+
+class SequenceMutatorPercentIdentity(object):
+
+    def main(self):
+        # Parse the target sequence with SeqIO
+        record = read_target_file(target_file=self.target_file)
+        self.number = self.determine_number_of_mutations(
+            record=record,
+            percent_id=self.percent_id)
+
+        self.locations = create_mutation_location_list(
+            record=record,
+            number=self.number,
+            random_seed=self.random_seed)
+        # Create the mutated SeqRecord from the target sequence
+        mutated_record = mutate_target_locations(
+            record=record,
+            locations=self.locations,
+            mutation_dict=self.mutation_dict,
+            random_seed=self.random_seed,
+            adjust=False
+        )
+        # Write the mutated record to the output file
+        write_outputs(output_file=self.output_file,
+                      mutated_record=mutated_record)
+
+    @staticmethod
+    def determine_number_of_mutations(record, percent_id):
+        """
+
+        :param record:
+        :param percent_id:
+        :return:
+        """
+        # Determine the length of the target sequence
+        target_length = len(str(record.seq))
+        # Calculate the number of bases matching the supplied percent identity. Subtract from the total target length
+        # the length of the sequence multiplied by the supplied percent identity, and divide by 100.
+        # Convert it to int to remove decimal places. Due to the rounding, small sequences will yield the same outputs
+        # with different percent identities e.g. 50 bp sequence will return 1 base with both 98% and 99% identity
+        number = target_length - int(target_length * float(percent_id) / 100)
+        logging.debug(f'{number} base(s) will be mutated in {record.id}')
+        return number
+
+
+    def __init__(self, target_file, percent_id, output_path, random_seed):
+        # Expand the path of the target file as necessary
+        if target_file.startswith('~'):
+            self.target_file = os.path.abspath(os.path.expanduser(os.path.join(target_file)))
+        else:
+            self.target_file = os.path.abspath(os.path.join(target_file))
+        try:
+            assert os.path.isfile(self.target_file), \
+                f'Cannot located target file: {self.target_file}. ' \
+                f'Please ensure that you entered the correct name and path'
+        except AssertionError:
+            raise SystemExit
+        if not output_path:
+            self.output_path = os.path.join(os.path.dirname(self.target_file), 'outputs')
+        else:
+            if output_path.startswith('~'):
+                self.output_path = os.path.abspath(os.path.expanduser(os.path.join(output_path)))
+            else:
+                self.output_path = os.path.abspath(os.path.join(output_path))
+        make_path(self.output_path)
+        self.output_file = os.path.join(self.output_path, 'mutated_target.fasta')
+        self.percent_id = percent_id
+        try:
+            assert 0 < self.percent_id < 100
+        except AssertionError:
+            logging.error('The percent identity must be between 1% and 99%')
+            raise SystemExit
+        self.number = int()
+        self.locations = list()
+        self.random_seed = int(random_seed)
+        self.mutation_dict = {
+            'A': ['C', 'G', 'T'],
+            'C': ['A', 'G', 'T'],
+            'G': ['A', 'C', 'T'],
+            'T': ['A', 'C', 'G']
+        }
+
+
 def mutation_location(args):
     """
     Run the SequenceMutatorLocation class
     :param args: type ArgumentParser arguments
     """
-    logging.info(f'Mutating target sequence in {args.target_file} at the following locations: {args.locations}')
+    logging.info(f'Mutating target sequence in {args.target_file} at the following location(s): {args.locations}')
     mut_location = SequenceMutatorLocation(
         target_file=args.target_file,
         locations=args.locations,
@@ -417,6 +594,10 @@ def mutation_location(args):
 
 
 def mutation_range(args):
+    """
+    Run the SequenceMutatorRange class
+    :param args: type ArgumentParser arguments
+    """
     logging_string = f'Mutating target sequence as follows: minimum mutations {args.min}, maximum mutations {args.max}'
     if args.spacing:
         logging_string += f', with spacing of mutations: {args.spacing}'
@@ -431,6 +612,36 @@ def mutation_range(args):
     )
     mut_range.main()
 
+
+def mutation_number(args):
+    """
+    Run the SequenceMutatorNumber class
+    :param args: type ArgumentParser arguments
+    """
+    logging.info(f'Inserting {args.number} mutations into target sequence in {args.target_file}')
+    mut_location = SequenceMutatorNumber(
+        target_file=args.target_file,
+        number=args.number,
+        output_path=args.output_path,
+        random_seed=args.random_seed
+    )
+    mut_location.main()
+
+
+def mutation_percent_id(args):
+    """
+    Run the SequenceMutatorPercentIdentity class
+    :param args: type ArgumentParser arguments
+    """
+    logging.info(f'Creating output sequence with {args.percent_identity}% identity to target sequence in '
+                 f'{args.target_file}')
+    mut_location = SequenceMutatorPercentIdentity(
+        target_file=args.target_file,
+        percent_id=args.percent_identity,
+        output_path=args.output_path,
+        random_seed=args.random_seed
+    )
+    mut_location.main()
 
 def cli():
     parser = ArgumentParser(description='Mutate a target sequence. Specify the number of mutations')
@@ -510,6 +721,43 @@ def cli():
              'spacing. Minimum is 5'
     )
     range_subparser.set_defaults(func=mutation_range)
+    # Number subparser
+    number_subparser = subparsers.add_parser(
+        parents=[parent_parser],
+        name='number',
+        description='Specify the number of desired mutation(s)',
+        formatter_class=RawTextHelpFormatter,
+        help='Specify the number of desired mutation(s)'
+    )
+    number_subparser.add_argument(
+        '-n', '--number',
+        default=0,
+        type=int,
+        metavar='',
+        help='The number of mutations to introduce into the target sequence. If the target has fewer nucleotides than '
+             'the number of mutations, the entire sequence will be mutated.'
+    )
+    number_subparser.set_defaults(func=mutation_number)
+    # Percent ID subparser
+    percent_id_subparser = subparsers.add_parser(
+        parents=[parent_parser],
+        name='percent_id',
+        description='Specify the percent identity of the sequence following the insertion of mutations to the '
+                    'target sequence',
+        formatter_class=RawTextHelpFormatter,
+        help='Specify the percent identity of the sequence following the insertion of mutations to the '
+                    'target sequence'
+    )
+    percent_id_subparser.add_argument(
+        '-p', '--percent_identity',
+        default=99,
+        type=int,
+        metavar='',
+        help='The percent identity of the output sequence to the original sequence following the insertion of mutations'
+             ' e.g. if the sequence is 100 bp, and you wish to have a 90% identity, 10 mutations will be inserted. '
+             'Default is 99.'
+    )
+    percent_id_subparser.set_defaults(func=mutation_percent_id)
     # Get the arguments into an object
     arguments = parser.parse_args()
     # Set up the logging
