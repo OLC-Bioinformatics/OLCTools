@@ -866,10 +866,7 @@ def combinetargets(targets, targetpath, mol_type='nt', clear_format=False):
                         # Replace and dashes in the record.id with underscores
                         hybridid = hybridid.replace('-', '_')
                         # Convert the string to a seq object
-                        if mol_type == 'nt':
-                            hybridseq = Seq(seq)
-                        else:
-                            hybridseq = Seq(seq)
+                        hybridseq = Seq(seq)
                         # Create a SeqRecord of the sequence - use the sequence object and id
                         hybridrecord = SeqRecord(hybridseq,
                                                  description='',
@@ -881,9 +878,15 @@ def combinetargets(targets, targetpath, mol_type='nt', clear_format=False):
                         # with gaps
                         # noinspection PyProtectedMember
                         try:
-                            record.seq._data = record.seq._data.replace('-', '').replace('N', '')
+                            record.seq._data = record.seq._data.upper().replace('-', '')
                         except TypeError:
-                            record.seq._data = record.seq._data.replace(b'-', b'').replace(b'N', b'')
+                            record.seq._data = record.seq._data.replace(b'-', b'')
+                        # Protein sequences can have 'N'
+                        if mol_type == 'nt':
+                            try:
+                                record.seq._data = record.seq._data.replace('N', '')
+                            except TypeError:
+                                record.seq._data = record.seq._data.replace(b'N', b'')
                         # Clear the name and description attributes of the record
                         record.name = ''
                         record.description = ''
@@ -905,9 +908,15 @@ def combinetargets(targets, targetpath, mol_type='nt', clear_format=False):
                         # with gaps
                         # noinspection PyProtectedMember
                         try:
-                            record.seq._data = record.seq._data.replace('-', '').replace('N', '')
+                            record.seq._data = record.seq._data.upper().replace('-', '')
                         except TypeError:
-                            record.seq._data = record.seq._data.replace(b'-', b'').replace(b'N', b'')
+                            record.seq._data = record.seq._data.replace(b'-', b'')
+                        # Protein sequences can have 'N'
+                        if mol_type == 'nt':
+                            try:
+                                record.seq._data = record.seq._data.replace('N', '')
+                            except TypeError:
+                                record.seq._data = record.seq._data.replace(b'N', b'')
                         # Clear the name and description attributes of the record
                         record.name = ''
                         record.description = ''
