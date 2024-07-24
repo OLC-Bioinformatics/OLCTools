@@ -1,13 +1,20 @@
 #!/usr/bin/env python3
 from olctools.accessoryFunctions.accessoryFunctions import run_subprocess
+from concurrent.futures import ThreadPoolExecutor
+from email.utils import parsedate_to_datetime
 import selenium.common.exceptions
 from rauth import OAuth1Session
+from datetime import datetime
 import multiprocessing
 import subprocess
+import threading
 import getpass
+import pytz
+import time
 import sys
 import os
 import re
+        
 # import chromedriver_autoinstaller
 import chromedriver_binary
 from cryptography.fernet import Fernet
@@ -15,6 +22,9 @@ from cryptography.fernet import Fernet
 from selenium import webdriver
 # from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
+
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 """
 Script to test access to authenticated resources via REST interface.
@@ -51,12 +61,26 @@ class REST(object):
         Run the appropriate methods in the correct order
         """
         self.secret_finder()
+        print('Located secrets')
+        
         self.parse_access_token()
+        print('Parsed access token')
+        
         self.get_session_token()
+        print('Got session token')
+        
         self.parse_session_token()
+        print('Parsed session token')
+        
         self.get_route()
+        print('Got route')
+        
         self.download_profile()
+        print('Downloaded profile')
+        
         self.find_loci()
+        print('Found {num} loci'.format(num=len(self.loci_url)))
+        
         self.download_loci()
 
     def secret_finder(self):
@@ -269,28 +293,83 @@ class REST(object):
         """
         Use the accession token to request a new session token
         """
-        # self.logging.info('Getting session token')
-        # Rather than testing any previous session tokens to see if they are still valid, simply delete old tokens in
-        # preparation of the creation of new ones
+        # Rather than testing any previous session tokens to see if they are
+        # still valid, simply delete old tokens in preparation of the creation
+        # of new ones
         try:
             os.remove(os.path.join(self.file_path, 'session_token'))
         except FileNotFoundError:
             pass
+        
         # Create a new session
-        session_request = OAuth1Session(self.consumer_key,
-                                        self.consumer_secret,
-                                        access_token=self.access_token,
-                                        access_token_secret=self.access_secret)
+        session_request = OAuth1Session(
+            self.consumer_key,
+            self.consumer_secret,
+            access_token=self.access_token,
+            access_token_secret=self.access_secret
+        )
+        
         # Perform a GET request with the appropriate keys and tokens
         r = session_request.get(self.session_token_url,
                                 verify=False)
+        
+        # Print the local timestamp
+        local_timestamp = int(time.time())
+        print(f"Local timestamp: {local_timestamp}")
+        
+        # Print the response headers to check for server timestamp
+        print(f"Response headers: {r.headers}")
+
+        # If the server returns the timestamp in the response body, print it
+        print(f"Response body: {r.text}")
+        
+        # Extract the server timestamp from the response headers
+        server_date_str = r.headers.get('Date')
+        print('Sever date string', server_date_str)
+        
+        if server_date_str:
+            print(f"Server date string: {server_date_str}")
+            
+            # Convert the server date string to a timestamp
+            server_date = parsedate_to_datetime(server_date_str)
+            server_timestamp = int(server_date.timestamp())
+            print(f"Server timestamp: {server_timestamp}")
+
+            # Check if the timestamps are more than 600 seconds apart
+            if abs(server_timestamp - local_timestamp) > 600:
+                print(
+                    "Timestamps are more than 600 seconds apart. "
+                    "Adjusting request timestamp."
+                )
+
+                # Adjust the local time to match the server time
+                adjusted_timestamp = server_timestamp
+                print(f"Adjusted local timestamp: {adjusted_timestamp}")
+
+                # Set the system time to the server time
+                os.system(f'sudo date -s "@{server_timestamp}"')
+
+                # Make a second request with the adjusted timestamp
+                session_request = OAuth1Session(
+                    self.consumer_key,
+                    self.consumer_secret,
+                    access_token=self.access_token,
+                    access_token_secret=self.access_secret
+                )
+                r = session_request.get(self.session_token_url, verify=False)
+                print(f"Second request response headers: {r.headers}")
+                print(f"Second request response body: {r.text}")
+            
         # If the status code is '200' (OK), proceed
         if r.status_code == 200:
             # Save the JSON-decoded token secret and token
             self.session_token = r.json()['oauth_token']
             self.session_secret = r.json()['oauth_token_secret']
+            
             # Write the token and secret to file
-            self.write_token('session_token', self.session_token, self.session_secret)
+            self.write_token(
+                'session_token', self.session_token, self.session_secret
+            )
         # Any other status than 200 is considered a failure
         else:
             print('Failed:')
@@ -354,6 +433,9 @@ class REST(object):
             # Extract the URLs from the returned data
             self.loci = decoded['loci']
             self.profile = decoded['schemes']
+            print('loci', self.loci)
+            print('profile', self.profile)
+            
 
     def download_profile(self):
         """
@@ -413,44 +495,61 @@ class REST(object):
         """
         Uses a multi-threaded approach to download allele files
         """
-        # Setup the multiprocessing pool.
-        pool = multiprocessing.Pool(processes=self.threads)
-        # Map the list of loci URLs to the download method
-        pool.map(self.download_threads, self.loci_url)
-        pool.close()
-        pool.join()
+        with ThreadPoolExecutor(max_workers=self.threads) as executor:
+            executor.map(self.download_threads, self.loci_url)
 
     def download_threads(self, url):
         """
         Download the allele files
         """
-        # Set the name of the allele file - split the gene name from the URL
-        output_file = os.path.join(self.output_path, '{}.tfa'.format(os.path.split(url)[-1]))
-        # Check to see whether the file already exists, and if it is unusually small
-        size = 0
-        try:
-            stats = os.stat(output_file)
-            size = stats.st_size
-        except FileNotFoundError:
-            pass
-        # If the file doesn't exist, or is truncated, proceed with the download
-        if not os.path.isfile(output_file) or size <= 100:
-            # Create a new session
-            session = OAuth1Session(self.consumer_key,
-                                    self.consumer_secret,
-                                    access_token=self.session_token,
-                                    access_token_secret=self.session_secret)
-            # The allele file on the server is called alleles_fasta. Update the URL appropriately
-            r = session.get(url + '/alleles_fasta',
-                            verify=False)
-            if r.status_code == 200 or r.status_code == 201:
-                if re.search('json', r.headers['content-type'], flags=0):
-                    decoded = r.json()
+        with self.semaphore:
+            # Set the name of the allele file. Split the gene name from the URL
+            output_file = os.path.join(
+                self.output_path, '{}.tfa'.format(os.path.split(url)[-1])
+            )
+            
+            # Check to see whether the file already exists, and if it
+            # is unusually small
+            size = 0
+            try:
+                stats = os.stat(output_file)
+                size = stats.st_size
+            except FileNotFoundError:
+                pass
+            
+            # If the file doesn't exist, or is truncated, proceed with
+            # the download
+            if not os.path.isfile(output_file) or size <= 100:
+                # Create a new session
+                session = OAuth1Session(
+                    self.consumer_key,
+                    self.consumer_secret,
+                    access_token=self.session_token,
+                    access_token_secret=self.session_secret)
+                
+                # The allele file on the server is called alleles_fasta.
+                # Update the URL appropriately
+                r = session.get(
+                    url + '/alleles_fasta',
+                    verify=False
+                )
+                
+                # Ensure that the request was successful
+                if r.status_code == 200 or r.status_code == 201:
+                    
+                    # If the content type is JSON, decode it
+                    if re.search('json', r.headers['content-type'], flags=0):
+                        decoded = r.json()
+                    else:
+                        decoded = r.text
+                    
+                    # Write the allele to disk
+                    with open(output_file, 'w') as allele:
+                        allele.write(decoded)
+                        
+                    print('Downloaded ', output_file)
                 else:
-                    decoded = r.text
-                # Write the allele to disk
-                with open(output_file, 'w') as allele:
-                    allele.write(decoded)
+                    print('Text', r.text)
 
     def __init__(self, args):
         self.test_rest_url = 'https://rest.pubmlst.org/db/pubmlst_rmlst_seqdef'
@@ -476,3 +575,5 @@ class REST(object):
         self.profile = str()
         self.loci_url = list()
         self.threads = multiprocessing.cpu_count()
+        # Limit to 3 concurrent requests
+        self.semaphore = threading.Semaphore(3)

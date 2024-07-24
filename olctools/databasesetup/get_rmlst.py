@@ -38,8 +38,9 @@ class Get(object):
         alleles = glob(os.path.join(newfolder, '*.tfa'))
         self.combinealleles(newfolder, alleles)
 
-    def combinealleles(self, allelepath, alleles):
-        self.logging.info('Creating combined rMLST allele file')
+    @staticmethod
+    def combinealleles(allelepath, alleles):
+        # self.logging.info('Creating combined rMLST allele file')
         with open(os.path.join(allelepath, 'rMLST_combined.fasta'), 'w') as combinedfile:
             # Open each allele file
             for allele in sorted(alleles):
