@@ -168,7 +168,7 @@ def main(args):
             print("The following {} species match your query, please be more specific:".format(len(found_species)))
             for info in found_species:
                 print(info.name)
-                return
+            return
         # exit(2)
     # output information for the single matching species
     assert len(found_species) == 1
