@@ -1,0 +1,3 @@
+ECOLI = ''
+SENTERICA = ''
+YERSINIA = ''
