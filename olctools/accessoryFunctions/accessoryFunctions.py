@@ -1,51 +1,63 @@
 #!/usr/bin/env python3
-# noinspection PyProtectedMember
+
+"""
+Collection of commonly-used functions for OLC-Bioinformatics
+
+"""
+
+# Standard imports
+from collections import defaultdict
+import datetime
+import glob
+import logging
+import os
+import re
+import shlex
+import shutil
+import subprocess
+from subprocess import Popen, PIPE, STDOUT
+import sys
+import time
+from typing import List
+
+# Third-party imports
 from Bio.Application import _Option, AbstractCommandline, _Switch
 from Bio.SeqRecord import SeqRecord
 from Bio.Seq import Seq
 from Bio import SeqIO
-from subprocess import Popen, PIPE, STDOUT
-from collections import defaultdict
-import subprocess
-import datetime
-import logging
-import shutil
-import shlex
-import time
-import glob
-import os
-import re
-import sys
+from olctools.accessoryFunctions.metadata import CustomBox
 
 __author__ = 'adamkoziol', 'andrewlow'
 
 
 def dependency_check(dependency):
     """
-    Checks a program to see if it's installed (or at least, checks whether or not some sort of executable
-    for it is on your path).
+    Checks a program to see if it's installed (or at least, checks whether or
+    not some sort of executable for it is on your path).
     :param dependency: Name of program you want to check, as a string.
     :return: True if dependency is present, False if it isn't.
     """
     check = shutil.which(dependency)
     if not check:
         return False
-    else:
-        return True
+    return True
 
 
 def find_paired_reads(fastq_directory, forward_id='_R1', reverse_id='_R2'):
     """
-    Looks at a directory to try to find paired fastq files. Should be able to find anything fastq.
+    Looks at a directory to try to find paired fastq files. Should be able to
+    find anything fastq.
     :param fastq_directory: Complete path to directory containing fastq files.
     :param forward_id: Identifier for forward reads. Default R1.
     :param reverse_id: Identifier for reverse reads. Default R2.
-    :return: List containing pairs of fastq files, in format [[forward_1, reverse_1], [forward_2, reverse_2]], etc.
+    :return: List containing pairs of fastq files, in format [[forward_1,
+    reverse_1], [forward_2, reverse_2]], etc.
     """
     pair_list = list()
     fastq_files = glob.glob(os.path.join(fastq_directory, '*.f*q*'))
     for name in fastq_files:
-        if forward_id in name and os.path.isfile(name.replace(forward_id, reverse_id)):
+        if forward_id in name and os.path.isfile(
+            name.replace(forward_id, reverse_id)):
             pair_list.append([name, name.replace(forward_id, reverse_id)])
     return pair_list
 
@@ -63,75 +75,141 @@ def find_unpaired_reads(fastq_directory, forward_id='_R1', reverse_id='_R2'):
     for name in fastq_files:
         if forward_id not in name and reverse_id not in name:
             unpaired_list.append(name)
-        elif forward_id in name and not os.path.isfile(name.replace(forward_id, reverse_id)):
+        elif forward_id in name and not os.path.isfile(
+            name.replace(forward_id, reverse_id)):
             unpaired_list.append(name)
-        elif reverse_id in name and not os.path.isfile(name.replace(reverse_id, forward_id)):
+        elif reverse_id in name and not os.path.isfile(
+                                                       ame.replace(reverse_id, forward_id)):
             unpaired_list.append(name)
     return unpaired_list
 
 
-def download_file(address, output_name, hour_start=18, hour_end=6, day_start=5, day_end=6, timeout=600):
+def download_file(
+    address, output_name, hour_start=18, hour_end=6, day_start=5,
+        day_end=6, timeout=600):
     """
-    Downloads a file, between specified hours. (Hour start has to be greater than hour end for this to work in current
+    Downloads a file, between specified hours. (Hour start has to be greater
+    than hour end for this to work in current
     iteration).
     :param address: Address of file that you want to download.
     :param output_name: Where you want to save the file to.
-    :param hour_start: Start of window where downloading is acceptable. Default 6PM (1800h)
-    :param hour_end: End of window where downloading is acceptable. Default 6AM (600h)
-    :param day_start: Start of window where it's always OK to download. Default Saturday (day 5).
-    :param day_end: End of window where it's always OK to download. Default Sunday (day 6).
-    :param timeout: How often to check if you're outside the acceptable download window (default 600 seconds).
+    :param hour_start: Start of window where downloading is acceptable.
+        Default 6PM (1800h)
+    :param hour_end: End of window where downloading is acceptable.
+        Default 6AM (600h)
+    :param day_start: Start of window where it's always OK to download.
+        Default Saturday (day 5).
+    :param day_end: End of window where it's always OK to download.
+        Default Sunday (day 6).
+    :param timeout: How often to check if you're outside the acceptable
+        download window (default 600 seconds).
     :return:
     """
-    out = open(os.devnull, 'w')
-    returncode = 28  # While loop is based on returncode given by curl, so need to initialize it to something.
-    while returncode != 0:  # 0 means that the file has already been downloaded completely, so stop looping then.
-        # Figure out what hour it is. If not in acceptable download window, wait a while before checking again.
+    out = open(os.devnull, 'w', encoding='utf-8')
+    # While loop is based on returncode given by curl, so need to initialize
+    # it to something.
+    returncode = 28
+
+    # 0 means that the file has already been downloaded completely, so stop
+    # looping then.
+    while returncode != 0:
+        # Figure out what hour it is. If not in acceptable download window,
+        # wait a while before checking again.
         hour = datetime.datetime.now().time().hour
         minute = datetime.datetime.now().time().minute
         day = datetime.datetime.today().weekday()
-        acceptable_hour = not(hour_end < hour < hour_start)  # True if current hour is between start and end.
-        acceptable_day = day_start <= day <= day_end  # True if current day is a weekend day.
-        if not(acceptable_hour or acceptable_day):
-            print('Current time is {hour}:{minute}. I am not allowed to start downloading until'
-                  ' {start_hour}:00.'.format(hour=hour, minute=minute, start_hour=hour_start))
+
+        # True if current hour is between start and end.
+        acceptable_hour = not(hour_end < hour < hour_start)
+
+        # True if current day is a weekend day.
+        acceptable_day = day_start <= day <= day_end
+        if not (acceptable_hour or acceptable_day):
+            print(
+                f'Current time is {hour}:{minute}. I am not allowed to start '
+                f'downloading until {hour_start}:00.'
+            )
             time.sleep(timeout)
         # If the file doesn't already exist, start downloading it.
         elif not os.path.exists(output_name):
-            cmd = 'curl -o {outname} --max-time {timeout} {address}'.format(timeout=timeout,
-                                                                            address=address,
-                                                                            outname=output_name)
-            returncode = subprocess.call(cmd, shell=True, stdout=out, stderr=out)
-        # If the file does already exist, download it starting from filesize offset.
+            cmd = f'curl -o {output_name} --max-time {timeout} {address}'
+            returncode = subprocess.call(
+                cmd, shell=True, stdout=out, stderr=out
+            )
+        # If the file does already exist, download it starting from filesize
+        # offset.
         else:
             file_size = os.path.getsize(output_name)
-            cmd = 'curl -o {outname} --max-time {timeout} -C {file_size} {address}'.format(timeout=timeout,
-                                                                                           address=address,
-                                                                                           outname=output_name,
-                                                                                           file_size=file_size)
-            returncode = subprocess.call(cmd, shell=True, stdout=out, stderr=out)
+            cmd = f'curl -o {output_name} --max-time {timeout} '\
+                f'-C {file_size} {address}'
+            returncode = subprocess.call(
+                cmd, shell=True, stdout=out, stderr=out
+            )
 
 
-def write_to_logfile(out, err, logfile, samplelog=None, sampleerr=None, analysislog=None, analysiserr=None):
+def write_metadata_to_file(
+        metadata: List[CustomBox],
+        error_logger: logging.Logger = None,
+) -> None:
     """
-    Writes out and err (both should be strings) to logfile.
+    Write metadata for each sample to its respective JSON file.
+
+    This function iterates over a list of CustomBox metadata objects for
+    samples and writes each one to its specified JSON file. If an IOError
+    occurs during the file writing process, it logs the error and calls an
+    error logger.
+
+    Args:
+        error_logger (logging.Logger): Logger instance for logging errors.
+        metadata (List[CustomBox]): List of CustomBox metadata objects.
+
+    Example usage:
+    >>> metadata = [CustomBox(name='sample1',
+        json_file='sample1_metadata.json')]
+    >>> write_metadata_to_file(error_logger, metadata)
+    """
+    for sample in metadata:
+        try:
+            # Write the metadata to the specified JSON file
+            sample.to_file(file_path=sample.json_file)
+        except IOError:
+            # Log the error traceback
+            logging.error("Failed to write metadata to file", exc_info=True)
+            # Call the error logger with the error traceback
+            if error_logger:
+                error_logger.error(
+                    "Failed to write metadata to file",
+                    exc_info=True)
+
+
+def write_to_log_file(
+    out,
+    err,
+    log_file,
+    sample_log=None,
+    sample_err=None,
+    analysis_log=None,
+    analysis_err=None
+):
+    """
+    Writes out and err (both should be strings) to log_file.
     """
     # Run log
-    with open(logfile + '_out.txt', 'a+') as outfile:
+    with open(log_file + '_out.txt', 'a+', encoding='utf-8') as outfile:
         outfile.write(out + '\n')
-    with open(logfile + '_err.txt', 'a+') as outfile:
+    with open(log_file + '_err.txt', 'a+', encoding='utf-8') as outfile:
         outfile.write(err + '\n')
     # Sample log
-    if samplelog:
-        with open(samplelog, 'a+') as outfile:
+    if sample_log:
+        with open(sample_log, 'a+', encoding='utf-8') as outfile:
             outfile.write(out + '\n')
-        with open(sampleerr, 'a+') as outfile:
+        with open(sample_err, 'a+', encoding='utf-8') as outfile:
             outfile.write(err + '\n')
     # Analysis log
-    if analysislog:
-        with open(analysislog, 'a+') as outfile:
+    if analysis_log:
+        with open(analysis_log, 'a+', encoding='utf-8') as outfile:
             outfile.write(out + '\n')
-        with open(analysiserr, 'a+') as outfile:
+        with open(analysis_err, 'a+', encoding='utf-8') as outfile:
             outfile.write(err + '\n')
 
 
@@ -171,8 +249,23 @@ def get_version(exe):
     return Popen(exe, stdout=PIPE, stderr=STDOUT).stdout.read()
 
 
-def logstr(*args):
-    yield "{}\n".__add__("-".__mul__(60)).__mul__(len(args)).format(*args)
+def log_str(*args):
+    """
+    Generates a formatted log string with each argument separated by a line of dashes.
+
+    Args:
+        *args: Variable length argument list.
+
+    Yields:
+        str: Formatted log string with each argument followed by a line of dashes.
+    """
+    # Define the separator line
+    separator = "-" * 60
+
+    # Iterate over each argument
+    for arg in args:
+        # Yield the argument followed by the separator line
+        yield f"{arg}\n{separator}\n"
 
 
 def make_path(inpath):
