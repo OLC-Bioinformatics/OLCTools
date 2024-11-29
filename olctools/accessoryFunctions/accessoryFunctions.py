@@ -148,6 +148,7 @@ def download_file(
 
 
 def write_metadata_to_file(
+        logger: logging.Logger,
         metadata: List[CustomBox],
         error_logger: logging.Logger = None,
 ) -> None:
@@ -161,6 +162,7 @@ def write_metadata_to_file(
 
     Args:
         error_logger (logging.Logger): Logger instance for logging errors.
+        logger (logging.Logger): Logger instance for logging messages.
         metadata (List[CustomBox]): List of CustomBox metadata objects.
 
     Example usage:
@@ -174,7 +176,7 @@ def write_metadata_to_file(
             sample.to_file(file_path=sample.json_file)
         except IOError:
             # Log the error traceback
-            logging.error("Failed to write metadata to file", exc_info=True)
+            logger.error("Failed to write metadata to file", exc_info=True)
             # Call the error logger with the error traceback
             if error_logger:
                 error_logger.error(
