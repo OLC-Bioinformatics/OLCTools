@@ -184,6 +184,30 @@ def write_metadata_to_file(
                     exc_info=True)
 
 
+def write_to_logfile(
+    out,
+    err,
+    logfile,
+    samplelog=None,
+    sampleerr=None,
+    analysislog=None,
+    analysiserr=None
+):
+    """
+    Calls the new write_to_log_file function. Allows backwards-compatibility
+    with scripts that use the old naming scheme
+    """
+    write_to_log_file(
+        out=out,
+        err=err,
+        log_file=logfile,
+        sample_log=samplelog,
+        sample_err=sampleerr,
+        analysis_log=analysislog,
+        analysis_err=analysiserr
+    )
+
+
 def write_to_log_file(
     out,
     err,
