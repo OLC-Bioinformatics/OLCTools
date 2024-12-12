@@ -151,7 +151,7 @@ class CustomBox(Box):
                 continue
             # Skip large lists/dictionaries
             if max_size and isinstance(value, (list, dict)) and \
-               len(value) > max_size:
+                    len(value) > max_size:
                 continue
             # Recursively convert nested CustomBox objects
             if isinstance(value, Box):
