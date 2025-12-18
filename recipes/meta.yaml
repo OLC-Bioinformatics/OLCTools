@@ -1,0 +1,50 @@
+{% set name = "olctools" %}
+{% set version = "{{ version }}" %}
+
+package:
+  name: {{ name }}
+  version: {{ version }}
+
+build:
+  number: 0
+  noarch: python
+  script: python -m pip install --no-deps --ignore-installed .
+
+source:
+  url: https://github.com/OLC-Bioinformatics/OLCTools/archive/v{{ version }}.tar.gz
+  fn: {{ name }}-{{ version }}.tar.gz
+
+requirements:
+  host:
+    - python
+  run:
+    - biopython
+    - click
+    - pandas
+    - python
+    - python-chromedriver-binary
+    - python-box
+    - pytest
+    - rauth
+    - selenium
+    - xlrd
+    - xlsxwriter
+
+test:
+  imports:
+    - olctools.accessoryFunctions
+    - olctools.metadata
+    - olctools.database_setup
+    - tests
+
+about:
+  home: https://github.com/OLC-Bioinformatics/OLCTools
+  license: MIT
+  license_family: MIT
+  summary: Python package for commonly used tools at OLC
+  description: Python package for commonly used tools at OLC
+  doc_url: https://olc-bioinformatics.github.io/OLCTools/
+  dev_url: https://github.com/OLC-Bioinformatics/OLCTools
+
+extra:
+  recipe-maintainers: adamkoziol
