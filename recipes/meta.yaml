@@ -17,6 +17,9 @@ source:
 requirements:
   host:
     - python
+    - pip
+    - setuptools
+    - wheel
   run:
     - biopython
     - click
