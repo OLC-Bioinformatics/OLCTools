@@ -36,7 +36,6 @@ requirements:
 test:
   imports:
     - olctools.accessoryFunctions
-    - olctools.metadata
     - olctools.database_setup
     - tests
 
