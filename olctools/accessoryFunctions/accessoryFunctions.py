@@ -21,7 +21,6 @@ import time
 from typing import List
 
 # Third-party imports
-from Bio.Application import _Option, AbstractCommandline, _Switch
 from Bio.SeqRecord import SeqRecord
 from Bio.Seq import Seq
 from Bio import SeqIO
@@ -53,11 +52,12 @@ def find_paired_reads(fastq_directory, forward_id='_R1', reverse_id='_R2'):
     :return: List containing pairs of fastq files, in format [[forward_1,
     reverse_1], [forward_2, reverse_2]], etc.
     """
-    pair_list = list()
+    pair_list = []
     fastq_files = glob.glob(os.path.join(fastq_directory, '*.f*q*'))
     for name in fastq_files:
         if forward_id in name and os.path.isfile(
-            name.replace(forward_id, reverse_id)):
+            name.replace(forward_id, reverse_id)
+        ):
             pair_list.append([name, name.replace(forward_id, reverse_id)])
     return pair_list
 
@@ -70,16 +70,18 @@ def find_unpaired_reads(fastq_directory, forward_id='_R1', reverse_id='_R2'):
     :param reverse_id: Identifier for paired reads, reverse.
     :return: List of paths to unpaired files.
     """
-    unpaired_list = list()
+    unpaired_list = []
     fastq_files = glob.glob(os.path.join(fastq_directory, '*.f*q*'))
     for name in fastq_files:
         if forward_id not in name and reverse_id not in name:
             unpaired_list.append(name)
         elif forward_id in name and not os.path.isfile(
-            name.replace(forward_id, reverse_id)):
+            name.replace(forward_id, reverse_id)
+        ):
             unpaired_list.append(name)
         elif reverse_id in name and not os.path.isfile(
-                                                       ame.replace(reverse_id, forward_id)):
+            name.replace(reverse_id, forward_id)
+        ):
             unpaired_list.append(name)
     return unpaired_list
 
@@ -120,7 +122,7 @@ def download_file(
         day = datetime.datetime.today().weekday()
 
         # True if current hour is between start and end.
-        acceptable_hour = not(hour_end < hour < hour_start)
+        acceptable_hour = not (hour_end < hour < hour_start)
 
         # True if current day is a weekend day.
         acceptable_day = day_start <= day <= day_end
@@ -184,12 +186,8 @@ def write_metadata_to_file(
                     exc_info=True)
 
 
-<<<<<<< HEAD
-def write_to_logfile(out,
-=======
 def write_to_logfile(
     out,
->>>>>>> 960175c64cf6436d9e64adff2ee53d3398d181af
     err,
     logfile,
     samplelog=None,
@@ -211,10 +209,7 @@ def write_to_logfile(
         analysis_err=analysiserr
     )
 
-<<<<<<< HEAD
-=======
 
->>>>>>> 960175c64cf6436d9e64adff2ee53d3398d181af
 def write_to_log_file(
     out,
     err,
@@ -248,8 +243,8 @@ def write_to_log_file(
 
 def clear_logfile(logfile):
     """
-    As logfiles are appended to each time the same data are processed, sometimes it is desirable to clear out
-    logsfiles from previous iterations
+    As logfiles are appended to each time the same data are processed,
+    sometimes it is desirable to clear out logs files from previous iterations
     :param logfile: Base name of logfile
     """
     try:
@@ -265,7 +260,7 @@ def clear_logfile(logfile):
 def run_subprocess(command):
     """
     command is the command to run, as a string.
-    runs a subprocess, returns stdout and stderr from the subprocess as strings.
+    runs a subprocess, returns stdout and stderr from the subprocess as strings
     """
     x = Popen(command, shell=True, stdout=PIPE, stderr=PIPE)
     out, err = x.communicate()
@@ -282,15 +277,17 @@ def get_version(exe):
     return Popen(exe, stdout=PIPE, stderr=STDOUT).stdout.read()
 
 
-def log_str(*args):
+def logstr(*args):
     """
-    Generates a formatted log string with each argument separated by a line of dashes.
+    Generates a formatted log string with each argument separated by a
+    line of dashes.
 
     Args:
         *args: Variable length argument list.
 
     Yields:
-        str: Formatted log string with each argument followed by a line of dashes.
+        str: Formatted log string with each argument followed by
+        line of dashes.
     """
     # Define the separator line
     separator = "-" * 60
@@ -303,7 +300,7 @@ def log_str(*args):
 
 def make_path(inpath):
     """
-    from: http://stackoverflow.com/questions/273192/check-if-a-directory-exists-and-create-it-if-necessary \
+    http://stackoverflow.com/questions/273192/check-if-a-directory-exists-and-create-it-if-necessary
     does what is indicated by the URL
     :param inpath: string of the supplied path
     """
@@ -323,7 +320,8 @@ def make_dict():
 
 class CustomLogs(logging.StreamHandler):
     """
-    Uses the logging module to create custom-coloured logs. The colours correspond to the level
+    Uses the logging module to create custom-coloured logs. The colours
+    correspond to the level
     Modified from:
     http://uran198.github.io/en/python/2016/07/12/colorful-python-logging.html
     https://plumberjack.blogspot.com/2010/12/colorizing-logging-output-in-terminals.html
@@ -342,9 +340,12 @@ class CustomLogs(logging.StreamHandler):
             # Format the record
             try:
                 self.stream.write(self.format(record))
-            # If several variables are passed to the logger, try to flatten everything into a string
+            # If several variables are passed to the logger, try to flatten
+            # everything into a string
             except TypeError:
-                record.msg = '{msg} {args}'.format(msg=record.msg, args=' '.join(record.args))
+                record.msg = '{msg} {args}'.format(
+                    msg=record.msg, args=' '.join(record.args)
+                )
                 record.args = list()
                 self.stream.write(self.format(record))
             # Write the formatted record to the stream
@@ -360,7 +361,7 @@ class CustomLogs(logging.StreamHandler):
         if record.levelno in self.level_map:
             # Extract the colour corresponding to the current level
             color = self.level_map[record.levelno]
-            # Add the colour to the message. Reset the formatting with '\x1b[0m'
+            # Add the colour to the message. Reset formatting with '\x1b[0m'
             message = ''.join((color, message, '\x1b[0m'))
         return message
 
@@ -369,7 +370,9 @@ class CustomLogs(logging.StreamHandler):
         message = logging.StreamHandler.format(self, record)
         parts = message.split('\n', 1)
         # Add the custom formatted date to the message
-        parts[0] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' ' + parts[0]
+        parts[0] = datetime.datetime.now().strftime(
+            '%Y-%m-%d %H:%M:%S'
+        ) + ' ' + parts[0]
         parts[0] = self.colorize(parts[0], record)
         # Reconstitute the message from its updated parts
         message = '\n'.join(parts)
@@ -381,7 +384,13 @@ class SetupLogging(object):
     Runs the CustomLogs class
     """
 
-    def __init__(self, log_level=logging.INFO, debug=False, filehandle=str(), logfile_level=None):
+    def __init__(
+        self,
+        log_level=logging.INFO,
+        debug=False,
+        filehandle=str(),
+        logfile_level=None
+    ):
         # Create a logging object
         logger = logging.getLogger()
         # Set whether debug level messages should be displayed
@@ -390,7 +399,8 @@ class SetupLogging(object):
         else:
             logger.setLevel(logging.INFO)
         # Use CustomLogs to modify the handler
-        # Only add a handler if it hasn't been added by another script in the pipeline
+        # Only add a handler if it hasn't been added by another script in the
+        # pipeline
         if not logger.handlers:
             logger.addHandler(CustomLogs())
             if filehandle:
@@ -487,12 +497,21 @@ def printtime(string, start, option=None, output=None):
     if not option:
         # option = '\033[1;97m'
         option = '\033[1;94m'
-    # Add the string formatting option to the message. Reset the format back to normal at the end with \033[0m
-    print('{} [Elapsed Time: {:.2f} seconds] {} \033[0m'.format(option, time.time() - start, string))
+    # Add the string formatting option to the message. Reset the format back
+    # to normal at the end with \033[0m
+    print(
+        '{} [Elapsed Time: {:.2f} seconds] {} \033[0m'.format(
+            option, time.time() - start, string
+        )
+    )
     if output:
         try:
             with open(output, 'a') as log:
-                log.write('[Elapsed Time: {:.2f} seconds] {}\n'.format(time.time() - start, string))
+                log.write(
+                    '[Elapsed Time: {:.2f} seconds] {}\n'.format(
+                        time.time() - start, string
+                    )
+                )
         except FileNotFoundError:
             pass
 
@@ -504,8 +523,10 @@ class Dotter(object):
         self.globalcount = 0
 
     def dotter(self):
-        """Prints formatted time to stdout at the start of a line, as well as a "."
-        whenever the length of the line is equal or lesser than 80 "." long"""
+        """
+        Prints formatted time to stdout at the start of a line, as well as a
+        "." whenever the length of the line is equal or lesser than 80 "." long
+        """
         if self.globalcount <= 80:
             sys.stdout.write('.')
             self.globalcount += 1
@@ -542,17 +563,18 @@ def dotter():
 
 def execute(command, outfile=""):
     """
-    Allows for dots to be printed to the terminal while waiting for a long system call to run
+    Allows for dots to be printed to the terminal while waiting for a long
+    system call to run
     :param command: the command to be executed
     :param outfile: optional string of an output file
-    from https://stackoverflow.com/questions/4417546/constantly-print-subprocess-output-while-process-is-running
+    https://stackoverflow.com/questions/4417546/constantly-print-subprocess-output-while-process-is-running
     """
     # Initialise count
     count = 0
     # Initialise the starting time
     start = int(time.time())
     maxtime = 0
-    # Removing Shell=True to prevent excess memory use thus shlex split if needed
+    # Split the command into a list if it is not already
     if type(command) is not list:
         command = shlex.split(command)
     # Run the commands - direct stdout to PIPE and stderr to stdout
@@ -577,17 +599,20 @@ def execute(command, outfile=""):
         # Break from the loop if the command is finished
         if process.poll() is not None:
             break
-        # Adding sleep commands slowed down this method when there was lots of output. Difference between the start time
-        # of the analysis and the current time. Action on each second passed
+        # Adding sleep commands slowed down this method when there was lots of
+        # output. Difference between the start time of the analysis and the
+        # current time. Action on each second passed
         currenttime = int(time.time())
         if currenttime - start > maxtime:
             # Set the max time for each iteration
             maxtime = currenttime - start
-            # Print up to 80 dots on a line, with a one second delay between each dot
+            # Print up to 80 dots on a line, with a one second delay between
+            # each dot
             if count <= 80:
                 sys.stdout.write('.')
                 count += 1
-            # Once there are 80 dots on a line, start a new line with the the time
+            # Once there are 80 dots on a line, start a new line with the the
+            # time
             else:
                 sys.stdout.write('\n[{:}] .'.format(time.strftime('%H:%M:%S')))
                 count = 1
@@ -598,31 +623,36 @@ def execute(command, outfile=""):
 
 def filer(filelist, extension='fastq', returndict=False):
     """
-    Helper script that creates a set of the stain names created by stripping off parts of the filename.
-    Hopefully handles different naming conventions (e.g. 2015-SEQ-001_S1_L001_R1_001.fastq(.gz),
-    2015-SEQ-001_R1_001.fastq.gz, 2015-SEQ-001_R1.fastq.gz, 2015-SEQ-001_1.fastq.gz, and 2015-SEQ-001_1.fastq.gz
-    all become 2015-SEQ-001)
+    Helper script that creates a set of the stain names created by stripping
+    off parts of the filename. Hopefully handles different naming conventions
+    (e.g. 2015-SEQ-001_S1_L001_R1_001.fastq(.gz), 2015-SEQ-001_R1_001.fastq.gz,
+    2015-SEQ-001_R1.fastq.gz, 2015-SEQ-001_1.fastq.gz, and
+    2015-SEQ-001_1.fastq.gz all become 2015-SEQ-001)
     :param filelist: List of files to parse
     :param extension: the file extension to use. Default value is 'fastq
-    :param returndict: type BOOL: Option to return a dictionary of file name: fastq files associated with that name
+    :param returndict: type BOOL: Option to return a dictionary of file name:
+    fastq files associated with that name
     rather than a set of the file names
     """
     # Initialise the variables
     fileset = set()
-    filedict = dict()
+    filedict = {}
     for seqfile in filelist:
         # Search for the conventional motifs present following strain names
-        # _S\d+_L001_R\d_001.fastq(.gz) is a typical unprocessed Illumina fastq file
+        # _S\d+_L001_R\d_001.fastq(.gz) is a typical unprocessed Illumina
+        # fastq file
         if re.search("_S\\d+_L001", seqfile):
             file_name = re.split("_S\\d+_L001", seqfile)[0]
         # HiSeq names are different: _S\\d+_R\\d_\\d{3}
         # 2019-SEQ-0001_S1_R1_001.fastq.gz
         elif re.search("_S\\d+_R\\d_\\d{3}", seqfile):
             file_name = re.split("_S\\d+_R\\d_\\d{3}", seqfile)[0]
-        # Files with _R\d_001.fastq(.gz) are created in the SPAdes assembly pipeline
+        # Files with _R\d_001.fastq(.gz) are created in the SPAdes assembly
+        # pipeline
         elif re.search("_R\\d_001", seqfile):
             file_name = re.split("_R\\d_001", seqfile)[0]
-        # _R\d.fastq(.gz) represents a simple naming scheme for paired end reads
+        # _R\d.fastq(.gz) represents a simple naming scheme for paired end
+        # reads
         elif re.search("R\\d.{}".format(extension), seqfile):
             file_name = re.split("_R\\d.{}".format(extension), seqfile)[0]
         # _\d.fastq is always possible
@@ -645,38 +675,25 @@ def filer(filelist, extension='fastq', returndict=False):
         return filedict
 
 
-# def relativesymlink(src_file, dest_file):
-#     """
-#     https://stackoverflow.com/questions/9793631/creating-a-relative-symlink-in-python-without-using-os-chdir
-#     :param src_file: the file to be linked
-#     :param dest_file: the path and filename to which the file is to be linked
-#     """
-#     # Perform relative symlinking
-#     try:
-#         print(os.path.relpath(src_file), os.path.relpath(dest_file))
-#         os.symlink(
-#             # Find the relative path for the source file and the destination file
-#             os.path.relpath(src_file),
-#             os.path.relpath(dest_file)
-#         )
-#     # Except os errors
-#     except OSError as exception:
-#         # If the os error is anything but directory exists, then raise
-#         if exception.errno != errno.EEXIST:
-#             raise
-
-
-def relative_symlink(src_file, output_dir, output_name=None, export_output=False):
+def relative_symlink(
+    src_file,
+    output_dir,
+    output_name=None,
+    export_output=False
+):
     """
-    Create relative symlinks files - use the relative path from the desired output directory to the storage path
-    e.g. ../../2013-SEQ-0072/simulated/40/50_150/simulated_trimmed/2013-SEQ-0072_simulated_40_50_150_R1.fastq.gz
-    is the relative path to the output_dir. The link name is the base name of the source file joined to the desired
-    output directory e.g. output_dir/2013-SEQ-0072/2013-SEQ-0072_simulated_40_50_150_R1.fastq.gz
+    Create relative symlinks files - use the relative path from the desired
+    output directory to the storage path e.g.
+    ../../2013-SEQ-0072/simulated/40/50_150/simulated_trimmed/2013-SEQ-0072_simulated_40_50_150_R1.fastq.gz
+    is the relative path to the output_dir. The link name is the base name of
+    the source file joined to the desired output directory e.g.
+    output_dir/2013-SEQ-0072/2013-SEQ-0072_simulated_40_50_150_R1.fastq.gz
     https://stackoverflow.com/questions/9793631/creating-a-relative-symlink-in-python-without-using-os-chdir
     :param src_file: Source file to be symbolically linked
     :param output_dir: Destination folder for the link
     :param output_name: Optionally allow for the link to have a different name
-    :param export_output: type BOOL: Optionally return the absolute path of the new, linked file
+    :param export_output: type BOOL: Optionally return the absolute path of
+    the new, linked file
     :return output_file: type STR: Absolute path of the newly-created symlink
     """
     if output_name:
@@ -710,39 +727,53 @@ class GenObject(object):
         if key in self.datastore:
             return self.datastore[key]
         else:
-            raise AttributeError('The GenObject has not been initialised with the following key: {key}'
-                                 .format(key=key))
+            raise AttributeError(
+                'The GenObject has not been initialised with the following '
+                'key: {key}'.format(key=key)
+            )
 
     def __setattr__(self, key, value):
         try:
             self.datastore[key] = value
         except TypeError:
-            raise AttributeError('The GenObject cannot accept the following key:value pair provided {key}:{value}'
-                                 .format(key=key,
-                                         value=value))
+            raise AttributeError(
+                'The GenObject cannot accept the following key:value pair '
+                'provided {key}:{value}'.format(
+                    key=key,
+                    value=value
+                )
+            )
 
     def __delattr__(self, key):
         try:
             del self.datastore[key]
         except KeyError:
-            raise AttributeError('The GenObject does not contain the following key: {key}'
-                                 .format(key=key))
+            raise AttributeError(
+                'The GenObject does not contain the following key: '
+                '{key}'.format(key=key)
+            )
 
     def returnattr(self, key, number=False):
         """
-        Returns a string of either datastore[key], or 'ND' if datastore[key] doesn't exist formatted for a CSV report
-        Replace any commas with semicolons.
-        :param key: Dictionary key to be used to return the value from datastore[key]
-        :param number: Boolean whether the type of the attribute is a number (int, float, etc). Will return 0
-        instead of ND
+        Returns a string of either datastore[key], or 'ND' if datastore[key]
+        doesn't exist formatted for a CSV report. Replace any commas with
+        semicolons.
+
+        :param key: Dictionary key to be used to return the value from
+        datastore[key]
+        :param number: Boolean whether the type of the attribute is a number
+        (int, float, etc). Will return 0 instead of ND
         """
         # String to return if the key is not in the datastore
         negative_return = 'ND,' if not number else '0,'
         try:
             if key in self.datastore:
-                # Return the string of the value with any commas replaced by semicolons. Append a comma to the
-                # end of the string for the CSV format
-                return_key = '{},'.format(str(self.datastore[key]).replace(',', ';'))
+                # Return the string of the value with any commas replaced by
+                # semicolons. Append a comma to the end of the string for the
+                # CSV format
+                return_key = '{},'.format(
+                    str(self.datastore[key]).replace(',', ';')
+                )
                 if not number:
                     return return_key
                 else:
@@ -757,7 +788,8 @@ class GenObject(object):
 
     def isattr(self, key):
         """
-        Checks to see if an attribute exists. If it does, returns True, otherwise returns False
+        Checks to see if an attribute exists. If it does, returns True,
+        otherwise returns False
         :param key: Dictionary key to be checked for presence in the datastore
         :return: True/False depending on whether an attribute exists
         """
@@ -782,22 +814,29 @@ class GenObject(object):
         try:
             self.datastore[key] = value
         except TypeError:
-            raise AttributeError('The GenObject cannot accept the following key:value pair provided {key}:{value}'
-                                 .format(key=key,
-                                         value=value))
+            raise AttributeError(
+                'The GenObject cannot accept the following key:value pair '
+                'provided {key}:{value}'.format(
+                    key=key,
+                    value=value
+                )
+            )
 
     def dump(self):
         """
-        Prints only the nested dictionary values; removes __methods__ and __members__ attributes
+        Prints only the nested dictionary values; removes __methods__ and
+        __members__ attributes
         """
         metadata = dict()
         for attr in sorted(self.datastore):
-            # Initialise the attribute (e.g. sample.general) key in the metadata dictionary
+            # Initialise the attribute (e.g. sample.general) key in the
+            # metadata dictionary
             metadata[attr] = dict()
             # Ignore attributes that begin with '__'
             if not attr.startswith('__'):
-                # If self.datastore[attribute] is a primitive datatype, populate the metadata dictionary with
-                # the attr: self.datastore[attr] pair
+                # If self.datastore[attribute] is a primitive datatype,
+                # populate the metadata dictionary with the
+                # attr: self.datastore[attr] pair
                 # e.g. attr: name,  self.datastore[attr]: 2013-SEQ-0072
                 if isinstance(self.datastore[attr], str) or \
                         isinstance(self.datastore[attr], list) or \
@@ -805,8 +844,11 @@ class GenObject(object):
                         isinstance(self.datastore[attr], int):
                     metadata[attr] = self.datastore[attr]
                 else:
-                    # Otherwise, recursively convert GenObjects to nested dictionaries
-                    metadata.update(self.nested_genobject(metadata, attr, self.datastore))
+                    # Otherwise, recursively convert GenObjects to nested
+                    # dictionaries
+                    metadata.update(
+                        self.nested_genobject(metadata, attr, self.datastore)
+                    )
         return metadata
 
 
@@ -815,49 +857,69 @@ class MetadataObject(object):
     def __init__(self):
         """Create datastore attr with empty dict"""
         super(MetadataObject, self).__setattr__('datastore', {})
-        # Initialise a list of keys that will not be printed to the .json file with the dump method
-        self.unwanted_keys = ['allelenames', 'alleles', 'faidict', 'gaplocations', 'maxcoverage',
-                              'mincoverage', 'profiledata', 'resultsgap', 'averagedepth', 'avgdepth',
-                              'resultssnp', 'sequences', 'sequence', 'snplocations', 'standarddev',
-                              'totaldepth', 'blastlist', 'targetsequence', 'queryranges', 'querypercent',
-                              'queryscore', 'results', 'blastresults', 'report_dict', 'sampledata', 'meta_dict']
+        # Initialise a list of keys that will not be printed to the .json file
+        # with the dump method
+        self.unwanted_keys = [
+            'allelenames', 'alleles', 'faidict', 'gaplocations', 'maxcoverage',
+            'mincoverage', 'profiledata', 'resultsgap', 'averagedepth',
+            'avgdepth', 'resultssnp', 'sequences', 'sequence', 'snplocations',
+            'standarddev', 'totaldepth', 'blastlist', 'targetsequence',
+            'queryranges', 'querypercent', 'queryscore', 'results',
+            'blastresults', 'report_dict', 'sampledata', 'meta_dict'
+        ]
 
     def __getattr__(self, key):
-        """:key is retrieved from datastore if exists, for nested attr recursively :self.__setattr__"""
+        """:key is retrieved from datastore if exists, for nested attr
+        recursively :self.__setattr__"""
         try:
             return self.datastore[key]
         except KeyError:
-            raise AttributeError('The MetadataObject has not been initialised with the following key: {key}'
-                                 .format(key=key))
+            raise AttributeError(
+                'The MetadataObject has not been initialised with the '
+                'following key: {key}'.format(key=key)
+            )
 
     def __setattr__(self, key, value=GenObject(), **args):
-        """Add :value to :key in datastore or create GenObject for nested attr"""
+        """
+        Add :value to :key in datastore or create GenObject for nested attr
+        """
         if args:
             self.datastore[key].value = args
         else:
             try:
                 self.datastore[key] = value
             except TypeError:
-                raise AttributeError('The MetadataObject cannot accept the following key:value pair '
-                                     'provided {key}:{value}'.format(key=key,
-                                                                     value=value))
+                raise AttributeError(
+                    'The MetadataObject cannot accept the following key:value '
+                    'pair provided {key}:{value}'.format(
+                        key=key,
+                        value=value
+                    )
+                )
 
     def __getitem__(self, key):
         try:
             return self.datastore[key]
         except KeyError:
-            raise AttributeError('The MetadataObject has not been initialised with the following key: {key}'
-                                 .format(key=key))
+            raise AttributeError(
+                'The MetadataObject has not been initialised with the '
+                'following key: {key}'.format(key=key)
+            )
 
     def dump(self):
-        """Prints only the nested dictionary values; removes __methods__ and __members__ attributes"""
-        metadata = dict()
+        """
+        Prints only the nested dictionary values; removes __methods__ and
+        __members__ attributes
+        """
+        metadata = {}
         for attr in sorted(self.datastore):
-            # Initialise the attribute (e.g. sample.general) key in the metadata dictionary
-            metadata[attr] = dict()
+            # Initialise the attribute (e.g. sample.general) key in the
+            # metadata dictionary
+            metadata[attr] = {}
             # Ignore attributes that begin with '__'
             if not attr.startswith('__'):
-                # If self.datastore[attribute] is a primitive datatype, populate the metadata dictionary with
+                # If self.datastore[attribute] is a primitive datatype,
+                # populate the metadata dictionary with
                 # the attr: self.datastore[attr] pair
                 # e.g. attr: name,  self.datastore[attr]: 2013-SEQ-0072
                 if isinstance(self.datastore[attr], str) or \
@@ -866,46 +928,71 @@ class MetadataObject(object):
                         isinstance(self.datastore[attr], int):
                     metadata[attr] = self.datastore[attr]
                 else:
-                    # Otherwise, recursively convert GenObjects to nested dictionaries
-                    metadata.update(self.nested_genobject(metadata, attr, self.datastore))
+                    # Otherwise, recursively convert GenObjects to nested
+                    # dictionaries
+                    metadata.update(
+                        self.nested_genobject(metadata, attr, self.datastore)
+                    )
         return metadata
 
     def nested_genobject(self, metadata, attr, datastore):
         """
         Allow for the printing of nested GenObjects
-        :param metadata: Nested dictionary containing the metadata. Will be further populated by this method
-        :param attr: Current attribute being evaluated. Must be a GenObject e.g. sample.general
-        :param datastore: The dictionary of the current attribute. Will be converted to nested dictionaries
-        :return: Updated nested metadata dictionary with all GenObjects safely converted to dictionaries
+        :param metadata: Nested dictionary containing the metadata. Will be
+        further populated by this method
+        :param attr: Current attribute being evaluated. Must be a GenObject
+        e.g. sample.general
+        :param datastore: The dictionary of the current attribute. Will be
+        converted to nested dictionaries
+        :return: Updated nested metadata dictionary with all GenObjects safely
+        converted to dictionaries
         """
-        # Iterate through all the key: value pairs of the current datastore[attr] datastore
-        # e.g. reverse_reads <accessoryFunctions.accessoryFunctions.GenObject object at 0x7fe153b725f8>
+        # Iterate through all the key: value pairs of the current
+        # datastore[attr] datastore
+        # e.g. reverse_reads <accessoryFunctions.accessoryFunctions.GenObject
+        # object at 0x7fe153b725f8>
         for key, value in sorted(datastore[attr].datastore.items()):
-            # If the type(value) is a GenObject, then JSON serialization will not work
+            # If the type(value) is a GenObject, then JSON serialization will
+            # not work
             if 'GenObject' in str(type(value)):
-                # Initialise the nested attribute: key nested dictionary within the metadata dictionary
+                # Initialise the nested attribute: key nested dictionary
+                # within the metadata dictionary
                 # e.g. attr: 100_100, key: reverse_reads
                 metadata[attr][key] = dict()
-                # Iterate through the nested keys and nested values within the value datastore
+                # Iterate through the nested keys and nested values within the
+                # value datastore
                 # e.g. nested_key: length, nested_value: 100
-                for nested_key, nested_datastore in sorted(value.datastore.items()):
-                    # Create an additional dictionary layer within the metadata dictionary
-                    metadata[attr][key][nested_key] = dict()
-                    # If the type(nested_datastore) is a GenObject, recursively run this method to update the
-                    # metadata dictionary, supply the newly created nested dictionary: metadata[attr][key] as
-                    # the input metadata dictionary, the nested key as the input attribute, and the datastore of
-                    # value as the input datastore
-                    # e.g. key: 100_100,
-                    # datastore: <accessoryFunctions.accessoryFunctions.GenObject object at 0x7fc526001e80>
+                for nested_key, nested_datastore in sorted(
+                    value.datastore.items()
+                ):
+                    # Create an additional dictionary layer within the
+                    # metadata dictionary
+                    metadata[attr][key][nested_key] = {}
+                    # If the type(nested_datastore) is a GenObject,
+                    # recursively run this method to update the metadata
+                    # dictionary, supply the newly created nested dictionary:
+                    # metadata[attr][key] as the input metadata dictionary,
+                    # the nested key as the input attribute, and the datastore
+                    # of value as the input datastore e.g. key: 100_100,
+                    # datastore: <accessoryFunctions.accessoryFunctions.
+                    # GenObject object at 0x7fc526001e80>
                     if 'GenObject' in str(type(nested_datastore)):
                         metadata[attr][key].update(
-                            self.nested_genobject(metadata[attr][key], nested_key, value.datastore))
-                    # If the nested datastore is not a GenObject, populate the nested metadata dictionary with
-                    # the attribute, key, nested key, and nested datastore
-                    # e.g. attr: 100_100, key: reverse_reads, nested_key: length, nested_datastore: 100
+                            self.nested_genobject(
+                                metadata[attr][key],
+                                nested_key,
+                                value.datastore
+                            )
+                        )
+                    # If the nested datastore is not a GenObject, populate the
+                    # nested metadata dictionary with the attribute, key,
+                    # nested key, and nested datastore
+                    # e.g. attr: 100_100, key: reverse_reads,
+                    # nested_key: length, nested_datastore: 100
                     else:
                         metadata[attr][key][nested_key] = nested_datastore
-            # Non-GenObjects can (usually) be added to the metadata dictionary without issues
+            # Non-GenObjects can (usually) be added to the metadata dictionary
+            # without issues
             else:
                 try:
                     if key not in self.unwanted_keys:
@@ -916,56 +1003,29 @@ class MetadataObject(object):
         return metadata
 
 
-class MakeBlastDB(AbstractCommandline):
-    """Base makeblastdb wrapper"""
-    def __init__(self, cmd='makeblastdb', **kwargs):
-        assert cmd is not None
-        extra_parameters = [
-            # Core:
-            _Switch(["-h", "h"],
-                    "Print USAGE and DESCRIPTION;  ignore other arguments."),
-            _Switch(["-help", "help"],
-                    "Print USAGE, DESCRIPTION and ARGUMENTS description; "
-                    "ignore other arguments."),
-            _Switch(["-version", "version"],
-                    "Print version number;  ignore other arguments."),
-            # Output configuration options
-            _Option(["-out", "out"],
-                    "Output file prefix for db.",
-                    filename=True,
-                    equate=False),
-            _Option(["-in", "db"],
-                    "The sequence create db with.",
-                    filename=True,
-                    equate=False),  # Should this be required?
-            _Option(["-dbtype", "dbtype"],
-                    "Molecule type of target db (string, 'nucl' or 'prot').",
-                    equate=False)]
-        try:
-            # Insert extra parameters - at the start just in case there
-            # are any arguments which must come last:
-            self.parameters = extra_parameters + self.parameters
-        except AttributeError:
-            # Should we raise an error?  The subclass should have set this up!
-            self.parameters = extra_parameters
-        AbstractCommandline.__init__(self, cmd, **kwargs)
-
-
 def combinetargets(targets, targetpath, mol_type='nt', clear_format=False):
     """
-    Creates a set of all unique sequences in a list of supplied FASTA files. Properly formats headers and sequences
-    to be compatible with local pipelines. Splits hybrid entries. Removes illegal characters.
+    Creates a set of all unique sequences in a list of supplied FASTA files.
+    Properly formats headers and sequences
+    to be compatible with local pipelines. Splits hybrid entries. Removes
+    illegal characters.
     :param targets: fasta gene targets to combine
     :param targetpath: folder containing the targets
     :param mol_type: type STR: nt or prot sequence. Default is nt
-    :param clear_format: type BOOL: Remove any NCBI-like formatting, and attempt to use the accession/gi as the
+    :param clear_format: type BOOL: Remove any NCBI-like formatting, and
+    attempt to use the accession/gi as the
     record.id. Default is False
     """
-    # As part of the automated pipeline, this method can be called without having target files. Ensure that
+    # As part of the automated pipeline, this method can be called without
+    # having target files. Ensure that
     # there actually are files before proceeding
     if targets:
         make_path(targetpath)
-        with open(os.path.join(targetpath, 'combinedtargets.fasta'), 'w') as combined:
+        with open(
+            os.path.join(
+                targetpath,
+                'combinedtargets.fasta'
+                ), 'w', encoding='utf-8') as combined:
             idset = set()
             for target in targets:
                 # Remove non-unicode characters present in the FASTA files
@@ -974,46 +1034,60 @@ def combinetargets(targets, targetpath, mol_type='nt', clear_format=False):
                 with open(target, 'rb') as fasta:
                     # Import all the text
                     text = fasta.read()
-                    # Convert the binary variable to a string, ignoring non-UTF-8 characters
+                    # Convert the binary variable to a string, ignoring
+                    # non-UTF-8 characters
                     cleanedstring += text.decode('utf-8', 'ignore')
                 # Overwrite the file with the clean string
                 with open(target, 'w') as fasta:
                     fasta.write(cleanedstring)
                 # Clean up each record
                 for record in SeqIO.parse(target, 'fasta'):
-                    # In case FASTA records have been spliced together, allow for the splitting of
+                    # In case FASTA records have been spliced together, allow
+                    # for the splitting of
                     # these records
                     if '>' in record.seq:
                         # Split the two records apart on '>' symbols
                         record.seq, hybrid = record.seq.split('>')
-                        # Split the header from the sequence e.g. sspC:6:CP003808.1ATGGAAAGTACATTAGA...
-                        # will be split into sspC:6:CP003808.1 and ATGGAAAGTACATTAGA
-                        hybridid, seq = re.findall('(.+\\d+\\.\\d)(.+)', str(hybrid))[0]
+                        # Split the header from the sequence e.g.
+                        # sspC:6:CP003808.1ATGGAAAGTACATTAGA...
+                        # will be split into sspC:6:CP003808.1 and
+                        # ATGGAAAGTACATTAGA
+                        hybridid, seq = re.findall(
+                            '(.+\\d+\\.\\d)(.+)', str(hybrid)
+                        )[0]
                         # Replace and dashes in the record.id with underscores
                         hybridid = hybridid.replace('-', '_')
                         # Convert the string to a seq object
                         hybridseq = Seq(seq)
-                        # Create a SeqRecord of the sequence - use the sequence object and id
-                        hybridrecord = SeqRecord(hybridseq,
-                                                 description='',
-                                                 id=hybridid)
-                        # Extract the sequence record from each entry in the multifasta
-                        # Replace and dashes in the record.id with underscores
+                        # Create a SeqRecord of the sequence - use the
+                        # sequence object and id
+                        hybridrecord = SeqRecord(
+                            hybridseq,
+                            description='',
+                            id=hybridid
+                        )
+                        # Extract the sequence record from each entry in the
+                        # multifasta. Replace and dashes in the record.id
+                        # with underscores
                         record.id = record.id.replace('-', '_')
-                        # Remove and dashes or 'N's from the sequence data - makeblastdb can't handle sequences
-                        # with gaps
-                        # noinspection PyProtectedMember
+                        # Remove and dashes or 'N's from the sequence data -
+                        # makeblastdb can't handle sequences with gaps
                         try:
-                            record.seq._data = record.seq._data.upper().replace('-', '')
+                            record.seq._data = \
+                                record.seq._data.upper().replace('-', '')
                         except TypeError:
-                            record.seq._data = record.seq._data.replace(b'-', b'')
+                            record.seq._data = \
+                                record.seq._data.replace(b'-', b'')
                         # Protein sequences can have 'N'
                         if mol_type == 'nt':
                             try:
-                                record.seq._data = record.seq._data.replace('N', '')
+                                record.seq._data = \
+                                    record.seq._data.replace('N', '')
                             except TypeError:
-                                record.seq._data = record.seq._data.replace(b'N', b'')
-                        # Clear the name and description attributes of the record
+                                record.seq._data = \
+                                    record.seq._data.replace(b'N', b'')
+                        # Clear the name and description attributes of
+                        # the record
                         record.name = ''
                         record.description = ''
                         if record.id not in idset:
@@ -1024,26 +1098,32 @@ def combinetargets(targets, targetpath, mol_type='nt', clear_format=False):
                             idset.add(hybridrecord.id)
 
                     else:
-                        # Extract the sequence record from each entry in the multifasta
-                        # Replace and dashes in the record.id with underscores
+                        # Extract the sequence record from each entry in th
+                        # multifasta. Replace and dashes in the record.id with
+                        # underscores
                         record.id = record.id.replace('-', '_')
-                        # Remove any NCBI formatting, e.g. gi|07PF0776_00001|ref|1234| becomes 07PF0776_00001
+                        # Remove any NCBI formatting, e.g.
+                        # gi|07PF0776_00001|ref|1234| becomes 07PF0776_00001
                         if '|' in record.id and clear_format:
                             record.id = record.id.split('|')[1]
-                        # Remove and dashes or 'N's from the sequence data - makeblastdb can't handle sequences
-                        # with gaps
-                        # noinspection PyProtectedMember
+                        # Remove and dashes or 'N's from the sequence data -
+                        # makeblastdb can't handle sequences with gaps
                         try:
-                            record.seq._data = record.seq._data.upper().replace('-', '')
+                            record.seq._data = \
+                                record.seq._data.upper().replace('-', '')
                         except TypeError:
-                            record.seq._data = record.seq._data.replace(b'-', b'')
+                            record.seq._data = \
+                                record.seq._data.replace(b'-', b'')
                         # Protein sequences can have 'N'
                         if mol_type == 'nt':
                             try:
-                                record.seq._data = record.seq._data.replace('N', '')
+                                record.seq._data = \
+                                    record.seq._data.replace('N', '')
                             except TypeError:
-                                record.seq._data = record.seq._data.replace(b'N', b'')
-                        # Clear the name and description attributes of the record
+                                record.seq._data = \
+                                    record.seq._data.replace(b'N', b'')
+                        # Clear the name and description attributes of the
+                        # record
                         record.name = ''
                         record.description = ''
                         if record.id not in idset:
@@ -1057,14 +1137,19 @@ class KeyboardInterruptError(Exception):
 
 def target_names(sample, analysistype):
     """
-    Extract all unique target names (anything before the first underscore) from a FASTA-file
+    Extract all unique target names (anything before the first underscore)
+    from a FASTA-file
     :param sample: type Metadata object
-    :param analysistype: type str: Name of current analysis. Used for extract appropriate attribute from sample
-    :return: record_set: List of all unique records contained in the provided FASTA file
+    :param analysistype: type str: Name of current analysis. Used for extract
+    appropriate attribute from sample
+    :return: record_set: List of all unique records contained in the provided
+    FASTA file
     """
-    record_set = list()
+    record_set = []
     try:
-        for record in SeqIO.parse(sample[analysistype].combinedtargets, 'fasta'):
+        for record in SeqIO.parse(
+            sample[analysistype].combinedtargets, 'fasta'
+        ):
             # Extract the string before the first underscore (if any)
             base_name = record.id.split('_')[0]
             # Add the base name to the list if it is not already present
@@ -1078,24 +1163,29 @@ def target_names(sample, analysistype):
 
 def strainer(sequencepath):
     """
-    Locate all the FASTA files in the supplied sequence path. Create basic metadata objects for
+    Locate all the FASTA files in the supplied sequence path. Create basic
+    metadata objects for
     each sample
     """
-    metadata_list = list()
-    assert os.path.isdir(sequencepath), 'Cannot locate sequence path as specified: {}' \
-        .format(sequencepath)
-    # Get the sequences in the sequences folder into a list. Note that they must have a file extension that
-    # begins with .fa
+    metadata_list = []
+    assert os.path.isdir(sequencepath), \
+        'Cannot locate sequence path as specified: {}'.format(sequencepath)
+    # Get the sequences in the sequences folder into a list. Note that they
+    # must have a file extension that begins with .fa
     strains = sorted(glob.glob(os.path.join(sequencepath, '*.fa*')))
-    # Populate the metadata object. This object will be populated to mirror the objects created in the
-    # genome assembly pipeline. This way this script will be able to be used as a stand-alone, or as part
-    # of a pipeline
-    assert strains, 'Could not find any files with an extension starting with "fa" in {}. Please check ' \
-                    'to ensure that your sequence path is correct'.format(sequencepath)
+    # Populate the metadata object. This object will be populated to mirror
+    # the objects created in the genome assembly pipeline. This way this
+    # script will be able to be used as a stand-alone, or as part of a pipeline
+    assert strains, \
+        'Could not find any files with an extension starting with "fa" in {}' \
+        '. Please check to ensure that your sequence path is correct'.format(
+            sequencepath
+        )
     for sample in strains:
         # Create the object
         metadata = MetadataObject()
-        # Set the base file name of the sequence. Just remove the file extension
+        # Set the base file name of the sequence. Just remove the file
+        # extension
         filename = os.path.splitext(os.path.split(sample)[1])[0]
         # Set the .name attribute to be the file name
         metadata.name = filename
@@ -1103,15 +1193,21 @@ def strainer(sequencepath):
         metadata.general = GenObject()
         metadata.commands = GenObject()
         metadata.general.outputdirectory = os.path.join(sequencepath, filename)
-        # Set the .general.bestassembly file to be the name and path of the sequence file
-        metadata.general.bestassemblyfile = os.path.join(metadata.general.outputdirectory, '{sn}.fasta'
-                                                         .format(sn=filename))
+        # Set the .general.bestassembly file to be the name and path of the
+        # sequence file
+        metadata.general.bestassemblyfile = os.path.join(
+            metadata.general.outputdirectory, '{sn}.fasta'.format(sn=filename)
+        )
         make_path(metadata.general.outputdirectory)
         # Create a symlink to the directory
         relative_symlink(sample,
                          metadata.general.outputdirectory)
-        metadata.general.logout = os.path.join(metadata.general.outputdirectory, 'out')
-        metadata.general.logerr = os.path.join(metadata.general.outputdirectory, 'err')
+        metadata.general.logout = os.path.join(
+            metadata.general.outputdirectory, 'out'
+        )
+        metadata.general.logerr = os.path.join(
+            metadata.general.outputdirectory, 'err'
+        )
         # Append the metadata for each sample to the list of samples
         metadata_list.append(metadata)
     return strains, metadata_list
@@ -1120,7 +1216,8 @@ def strainer(sequencepath):
 # noinspection PyProtectedMember
 def modify_usage_error(subcommand, program_list):
     """
-    Method to append the help menu to a modified usage error when a subcommand is specified, but options are missing
+    Method to append the help menu to a modified usage error when a subcommand
+    is specified, but options are missing
     :param subcommand: subcommand function
     :param program_list: list of acceptable sub-programs
     """
@@ -1136,7 +1233,8 @@ def modify_usage_error(subcommand, program_list):
         if self.ctx is not None:
             color = self.ctx.color
         echo('Error: %s\n' % self.format_message(), file=file, color=color)
-        # Set the sys.argv to be the first two arguments passed to the script if the subcommand was specified
+        # Set the sys.argv to be the first two arguments passed to the script
+        # if the subcommand was specified
         arg2 = sys.argv[1] if sys.argv[1] in program_list else str()
         sys.argv = [' '.join([sys.argv[0], arg2])] if arg2 else [sys.argv[0]]
         # Call the help
