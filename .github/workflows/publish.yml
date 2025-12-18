@@ -1,0 +1,59 @@
+name: Build, Publish and Release Conda Package
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      CONDA_PKG_PATH: /usr/share/miniconda/conda-bld/noarch
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    - name: Setup Conda
+      uses: conda-incubator/setup-miniconda@v2
+      with:
+        activate-environment: olctools_env
+        python-version: 3.13
+        auto-activate-base: false
+        channels: conda-forge
+    - name: Install Conda build
+      run: conda install -y conda-build
+    # Note: conda-verify is not installed here because many builds
+    # don't have conda-verify packages compatible with latest Python
+    # (e.g. Python 3.14). If you want recipe verification in CI,
+    # create a small verifier env with an older Python (3.11/3.12)
+    # and run `conda-verify` from there.
+    - name: Set version
+      run: echo "VERSION=${{ github.event.release.tag_name }}" >> $GITHUB_ENV
+    - name: Download source code
+      run: wget https://github.com/OLC-Bioinformatics/OLCTools/archive/$VERSION.tar.gz
+    - name: Calculate hash
+      run: |
+        echo "HASH=$(sha256sum $VERSION.tar.gz | awk '{ print $1 }')" >> $GITHUB_ENV
+    - name: Update meta.yaml
+      run: |
+        sed -i "s/{{ version }}/${VERSION#v}/g" recipes/meta.yaml
+        sed -i "s|{{ url }}|https://github.com/OLC-Bioinformatics/OLCTools/archive/$VERSION.tar.gz|g" recipes/meta.yaml || true
+        sed -i "s/{{ sha256 }}/$HASH/g" recipes/meta.yaml || true
+    - name: Build Conda package
+      run: |
+        conda build .
+    - name: Upload Conda package
+      uses: actions/upload-artifact@v4
+      with:
+        name: olctools
+        path: $CONDA_PKG_PATH/olctools-*.conda
+    - name: Install anaconda-client
+      run: |
+        conda install -y anaconda-client
+        echo "$(conda info --base)/bin" >> $GITHUB_PATH
+    - name: Upload package to olcbioinformatics
+      run: |
+        if [ -n "${{ secrets.OLCBIOINFORMATICS_ANACONDA_API_TOKEN }}" ]; then
+          anaconda -t ${{ secrets.OLCBIOINFORMATICS_ANACONDA_API_TOKEN }} upload -u olcbioinformatics $CONDA_PKG_PATH/olctools-*.conda
+        else
+          echo "OLCBIOINFORMATICS_ANACONDA_API_TOKEN secret not set; skipping upload to olcbioinformatics."
+        fi
