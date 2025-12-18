@@ -184,7 +184,12 @@ def write_metadata_to_file(
                     exc_info=True)
 
 
+<<<<<<< HEAD
 def write_to_logfile(out,
+=======
+def write_to_logfile(
+    out,
+>>>>>>> 960175c64cf6436d9e64adff2ee53d3398d181af
     err,
     logfile,
     samplelog=None,
@@ -206,6 +211,10 @@ def write_to_logfile(out,
         analysis_err=analysiserr
     )
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 960175c64cf6436d9e64adff2ee53d3398d181af
 def write_to_log_file(
     out,
     err,
