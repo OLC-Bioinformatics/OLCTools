@@ -22,7 +22,9 @@ requirements:
     - wheel
   run:
     - biopython
+    - chromedriver-autoinstaller
     - click
+    - cryptography
     - pandas
     - python
     - python-chromedriver-binary
